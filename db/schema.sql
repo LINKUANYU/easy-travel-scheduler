@@ -1,8 +1,8 @@
-CREATE DATABASE IF NOT EXISTS `final_project`
+CREATE DATABASE IF NOT EXISTS `easy-travel-scheduler`
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE `final_project`;
+USE `easy-travel-scheduler`;
 
 -- 1. 景點主表 (儲存核心文字資訊)
 CREATE TABLE IF NOT EXISTS `destinations` (
