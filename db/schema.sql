@@ -11,10 +11,13 @@ CREATE TABLE IF NOT EXISTS `destinations` (
     `place_name` VARCHAR(255) NOT NULL,         -- 景點名稱，例如：大濠公園
     `description` TEXT,                         -- 景點介紹
     `address` VARCHAR(255),                     -- 地址
+    `google_place_id` VARCHAR(255),
     `lat` DECIMAL(10, 8),                       -- 緯度
     `lng` DECIMAL(11, 8),                       -- 經度
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 追蹤更新時間
     INDEX (`city_name`)                         -- 加快搜尋快取速度
+    UNIQUE INDEX idx_unique_google_id (google_place_id)  
 ) ENGINE=InnoDB;
 
 -- 2. 照片附屬表 (一對多關聯：一個景點對應多張照片)

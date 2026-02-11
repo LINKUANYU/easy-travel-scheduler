@@ -202,8 +202,8 @@ def write_into_db(combine_data):
         print(f"成功寫入 {len(combine_data)} 筆景點及圖片")
     except pymysql.MySQLError as e:
         conn.rollback() 
-        print(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail="Database insertion failed")
+        print(f"Database error: {e}，景點資料寫入DB失敗")
+        raise HTTPException(status_code=500, detail="景點資料寫入DB失敗")
     finally:
         conn.close()
         
