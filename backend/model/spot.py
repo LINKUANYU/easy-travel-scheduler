@@ -9,10 +9,12 @@ class ImageData(BaseModel):
     source: str
 
 class Spot(BaseModel):
+    input_region: str
     city: str
     attraction: str
     description: str
-    images: List[ImageData]
+    geo_tags: str
+    images: List[ImageData] = []
 
 class SearchResponse(BaseModel):
     message: str

@@ -42,7 +42,7 @@ def get_coordinates(location_name):
     return None, None, None
 
 
-def get_attractions_from_db():
+def write_into_db_s2():
     # 因測試用沒有用Fastapi所以先不用Depends
     conn = POOL.connection()
     cur = conn.cursor(pymysql.cursors.DictCursor)
