@@ -1,8 +1,10 @@
 from fastapi import *
 from fastapi.middleware.cors import CORSMiddleware
+from router import search
 
 app = FastAPI()
 
+app.include_router(search.router)
 
 # 設定允許存取的來源
 origins = [
@@ -17,6 +19,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/hello")
-async def hello():
-    return {"message": "成功連線到 FastAPI！"}
+
