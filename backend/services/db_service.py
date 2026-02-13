@@ -5,7 +5,6 @@ import os
 import sys
 from services.geo_service import *
 
-# RDS_KEY = os.getenv('RDS_KEY')
 
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
@@ -37,11 +36,11 @@ def get_conn():
     except pymysql.MySQLError as e:
         # 捕捉資料庫層級的錯誤 (如帳密錯、連線超時)
         print(f"資料庫連線失敗: {e}")
-        raise HTTPException(status_code=500, detail="Database connection failed")
+        raise HTTPException(status_code=500, detail="資料庫連線失敗")
     except Exception as e:
         # 捕捉其他非預期錯誤 (如連線池滿了且等待超時)
         print(f"取得連線時發生非預期錯誤: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+        raise HTTPException(status_code=500, detail="取得連線時發生非預期錯誤")
     finally:
         if conn:
             conn.close()
@@ -61,8 +60,20 @@ def get_existing_destinations(location):
     try:
         cur = conn.cursor()
         sql_search = """
-            SELECT city_name as city, place_name as attraction, description, geo_tags
-            FROM destinations 
+            SELECT 
+                d.id,
+                d.input_region, 
+                d.city_name as city, 
+                d.place_name as attraction, 
+                d.description, 
+                d.geo_tags, 
+                d.google_place_id, 
+                d.lat, 
+                d.lng, 
+                p.photo_url as url,
+                p.source_url as source
+            FROM destinations d
+            LEFT JOIN destination_photos p ON d.id = p.destination_id
             WHERE input_region = %s 
             OR city_name LIKE %s 
             OR geo_tags LIKE %s
@@ -70,9 +81,34 @@ def get_existing_destinations(location):
 
         search_patten = f"%{location}%"
         cur.execute(sql_search, (location, search_patten, search_patten,))
-        existing_spots_data = cur.fetchall()
+        rows = cur.fetchall()
 
-        return existing_spots_data
+        spots_dict = {}
+        for row in rows:
+            spots_id = row['id']
+            # 如果這個id還不存在字典裡，初始化他
+            if spots_id not in spots_dict:
+                spots_dict[spots_id] = {
+                    "input_region": row['input_region'],
+                    "city": row['city'],
+                    "attraction": row['attraction'],
+                    "description": row['description'],
+                    "geo_tags": row['geo_tags'],
+                    "google_place_id": row['google_place_id'],
+                    # 轉為 float 以匹配 Pydantic 模型
+                    "lat": float(row['lat']) if row['lat'] else None,
+                    "lng": float(row['lng']) if row['lng'] else None,
+                    "images": []
+                }
+            if row['url']:
+                spots_dict[spots_id]['images'].append({
+                    'url': row['url'],
+                    'source': row['source']
+                })
+
+        # 只回傳字典的 Values 部分（轉回 List）
+        return list(spots_dict.values())
+
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，查詢資料庫既有景點失敗")
         raise HTTPException(status_code=500, detail="查詢資料庫既有景點失敗")
@@ -80,16 +116,20 @@ def get_existing_destinations(location):
         cur.close()
         conn.close()
 
-def save_basic_spot_data(combine_data):
+def save_spot_data(data):
     conn = POOL.connection()
 
     try:
         cur = conn.cursor()
 
-        for item in combine_data:
+        for item in data:
             # 插入單個景點的資訊
-            dest_sql = "INSERT INTO destinations(input_region, city_name, place_name, description, geo_tags) VALUES(%s, %s, %s, %s, %s)"
-            cur.execute(dest_sql, (item.get('input_region'),item.get('city'), item.get('attraction'), item.get('description'), item.get('geo_tags')))
+            dest_sql = """
+                INSERT INTO destinations
+                    (input_region, city_name, place_name, description, geo_tags, google_place_id, lat, lng) 
+                VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cur.execute(dest_sql, (item.get('input_region'),item.get('city'), item.get('attraction'), item.get('description'), item.get('geo_tags'), item.get('google_place_id'), item.get('lat'), item.get('lng')))
             
             # 取得剛插入的景點id
             dest_id = cur.lastrowid
@@ -102,7 +142,7 @@ def save_basic_spot_data(combine_data):
                 cur.executemany(img_sql, img_insert_data)
         
         conn.commit()
-        print(f"成功寫入 {len(combine_data)} 筆景點及圖片")
+        print(f"成功寫入 {len(data)} 筆景點及圖片")
     except pymysql.MySQLError as e:
         conn.rollback() 
         print(f"Database error: {e}，景點資料寫入DB失敗")
@@ -113,39 +153,51 @@ def save_basic_spot_data(combine_data):
 
 
 
-def update_spot_coordinates():
-    conn = POOL.connection()
-    cur = conn.cursor(pymysql.cursors.DictCursor)
+# def update_spot_coordinates():
+#     conn = POOL.connection()
+#     cur = conn.cursor(pymysql.cursors.DictCursor)
     
-    try:
-        query_sql = """
-            SELECT id, place_name FROM destinations 
-            WHERE google_place_id is NULL 
-                OR lat is NULL
-                OR lng is NULL
-        """
-        cur.execute(query_sql)
-        rows = cur.fetchall()
+#     try:
+#         query_sql = """
+#             SELECT id, place_name FROM destinations 
+#             WHERE google_place_id is NULL 
+#                 OR lat is NULL
+#                 OR lng is NULL
+#         """
+#         cur.execute(query_sql)
+#         rows = cur.fetchall()
 
-        success_count = 0
-        for row in rows:
-            id = row['id']
-            place_name = row['place_name']
-            lat, lng, google_place_id = get_coordinates(place_name)
-
-            if lat and lng and google_place_id:
-                update_sql = "UPDATE destinations SET lat = %s, lng = %s, google_place_id = %s WHERE id = %s"
-                cur.execute(update_sql, (lat, lng, google_place_id, id))
-                conn.commit()
-                success_count += 1
+#         success_count = 0
+#         duplicate_count = 0
+#         for row in rows:
+#             target_id = row['id']
+#             place_name = row['place_name']
+#             lat, lng, google_place_id = get_coordinates(place_name)
         
-        print(f"成功寫入 {success_count} / {len(rows)} 筆景點地圖資料")
+#             if lat and lng and google_place_id:
+#                 try:
+#                     update_sql = "UPDATE destinations SET lat = %s, lng = %s, google_place_id = %s WHERE id = %s"
+#                     cur.execute(update_sql, (lat, lng, google_place_id, target_id))
+#                     conn.commit()
+#                     success_count += 1
+#                 except pymysql.err.IntegrityError as e:
+#                     # 3. 捕捉 1062 衝突錯誤：代表這個 google_place_id 已經在別的 id 存在了，用來嚴格檢查是否重複景點
+#                     if e.args[0] == 1062:
+#                         conn.rollback() # 先回滾錯誤的更新動作
+#                         cur.execute("DELETE FROM destinations WHERE id = %s", (target_id,))
+#                         conn.commit()
+#                         print(f"發現重複景點「{place_name}」，清理多餘欄位ID: {target_id}")
+#                         duplicate_count += 1
+#                     else:
+#                         raise e
+        
+#         print(f"成功寫入 {success_count} / {len(rows)} 筆景點地圖資料，移除重複資料{duplicate_count} 筆")
 
-    except pymysql.MySQLError as e:
-        conn.rollback()
-        print(f"Database error: {e}，景點地圖資料更新失敗")
-        raise HTTPException(status_code=500, detail="景點地圖資料更新失敗")
-    finally:
-        cur.close()
-        conn.close()
+#     except Exception as e:
+#         conn.rollback()
+#         print(f"Database error: {e}，景點地圖資料更新失敗")
+#         raise HTTPException(status_code=500, detail="景點地圖資料更新失敗")
+#     finally:
+#         cur.close()
+#         conn.close()
 

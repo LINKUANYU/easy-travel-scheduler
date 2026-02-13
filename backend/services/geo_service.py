@@ -3,7 +3,7 @@ import requests
 import json
 from dotenv import load_dotenv
 load_dotenv()
-from services.db_service import *
+
 
 MAPS_API_KEY = os.getenv("MAPS_API_KEY")
 

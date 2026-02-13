@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class SearchRequest(BaseModel):
     location: str
@@ -14,6 +14,9 @@ class Spot(BaseModel):
     attraction: str
     description: str
     geo_tags: str
+    google_place_id: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
     images: List[ImageData] = []
 
 class SearchResponse(BaseModel):

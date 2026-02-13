@@ -48,7 +48,8 @@ def extract_spots_from_urls(urls, location):
     url2 = urls[2]
 
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    model_id = "gemini-3-flash-preview"
+    model_id = "gemini-2.5-flash"
+    # model_id = "gemini-3-flash-preview"
 
     tools = [
     {"url_context": {}},
@@ -65,43 +66,48 @@ def extract_spots_from_urls(urls, location):
         
         # 輸出格式 (嚴格要求使用 JSON)
         請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
-        - "city": 城市名稱 (字串，例如："{location}")
+        - "city": 景點所在的具體行政城市/縣名稱 (字串，請從網頁內容分析得出)
         - "attraction": 景點名稱 (字串)
         - "description": 景點描述 (字串)
-        - "geo_tags": 請根據該景點，提供從大到小的地理標籤字串，用逗號隔開。
-        範例：如果 location 是 "北海道"，景點在札幌，則填入 "日本,北海道,札幌市"
+        - "geo_tags": 從大到小的地理標籤字串，用逗號隔開 (例如：國家,州/省,城市)
 
-        範例：
+        範例 (僅供格式參考，請根據實際搜尋內容調整)：
         [
-            {{"city": "{location}", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "日本,北海道,札幌市"}},
-            {{"city": "{location}", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "日本,北海道,札幌市"}}
+            {{"city": "具體城市A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,區域,具體城市A"}},
+            {{"city": "具體城市B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,區域,具體城市B"}}
         ]
 
     """
-    print("--------------------Gemini準備開始跑--------------------------")
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-        config=GenerateContentConfig(
-            tools=tools,
+    try:
+        print("--------------------Gemini準備開始跑--------------------------")
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+            config=GenerateContentConfig(
+                tools=tools,
+            )
         )
-    )
 
-    raw_data = response.candidates[0].content.parts[0].text
-    print("-----------------------成功啦！！！-------------------------------")
-    print(raw_data)
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_data)
+        raw_data = "".join([part.text for part in response.candidates[0].content.parts if part.text])
+        print(raw_data)
+        print("-----------------------成功啦！！！-------------------------------")
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_data)
 
-    if match:
-        json_content = match.group(1)
-        data = json.loads(json_content)
-    else:
-        # 如果沒抓到標籤，就嘗試直接解析
-        data = json.loads(raw_data)
-    print("------------------------------------------------------")
-    print(data)
-    return data
+        if match:
+            json_content = match.group(1)
+            data = json.loads(json_content)
+        else:
+            # 如果沒抓到標籤，就嘗試直接解析
+            data = json.loads(raw_data)
 
+        return data
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
+        raise HTTPException(status_code=500, detail=f"JSON 解析失敗，Gemini 回傳格式不正確")
+    except Exception as e:
+        print(f"🚨 Gemini發生非預期錯誤: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Gemini發生未預期錯誤，請重試")
+    
 def fetch_attraction_images(ai_gen_data):
     total_result = []
     attractions = [item.get('attraction')for item in ai_gen_data]
@@ -173,11 +179,11 @@ def integrate_spot_results(location, ai_gen_data, img_data):
 
 def run_web_scraping_workflow(location):
     urls = get_travel_blog_urls(location)
-    print("3")
-    ai_gen_data = extract_spots_from_urls(urls, location)
     print("4")
-    img_data = fetch_attraction_images(ai_gen_data)
+    ai_gen_data = extract_spots_from_urls(urls, location)
     print("5")
+    img_data = fetch_attraction_images(ai_gen_data)
+    print("6")
     result = integrate_spot_results(location, ai_gen_data, img_data)
 
     return result

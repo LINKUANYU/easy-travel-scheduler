@@ -2,6 +2,7 @@ from fastapi import APIRouter, BackgroundTasks
 from model.schema import *
 from services.fetcher_service import *
 from services.db_service import *
+from services.geo_service import *
 
 router = APIRouter()
 
@@ -25,13 +26,28 @@ async def search_destinations_api(
         return {"message": "existing_spots_data", "data": existing_spots_data}
 
     # 3.【資料不足】叫整套搜尋API補完資料
+    print("3")
     new_search_data = run_web_scraping_workflow(location)
-    print("6")
-    # 4. 【寫入DB】景點名稱、照片、敘述
-    background_tasks.add_task(save_basic_spot_data, new_search_data)
+    
     print("7")
-    # 5. 【寫入DB】景點經緯度
-    background_tasks.add_task(update_spot_coordinates)
+    # --去重處理：先找google place id
+    final_new_data = []
+    exsiting_ids = {s['google_place_id'] for s in existing_spots_data if s.get('google_place_id')}
+    for spot in new_search_data:
+        attraction_name = spot.get('attraction')
+        lat, lng, place_id = get_coordinates(attraction_name)
+        # 如果新的景點的id不在原本資料中
+        if place_id and place_id not in exsiting_ids:
+            spot['lat'], spot['lng'], spot['google_place_id'] = lat, lng, place_id  # 就新增key, value
+            final_new_data.append(spot) 
+            exsiting_ids.add(place_id) # 每一筆寫完後馬上加入既有組別，避免new_search_data自身資料id相同重複寫入
+
+    # 4. 【在背景寫入景點資料】
     print("8")
+    background_tasks.add_task(save_spot_data, final_new_data)
+    
+    # 5. 【組合新舊資料回給前端】
+    total_display_data = existing_spots_data + final_new_data
+
     # 6. 【回給前端
-    return {"message": "new_search_data", "data": new_search_data}
+    return {"message": "total_display_data", "data": total_display_data}
