@@ -6,13 +6,12 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from db.database import *
-from fastapi import Depends
+from services.db_service import *
 import re
 import json
 
 
-def search_spot_url(location):
+def get_travel_blog_urls(location):
     # 🔍 Debug: 先印出來看看，確定真的有傳對關鍵字進去
     target = f"{location} 旅遊遊記 必去景點"
     print(f"🕵️ 正在向 DuckDuckGo 查詢關鍵字：[{target}]") 
@@ -38,12 +37,12 @@ def search_spot_url(location):
     
     if not urls:
         print("❌ 警告：搜尋結果為空！請檢查關鍵字是否正確。")
-
+    print(urls)
     return urls
 
 
 
-def parse_spot_url(urls, location):
+def extract_spots_from_urls(urls, location):
     url0 = urls[0]
     url1 = urls[1]
     url2 = urls[2]
@@ -69,15 +68,17 @@ def parse_spot_url(urls, location):
         - "city": 城市名稱 (字串，例如："{location}")
         - "attraction": 景點名稱 (字串)
         - "description": 景點描述 (字串)
+        - "geo_tags": 請根據該景點，提供從大到小的地理標籤字串，用逗號隔開。
+        範例：如果 location 是 "北海道"，景點在札幌，則填入 "日本,北海道,札幌市"
 
         範例：
         [
-            {{"city": "{location}", "attraction": "景點 A", "description": "描述 A..."}},
-            {{"city": "{location}", "attraction": "景點 B", "description": "描述 B..."}}
+            {{"city": "{location}", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "日本,北海道,札幌市"}},
+            {{"city": "{location}", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "日本,北海道,札幌市"}}
         ]
 
     """
-
+    print("--------------------Gemini準備開始跑--------------------------")
     response = client.models.generate_content(
         model=model_id,
         contents=prompt,
@@ -87,6 +88,8 @@ def parse_spot_url(urls, location):
     )
 
     raw_data = response.candidates[0].content.parts[0].text
+    print("-----------------------成功啦！！！-------------------------------")
+    print(raw_data)
     match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_data)
 
     if match:
@@ -95,10 +98,11 @@ def parse_spot_url(urls, location):
     else:
         # 如果沒抓到標籤，就嘗試直接解析
         data = json.loads(raw_data)
-    
+    print("------------------------------------------------------")
+    print(data)
     return data
 
-def search_attraction_imgs(ai_gen_data):
+def fetch_attraction_images(ai_gen_data):
     total_result = []
     attractions = [item.get('attraction')for item in ai_gen_data]
     
@@ -140,12 +144,12 @@ def search_attraction_imgs(ai_gen_data):
 
     return total_result
 
-def combine_data(ai_gen_data, img_data):
+def integrate_spot_results(location, ai_gen_data, img_data):
     # 將 img_data 轉換成以名稱為 Key 的字典，方便查找
     # 格式：{'日清杯麵博物館': [{'url':...}, {...}], ...}
     img_dict = {item['name']: item['images'] for item in img_data}
 
-    combine_data = []
+    result = []
 
     for item in ai_gen_data:
         attraction_name = item.get('attraction')
@@ -153,49 +157,28 @@ def combine_data(ai_gen_data, img_data):
         
 
         data = {
+            'input_region': location,
             'city': item.get('city'),
             'attraction': item.get('attraction'),
             'description': item.get('description'),
+            'geo_tags': item.get('geo_tags'),
             'images': images
         }
-        combine_data.append(data)
+        result.append(data)
 
 
-    return combine_data
+    return result
 
 
-def write_into_db(combine_data):
-    # 因測試用沒有用Fastapi所以先不用Depends
-    conn = POOL.connection()
 
-    try:
-        # 開啟事務 (有些連線池預設會幫你做，但手動更保險)
-        cur = conn.cursor()
+def run_web_scraping_workflow(location):
+    urls = get_travel_blog_urls(location)
+    print("3")
+    ai_gen_data = extract_spots_from_urls(urls, location)
+    print("4")
+    img_data = fetch_attraction_images(ai_gen_data)
+    print("5")
+    result = integrate_spot_results(location, ai_gen_data, img_data)
 
-        for item in combine_data:
-            # 插入單個景點的資訊
-            dest_sql = "INSERT INTO destinations(city_name, place_name, description) VALUES(%s, %s, %s)"
-            cur.execute(dest_sql, (item.get('city'), item.get('attraction'), item.get('description')))
-            
-            # 取得剛插入的景點id
-            dest_id = cur.lastrowid
-            
-            # 3. 針對該景點的所有圖片，使用 executemany
-            images = item.get('images', [])
-            if images:
-                img_sql = "INSERT INTO destination_photos(destination_id, photo_url, source_url) VALUES(%s, %s, %s)"
-                img_insert_data = [(dest_id, img.get('url'), img.get('source')) for img in images]
-                cur.executemany(img_sql, img_insert_data)
-        
-        conn.commit()
-        print(f"成功寫入 {len(combine_data)} 筆景點及圖片")
-    except pymysql.MySQLError as e:
-        conn.rollback() 
-        print(f"Database error: {e}，景點資料寫入DB失敗")
-        raise HTTPException(status_code=500, detail="景點資料寫入DB失敗")
-    finally:
-        conn.close()
-        
-
-
+    return result
 

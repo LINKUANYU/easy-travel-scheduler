@@ -1,10 +1,10 @@
 from fastapi import *
 from fastapi.middleware.cors import CORSMiddleware
-from router import search
+from router import destination
 
 app = FastAPI()
 
-app.include_router(search.router)
+app.include_router(destination.router)
 
 # 設定允許存取的來源
 origins = [

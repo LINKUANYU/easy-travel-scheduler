@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from db.database import *
+from backend.services.db_service import *
 from fastapi import Depends
 
 
