@@ -9,6 +9,7 @@ from ddgs import DDGS
 from services.db_service import *
 import re
 import json
+import time, random
 
 
 def get_travel_blog_urls(location):
@@ -99,7 +100,7 @@ def extract_spots_from_urls(urls, location):
         else:
             # 如果沒抓到標籤，就嘗試直接解析
             data = json.loads(raw_data)
-
+        print(f"總共有 {len(data)} 筆景點")
         return data
     except json.JSONDecodeError as e:
         print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
@@ -119,34 +120,52 @@ def fetch_attraction_images(ai_gen_data):
             "images": [],
         }
 
-        # 使用 context manager 自動處理連線
-        with DDGS() as ddgs:
-            # ---------------------------------------------------------
-            # 2. 搜尋圖片 (加入版權過濾)
-            # ---------------------------------------------------------
-            try:
-                # 加入 license 參數
-                # license='Public' -> 公眾領域 (最安全，像 CC0)
-                # license='Share'  -> 允許分享 (通常需要標示出處)
-                # license='Modify' -> 允許修改
-                
-                images_results = list(ddgs.images(
-                    attraction, 
-                    max_results=3, 
-                    safesearch='on',
-                    license='Public'  # <--- 關鍵修改在這裡！
-                ))
-                
-                for img in images_results:
-                    attraction_data["images"].append({
-                        "url": img.get("image"),
-                        "source": img.get("url") # 最好保留原始網頁連結，以備不時之需
-                    })
+        # 設定retry，避免抓圖失敗
+        max_retries = 3
+        retry_delay = 1
+
+        for i in range(max_retries):
+            
+            # 使用 context manager 自動處理連線
+            with DDGS() as ddgs:
+                # ---------------------------------------------------------
+                # 2. 搜尋圖片 (加入版權過濾)
+                # ---------------------------------------------------------
+                try:
+                    # 加入 license 參數
+                    # license='Public' -> 公眾領域 (最安全，像 CC0)
+                    # license='Share'  -> 允許分享 (通常需要標示出處)
+                    # license='Modify' -> 允許修改
                     
-            except Exception as e:
-                print(f"   ❌ 圖片搜尋錯誤: {e}")
+                    images_results = list(ddgs.images(
+                        attraction, 
+                        max_results=3, 
+                        safesearch='on',
+                        license='Public'  # <--- 關鍵修改在這裡！
+                    ))
+                    if images_results:
+                        for img in images_results:
+                            attraction_data["images"].append({
+                                "url": img.get("image"),
+                                "source": img.get("url") # 最好保留原始網頁連結，以備不時之需
+                            })
+                        break # 找到圖片，換下一個景點
+                    else:
+                        raise Exception("找不到圖片")
+                        
+                except Exception as e:
+                    print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
+                    if i < max_retries:
+                        # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
+                        sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
+                        time.sleep(sleep_time)
+                    else:
+                        print(f"❌ {attraction}圖片搜尋錯誤: {e}")
 
         total_result.append(attraction_data)
+        
+        # # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
+        # time.sleep(0.5)
 
     return total_result
 
@@ -187,4 +206,3 @@ def run_web_scraping_workflow(location):
     result = integrate_spot_results(location, ai_gen_data, img_data)
 
     return result
-
