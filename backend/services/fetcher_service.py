@@ -17,6 +17,8 @@ def get_travel_blog_urls(location):
     target = f"{location} 旅遊遊記 必去景點"
     print(f"🕵️ 正在向 DuckDuckGo 查詢關鍵字：[{target}]") 
     urls = []
+    excluded_domains = ["googleusercontent.com", "facebook.com", "104.com", "591.com", "shopee", "wikipedia"]
+    travel_keywords = ["遊記", "景點", "推薦", "行程", "攻略", "懶人包", "打卡"]
     try:
         with DDGS() as ddgs:
             # ==========================================
@@ -28,19 +30,32 @@ def get_travel_blog_urls(location):
                 region='tw-tz', 
                 safesearch='strict', # <--- 關鍵修改：強制開啟安全搜尋
                 timelimit='y',       # <--- 建議加入：只找 'y' (過去一年) 的資料
-                max_results=3
+                max_results=5
             )
-            
             for r in ddgs_gen:
-                urls.append(r['href'])
+                href = r['href'].lower()
+                title = r['title']
+                body = r['body']
+
+                # 移除標題與摘要中的所有空白（包括全形、半形、換行）
+                clean_title = re.sub(r'\s+', '', title)
+                clean_body = re.sub(r'\s+', '', body)
+                
+                # 過濾搜尋結果
+                is_valid_url = not any(domain in href for domain in excluded_domains)
+                is_relevant = any(key in clean_title or key in clean_body for key in travel_keywords)
+                correct_location = (location in title) or (location in body)
+                
+                if is_valid_url and is_relevant and correct_location:
+                    urls.append(r['href'])
     except Exception as e:
         print(f"⚠️ 搜尋發生錯誤: {e}")
     
     if not urls:
         print("❌ 警告：搜尋結果為空！請檢查關鍵字是否正確。")
-    print(urls)
-    return urls
-
+    print(f"總共搜尋{len(ddgs_gen)}筆結果，有{len(urls)}筆符合要求")
+    print(urls[:3])
+    return urls[:3]
 
 
 def extract_spots_from_urls(urls, location):
@@ -206,3 +221,10 @@ def run_web_scraping_workflow(location):
     result = integrate_spot_results(location, ai_gen_data, img_data)
 
     return result
+
+
+def test():
+    get_travel_blog_urls('黃石')
+    return
+
+test()
