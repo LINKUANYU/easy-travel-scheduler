@@ -17,7 +17,7 @@ def get_travel_blog_urls(location):
     target = f"{location} 旅遊遊記 必去景點"
     print(f"🕵️ 正在向 DuckDuckGo 查詢關鍵字：[{target}]") 
     urls = []
-    excluded_domains = ["googleusercontent.com", "facebook.com", "104.com", "591.com", "shopee", "wikipedia"]
+    excluded_domains = ["googleusercontent.com", "facebook.com", "youtube.com", "591.com", "shopee", "wikipedia"]
     travel_keywords = ["遊記", "景點", "推薦", "行程", "攻略", "懶人包", "打卡"]
     try:
         with DDGS() as ddgs:
@@ -30,12 +30,13 @@ def get_travel_blog_urls(location):
                 region='tw-tz', 
                 safesearch='strict', # <--- 關鍵修改：強制開啟安全搜尋
                 timelimit='y',       # <--- 建議加入：只找 'y' (過去一年) 的資料
-                max_results=5
+                max_results=10
             )
             for r in ddgs_gen:
                 href = r['href'].lower()
                 title = r['title']
                 body = r['body']
+                print(f"{r['href']}\n\n{title}\n\n{body}\n\n")
 
                 # 移除標題與摘要中的所有空白（包括全形、半形、換行）
                 clean_title = re.sub(r'\s+', '', title)
@@ -44,7 +45,7 @@ def get_travel_blog_urls(location):
                 # 過濾搜尋結果
                 is_valid_url = not any(domain in href for domain in excluded_domains)
                 is_relevant = any(key in clean_title or key in clean_body for key in travel_keywords)
-                correct_location = (location in title) or (location in body)
+                correct_location = (location in clean_title) or (location in clean_body)
                 
                 if is_valid_url and is_relevant and correct_location:
                     urls.append(r['href'])
@@ -53,6 +54,7 @@ def get_travel_blog_urls(location):
     
     if not urls:
         print("❌ 警告：搜尋結果為空！請檢查關鍵字是否正確。")
+        raise HTTPException(status_code=500, detail="沒有符合要求的網址")
     print(f"總共搜尋{len(ddgs_gen)}筆結果，有{len(urls)}筆符合要求")
     print(urls[:3])
     return urls[:3]
@@ -78,10 +80,9 @@ def extract_spots_from_urls(urls, location):
         # 任務
         1. 提取所有關於「{location}」的旅遊景點。
         2. **去重處理**：相同景點僅保留一個。
-        3. **描述生成**：參考網頁中的介紹，為每個景點撰寫一段 40 字到 50字、生動且具吸引力的描述。
+        3. **描述生成**：參考網頁中的介紹，為每個景點撰寫一段 40 字左右、生動且具吸引力的描述。
         
-        # 輸出格式 (嚴格要求使用 JSON)
-        請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
+        # 請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
         - "city": 景點所在的具體行政城市/縣名稱 (字串，請從網頁內容分析得出)
         - "attraction": 景點名稱 (字串)
         - "description": 景點描述 (字串)
@@ -92,6 +93,11 @@ def extract_spots_from_urls(urls, location):
             {{"city": "具體城市A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,區域,具體城市A"}},
             {{"city": "具體城市B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,區域,具體城市B"}}
         ]
+
+        # 規則
+        1. 直接以 [ 開頭，並以 ] 結尾。
+        2. 不要使用 Markdown 的程式碼區塊標籤（如 ```json）。
+        3. 如果所有網址都失效，請回傳空陣列 []。
 
     """
     try:
@@ -104,19 +110,28 @@ def extract_spots_from_urls(urls, location):
             )
         )
 
-        raw_data = "".join([part.text for part in response.candidates[0].content.parts if part.text])
-        print(raw_data)
-        print("-----------------------成功啦！！！-------------------------------")
-        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_data)
+        for part in reversed(response.candidates[0].content.parts):
+            if not part.text:
+                continue
+            
+            raw_data = part.text
+        
+            print(raw_data)
+            print("-----------------------成功啦！！！-------------------------------")
+            # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
+            match = re.search(r'\[[\s\S]*\]', raw_data)
 
-        if match:
-            json_content = match.group(1)
-            data = json.loads(json_content)
-        else:
-            # 如果沒抓到標籤，就嘗試直接解析
-            data = json.loads(raw_data)
-        print(f"總共有 {len(data)} 筆景點")
-        return data
+            if match:
+                json_content = match.group(0)
+                json_content = json_content.replace('```json', '').replace('```', '')
+                data = json.loads(json_content)
+            else:
+                # 如果沒抓到標籤，就嘗試直接解析
+                data = json.loads(raw_data)
+            print(f"總共有 {len(data)} 筆景點")
+            return data
+        
+        return []
     except json.JSONDecodeError as e:
         print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
         raise HTTPException(status_code=500, detail=f"JSON 解析失敗，Gemini 回傳格式不正確")
@@ -222,9 +237,3 @@ def run_web_scraping_workflow(location):
 
     return result
 
-
-def test():
-    get_travel_blog_urls('黃石')
-    return
-
-test()

@@ -44,7 +44,7 @@ async def search_destinations_api(
 
     # 4. 【在背景寫入景點資料】
     print("8")
-    background_tasks.add_task(save_spot_data, final_new_data)
+    # background_tasks.add_task(save_spot_data, final_new_data)
     
     # 5. 【組合新舊資料回給前端】
     total_display_data = existing_spots_data + final_new_data
