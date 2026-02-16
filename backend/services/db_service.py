@@ -89,6 +89,7 @@ def get_existing_destinations(location):
             # 如果這個id還不存在字典裡，初始化他
             if spots_id not in spots_dict:
                 spots_dict[spots_id] = {
+                    "id": spots_id,
                     "input_region": row['input_region'],
                     "city": row['city'],
                     "attraction": row['attraction'],
@@ -121,28 +122,39 @@ def save_spot_data(data):
 
     try:
         cur = conn.cursor()
+        insert_data = []
 
         for item in data:
-            # 插入單個景點的資訊
+            # 1. 使用 INSERT IGNORE：若 google_place_id 重複則直接跳過
             dest_sql = """
-                INSERT INTO destinations
+                INSERT IGNORE INTO destinations
                     (input_region, city_name, place_name, description, geo_tags, google_place_id, lat, lng) 
                 VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                description = VALUES(description)
             """
             cur.execute(dest_sql, (item.get('input_region'),item.get('city'), item.get('attraction'), item.get('description'), item.get('geo_tags'), item.get('google_place_id'), item.get('lat'), item.get('lng')))
             
-            # 取得剛插入的景點id
-            dest_id = cur.lastrowid
+            # 2. 檢查是否真的有資料被寫入 (rowcount > 0)
+            if cur.rowcount > 0:
+                dest_id = cur.lastrowid            
+                # --- 將 id 塞回 item 物件中 ---
+                item['id'] = dest_id
             
-            # 3. 針對該景點的所有圖片，使用 executemany
-            images = item.get('images', [])
-            if images:
-                img_sql = "INSERT INTO destination_photos(destination_id, photo_url, source_url) VALUES(%s, %s, %s)"
-                img_insert_data = [(dest_id, img.get('url'), img.get('source')) for img in images]
-                cur.executemany(img_sql, img_insert_data)
-        
+                # 3. 針對該景點的所有圖片，使用 executemany
+                images = item.get('images', [])
+                if images:
+                    img_sql = "INSERT INTO destination_photos(destination_id, photo_url, source_url) VALUES(%s, %s, %s)"
+                    img_insert_data = [(dest_id, img.get('url'), img.get('source')) for img in images]
+                    cur.executemany(img_sql, img_insert_data)
+                
+                # 將新增過item['id']的資料回傳
+                insert_data.append(item)
+            else:
+                print(f"發現重複景點{item.get('attraction')}，跳過資料")
         conn.commit()
-        print(f"成功寫入 {len(data)} 筆景點及圖片")
+        print(f"成功寫入 {len(insert_data)} 筆景點及圖片")
+        return insert_data # 將新增過item['id']的資料回傳
     except pymysql.MySQLError as e:
         conn.rollback() 
         print(f"Database error: {e}，景點資料寫入DB失敗")

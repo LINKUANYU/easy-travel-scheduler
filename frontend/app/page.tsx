@@ -104,6 +104,7 @@ export default function Home() {
                 <img 
                   src={item.images[0]['url'] || "https://via.placeholder.com/400x250"} 
                   alt={item.attraction}
+                  referrerPolicy="no-referrer"
                   className="w-full h-48 object-cover"
                 />
                 <div className="p-5">

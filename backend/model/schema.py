@@ -9,6 +9,7 @@ class ImageData(BaseModel):
     source: str
 
 class Spot(BaseModel):
+    id: int
     input_region: str
     city: str
     attraction: str

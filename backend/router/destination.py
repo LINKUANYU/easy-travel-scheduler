@@ -42,12 +42,12 @@ async def search_destinations_api(
             final_new_data.append(spot) 
             exsiting_ids.add(place_id) # 每一筆寫完後馬上加入既有組別，避免new_search_data自身資料id相同重複寫入
 
-    # 4. 【在背景寫入景點資料】
+    # 4. 【寫入景點資料】
     print("8")
-    # background_tasks.add_task(save_spot_data, final_new_data)
+    saved_new_data = save_spot_data(final_new_data)
     
     # 5. 【組合新舊資料回給前端】
-    total_display_data = existing_spots_data + final_new_data
+    total_display_data = existing_spots_data + saved_new_data
 
     # 6. 【回給前端
     return {"message": "total_display_data", "data": total_display_data}

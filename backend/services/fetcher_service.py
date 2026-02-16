@@ -111,6 +111,7 @@ def extract_spots_from_urls(urls, location):
         )
 
         for part in reversed(response.candidates[0].content.parts):
+            print(part)
             if not part.text:
                 continue
             
