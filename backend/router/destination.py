@@ -17,7 +17,7 @@ async def search_destinations_api(
     # 1.【搜尋】階段：多欄位模糊比對 (向上支援與向下支援的關鍵)
     # 我們同時找：輸入區域、城市名稱、以及標籤內是否包含關鍵字
     print("1")
-    existing_spots_data = get_existing_destinations(location)
+    existing_spots_data = get_existing_destinations(location, cur)
     print("2")
     # 2. 【門檻檢查】：如果有 10 個以上景點，直接回傳，省下 Gemini 費用
     if len(existing_spots_data) >= 10:
@@ -44,7 +44,7 @@ async def search_destinations_api(
 
     # 4. 【寫入景點資料】
     print("8")
-    saved_new_data = save_spot_data(final_new_data)
+    saved_new_data = save_spot_data(final_new_data, cur)
     
     # 5. 【組合新舊資料回給前端】
     total_display_data = existing_spots_data + saved_new_data

@@ -56,7 +56,6 @@ CREATE TABLE IF NOT EXISTS `users` (
   `is_active` TINYINT NOT NULL DEFAULT 1,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `last_login_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_users_email` (`email`)
 ) ENGINE=InnoDB;
@@ -68,8 +67,6 @@ CREATE TABLE IF NOT EXISTS `sessions` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `expires_at` TIMESTAMP NOT NULL,
   `revoked_at` TIMESTAMP NULL DEFAULT NULL,
-  `ip` VARCHAR(45) NULL DEFAULT NULL,
-  `user_agent` VARCHAR(255) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_sessions_session_id` (`session_id`),
   KEY `idx_sessions_user_id` (`user_id`),

@@ -1,10 +1,8 @@
 from fastapi import *
 from fastapi.middleware.cors import CORSMiddleware
-from router import destination
+from router import destination, auth
 
 app = FastAPI()
-
-app.include_router(destination.router)
 
 # 設定允許存取的來源
 origins = [
@@ -18,5 +16,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(destination.router)
+app.include_router(auth.router)
+
+
 
 

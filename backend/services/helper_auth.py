@@ -1,9 +1,10 @@
 from passlib.context import CryptContext
 from fastapi import Request, Response, HTTPException, Depends
-from db_service import *
+from services.db_service import *
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
 
 
 
@@ -18,18 +19,22 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
-def _set_session_cookie(resp: Response, sid: str, max_age_seconds: int):
+def set_session_cookie(resp: Response, sid: str):
+    
+    session_days = os.getenv("SESSION_DAYS", 14)
+    max_age_seconds = session_days * 24 * 60 * 60
+    
     resp.set_cookie(
         key=SID_COOKIE_NAME,
         value=sid,
         httponly=True,
-        secure=os.getenv('COOKIE_SECURE', ''),
-        samesite=os.getenv('COOKIE_SAMESITE', ''),
-        max_age=os.getenv('SESSION_DAYS', 14),
+        secure=os.getenv('COOKIE_SECURE', False),
+        samesite=os.getenv('COOKIE_SAMESITE', 'lax'),
+        max_age=max_age_seconds,
         path="/",
     )
 
-def _clear_session_cookie(resp: Response):
+def clear_session_cookie(resp: Response):
     resp.delete_cookie(key=SID_COOKIE_NAME, path="/")
 
 def get_current_user(
@@ -48,7 +53,7 @@ def get_current_user(
         JOIN users u ON u.id = s.user_id
         WHERE s.session_id = %s
           AND s.revoked_at IS NULL
-          AND s.expires_at > NOW()
+          AND s.expires_at > UTC_TIMESTAMP()
           AND u.is_active = 1
         LIMIT 1
         """,
@@ -56,8 +61,7 @@ def get_current_user(
     )
     row = cur.fetchone()
     
-
     if not row:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    return row  # dict: {id,email,name}
+    return row

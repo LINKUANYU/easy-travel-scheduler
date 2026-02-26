@@ -8,3 +8,4 @@ requests
 ddgs
 dbutils
 passlib[bcrypt]
+pydantic[email]
