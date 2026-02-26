@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Attraction } from "@/types/attraction";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsSection from "@/components/ResultsSection";
+import AuthCorner from "@/components/AuthCorner";
 
 type SearchResponse = {
   data?: Attraction[];
@@ -23,7 +24,7 @@ export default function Home(){
     setResponseMsg("");
 
     try{
-      const response = await fetch("http://127.0.0.1:8000/api/search", {
+      const response = await fetch("http://localhost:8000/api/search", {
         method: "POST",
         headers: {"content-type": "application/json"},
         body: JSON.stringify({ location: destination})
@@ -47,7 +48,8 @@ export default function Home(){
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gray-100">
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-24 bg-gray-100">
+      <AuthCorner/>
       {loading ? (
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="flex flex-col items-center justify-center gap-3">

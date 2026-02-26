@@ -6,7 +6,8 @@ app = FastAPI()
 
 # 設定允許存取的來源
 origins = [
-    "http://localhost:3000", # Next.js 預設網址
+    "http://localhost:3000",
+    "http://127.0.0.1:3000", # Next.js 預設網址
 ]
 
 app.add_middleware(
