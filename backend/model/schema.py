@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
+from datetime import date
 
 class SearchRequest(BaseModel):
     location: str
@@ -24,6 +25,26 @@ class SearchResponse(BaseModel):
     message: str
     data: List[Spot]
 
+
+class TripPlaceIn(BaseModel):
+    google_place_id: str = Field(min_length=1)
+
+class TripCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    days: int = Field(ge=1, le=60)
+    start_date: Optional[date] = None
+    places: List[TripPlaceIn] = Field(default_factory=list)  
+    # 如果你在建立這個物件時沒有提供 places 資料，程式會自動幫你建立一個空的列表 []。
+
+class TripCreateOut(BaseModel):
+    trip_id: int
+
+
+
+
+
+
+
 class SignupIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
@@ -37,3 +58,6 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     name: str
+
+
+

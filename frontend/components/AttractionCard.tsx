@@ -3,15 +3,16 @@
 import { motion } from "framer-motion";
 import type { Attraction } from "@/types/attraction";
 import { useState, useMemo, useEffect } from "react"; // 要在卡片內記住目前第幾張圖
-import { url } from "inspector";
 
 type Props = {
-    item: Attraction;
-    index: number;
+  item: Attraction;
+  index: number;
+  inDraft: boolean;
+  onToggleDraft: () => void;
 }
 
 
-export default function AttractionCard({ item, index}: Props){
+export default function AttractionCard({ item, index, inDraft, onToggleDraft }: Props){
   const images = item.images ?? []; // 確保 images 一定是陣列（沒有就用空陣列）
   const urls = useMemo(
     () => images.map((img) => img?.url).filter(Boolean) as string[], // 裡面先做.map()如果u存在就拿u.url建立新的陣列，然後再filter，最後告訴TS 這是一個字串陣列
@@ -108,8 +109,12 @@ export default function AttractionCard({ item, index}: Props){
           <div className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-600 rounded-full">
             📍 {item.geo_tags}
           </div>
-          <button className="text-sm text-blue-600 font-bold hover:text-blue-800 transition-colors flex items-center gap-1">
-            加入行程 <span className="text-lg">+</span>
+          <button 
+            className="text-sm text-blue-600 font-bold hover:text-blue-800 transition-colors flex items-center gap-1"
+            type="button"
+            onClick={onToggleDraft}
+          >
+            {inDraft ? "已加入" : "加入本次規劃"}
           </button>
         </div>
       </div>

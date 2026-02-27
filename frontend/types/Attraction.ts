@@ -10,6 +10,7 @@ export interface Attraction {
   description: string
   geo_tags: string
   images: AttractionImage[]
+  google_place_id: string
   lat: number
   lng: number
 }

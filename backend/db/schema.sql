@@ -4,6 +4,8 @@ CREATE DATABASE IF NOT EXISTS `easy-travel-scheduler`
 
 USE `easy-travel-scheduler`;
 
+-- *** Stage 1 ***
+
 -- 1. 景點主表 (儲存核心文字資訊)
 CREATE TABLE IF NOT EXISTS `destinations` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -33,6 +35,45 @@ CREATE TABLE IF NOT EXISTS `destination_photos` (
     `order_index` INT DEFAULT 0,                -- 圖片顯示順序 (0, 1, 2...)
     FOREIGN KEY (`destination_id`) REFERENCES `destinations`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+
+
+-- *** Stage 2 ***
+
+CREATE TABLE `trips` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `user_id` INT NULL,
+  `title` VARCHAR(100) NOT NULL,
+  `days` INT NOT NULL,
+  `start_date` DATE NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_trips_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `trip_days` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `trip_id` INT NOT NULL,
+  `day_index` INT NOT NULL,              -- 1..N
+  `date` DATE NULL,                      -- start_date 有填才算出日期
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_trip_day` (`trip_id`, `day_index`),
+  CONSTRAINT `fk_trip_days_trip`
+    FOREIGN KEY (`trip_id`) REFERENCES `trips`(`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `trip_places` (
+  `trip_id` INT NOT NULL,
+  `destination_id` INT NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`trip_id`, `destination_id`),
+  CONSTRAINT `fk_trip_places_trip`
+    FOREIGN KEY (`trip_id`) REFERENCES `trips`(`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_trip_places_destination`
+    FOREIGN KEY (`destination_id`) REFERENCES `destinations`(`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 
