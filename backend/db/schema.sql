@@ -37,15 +37,6 @@ CREATE TABLE IF NOT EXISTS `destination_photos` (
 
 
 
--- 3. 使用者收藏表 (這張表紀錄「誰」收藏了「哪個景點」)
-CREATE TABLE IF NOT EXISTS `user_favorites` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `user_id` INT NOT NULL, 
-    `destination_id` INT NOT NULL,              -- 直接關聯回快取表，避免重複存文字
-    `added_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`destination_id`) REFERENCES `destinations`(`id`) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
 
 
 CREATE TABLE IF NOT EXISTS `users` (
