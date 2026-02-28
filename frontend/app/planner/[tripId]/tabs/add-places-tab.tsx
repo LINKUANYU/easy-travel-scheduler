@@ -28,7 +28,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
   const placesQ = useQuery({
     queryKey: ["tripPlaces", tripId],
     queryFn: async () => {
-      const payload = await apiGet<any>(`/api/trips/${tripId}/places`);
+      const payload = await apiGet<any>(`http://localhost:8000/api/trips/${tripId}/places`);
       return normalizePlacesPayload(payload);
     },
   });
@@ -36,7 +36,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
   const addM = useMutation({
     mutationFn: async (google_place_id: string) => {
       // 依你的後端設計：這裡假設 body 叫 google_place_id
-      return apiPost<any>(`/api/trips/${tripId}/places`, { google_place_id });
+      return apiPost<any>(`http://localhost:8000/api/trips/${tripId}/places`, { google_place_id });
     },
     onSuccess: async () => {
       setGpid("");
@@ -46,7 +46,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
 
   const removeM = useMutation({
     mutationFn: async (destination_id: number) => {
-      return apiDelete<any>(`/api/trips/${tripId}/places/${destination_id}`);
+      return apiDelete<any>(`http://localhost:8000/api/trips/${tripId}/places/${destination_id}`);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["tripPlaces", tripId] });

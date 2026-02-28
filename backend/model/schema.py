@@ -40,9 +40,31 @@ class TripCreateOut(BaseModel):
     trip_id: int
 
 
+class TripOut(BaseModel):
+    trip_id: int
+    title: str
+    days: int
+    start_date: Optional[str] = None  # 先用 str，避免 datetime/序列化麻煩
 
+class TripPlaceOut(BaseModel):
+    destination_id: int
+    place_name: Optional[str] = None
+    city_name: Optional[str] = None
+    google_place_id: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    cover_url: Optional[str] = None
 
+class AddTripPlaceIn(BaseModel):
+    google_place_id: str
+    # 先允許前端（Autocomplete）把資訊一起帶來，後端就不用先串 Places Details
+    place_name: Optional[str] = None
+    city_name: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
+class OkOut(BaseModel):
+    ok: bool = True
 
 
 class SignupIn(BaseModel):

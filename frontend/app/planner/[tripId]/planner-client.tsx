@@ -32,7 +32,7 @@ export default function PlannerClient({ tripId }: { tripId: string }) {
     enabled: tid !== null,  // 安全鎖：只有當 tid 有效時才發送請求
     queryFn: async () => {
       // 依你的後端實際回傳 shape 調整：這裡假設直接回 Trip
-      return apiGet<Trip>(`/api/trips/${tid}`);
+      return apiGet<Trip>(`http://localhost:8000/api/trips/${tid}`);
     },
   });
 
