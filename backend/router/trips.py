@@ -22,30 +22,28 @@ def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
             , (payload.title, payload.days, payload.start_date)
         )
         trip_id = cur.lastrowid
-
+        
         # 2) 建立 trip_days（有 start_date 才填 date）
         day_rows = []
         for i in range(1, payload.days + 1):
             date = None
             if payload.start_date:
                 date = payload.start_date + timedelta(days = i - 1) # 拿每天的日期
-            day_rows.append(trip_id, i, date)
+            day_rows.append((trip_id, i, date))
         
-        cur.executemany("INSERT INTO trip_days(trip_id, day_index, date)", day_rows)
-
+        cur.executemany("INSERT INTO trip_days(trip_id, day_index, date) VALUES(%s, %s, %s)", day_rows)
+        
         # 3) places: google_place_id -> destination_id
         #    一次查出所有 destination_id（避免 N 次 SQL）
         gpids = [p.google_place_id for p in payload.places]
         placeholder = ",".join(["%s"] * len(gpids))
         # ["%s"] * 3：產生一個包含 3 個字串的列表：['%s', '%s', '%s']。
         # ",".join(...)：用逗號把列表接起來，變成一個字串："%s,%s,%s"。
-
-        cur.execute(
-            f"SELECT id, google_map_id FROM destinations WHERE google_map_id IN ({placeholder})",
-            (gpids,)
-        )
+        
+        sql = f"SELECT id, google_place_id FROM destinations WHERE google_place_id IN ({placeholder})"
+        cur.execute(sql, gpids)
         rows = cur.fetchall()
-        found = {r["gooogle_map_id"]: r["id"] for r in rows}
+        found = {r["google_place_id"]: r["id"] for r in rows}
         missing = [g for g in gpids if g not in found] # 找出有沒有gpid 是沒有 id的
         if missing:
             raise HTTPException(

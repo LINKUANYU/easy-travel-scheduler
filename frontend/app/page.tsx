@@ -1,10 +1,11 @@
 "use client"; // 告訴 Next.js 這是在瀏覽器執行的元件
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Attraction } from "@/types/Attraction";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsSection from "@/components/ResultsSection";
 import AuthCorner from "@/components/AuthCorner";
+import StartPlanningButton from "@/components/StartPlanningButton";
 
 // ✅ 新增：把 draft 放在 page 當 single source
 import { useTripDraft } from "@/hooks/useTripDraft";
@@ -17,6 +18,9 @@ type SearchResponse = {
 };
 
 export default function Home(){
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  
   const [mode, setMode] = useState<"search" | "results">("search");
 
   const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
@@ -66,7 +70,10 @@ export default function Home(){
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center p-24 bg-gray-100">
-      <AuthCorner/>
+      {/* 暫時先把會員系統拿掉
+      <AuthCorner/> 
+      */}
+      
       {loading ? (
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="flex flex-col items-center justify-center gap-3">
@@ -91,6 +98,13 @@ export default function Home(){
           draftIds={ids}
           onAddToDraft={add}
           onRemoveFromDraft={remove}
+        />
+      )}
+
+      {mounted && (
+        <StartPlanningButton
+          draft={draft}
+          onCreated={clear}
         />
       )}
     </main>
