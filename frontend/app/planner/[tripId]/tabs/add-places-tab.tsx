@@ -15,16 +15,19 @@ type TripPlace = {
 };
 
 function normalizePlacesPayload(payload: any): TripPlace[] {
-  // 你可以讓後端回 list 或 {data:list}，這裡兩種都吃
+  // 無論後端丟過來的是「純陣列」還是「包在物件裡的陣列」，出去的一定要是 TripPlace 格式的陣列。
+  
   if (Array.isArray(payload)) return payload as TripPlace[];
   if (payload && Array.isArray(payload.data)) return payload.data as TripPlace[];
   return [];
 }
 
 export default function AddPlacesTab({ tripId }: { tripId: number }) {
+  // qc 是 React Query 的全域管理實體，當你成功加入一個新景點後，你會用這個 qc 來下達指令：「嘿！那個標籤為 ["tripPlaces", tripId] 的資料已經舊了，去重抓一遍！」這就是所謂的 Invalidation
   const qc = useQueryClient();
   const [gpid, setGpid] = useState("");
 
+  // 資料抓取，只要tripId 改變就執行，並確保回傳陣列
   const placesQ = useQuery({
     queryKey: ["tripPlaces", tripId],
     queryFn: async () => {
@@ -33,6 +36,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
     },
   });
 
+  // useQuery 是用來「讀取」，而 useMutation 則是用來「修改」資料
   const addM = useMutation({
     mutationFn: async (google_place_id: string) => {
       // 依你的後端設計：這裡假設 body 叫 google_place_id
@@ -68,7 +72,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
             style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid #ccc" }}
           />
           <button
-            onClick={() => addM.mutate(gpid.trim())}
+            onClick={() => addM.mutate(gpid.trim())} // 包裝函式，沒寫() => 會馬上執行。
             disabled={!gpid.trim() || addM.isPending}
             style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd" }}
           >

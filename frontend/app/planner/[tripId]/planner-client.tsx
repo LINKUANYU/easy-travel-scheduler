@@ -28,7 +28,7 @@ export default function PlannerClient({ tripId }: { tripId: string }) {
   
   // 使用 React Query 抓取行程資料
   const tripQ = useQuery({
-    queryKey: ["trip", tid],  // 快取鍵：根據不同 tid 分開儲存
+    queryKey: ["trip", tid],  // "trip"：分類標籤：告訴 React Query 這是一筆關於「行程 (Trip)」的資料，tid：唯一識別碼：每當 tid 改變，React Query 就會發現 Key 變了，自動觸發 queryFn 去抓新資料。
     enabled: tid !== null,  // 安全鎖：只有當 tid 有效時才發送請求
     queryFn: async () => {
       // 依你的後端實際回傳 shape 調整：這裡假設直接回 Trip
