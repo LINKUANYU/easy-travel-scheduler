@@ -1,7 +1,7 @@
 "use client"; // 告訴 Next.js 這是在瀏覽器執行的元件
 
 import { useState, useEffect } from "react";
-import type { Attraction } from "@/types/Attraction";
+import type { Attraction } from "@/types/attraction";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsSection from "@/components/ResultsSection";
 import AuthCorner from "@/components/AuthCorner";

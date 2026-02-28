@@ -82,9 +82,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
       // ✅ 成功：清空 draft、關 modal、跳轉
       onCreated();
       setOpen(false);
-      alert("ok");
-      console.log(out.trip_id);
-      // router.push(`/planner/${out.trip_id}`)
+      router.push(`/planner/${out.trip_id}`)
 
     } catch (e:any){
       setErrMsg(e?.message ?? "建立旅程失敗")
