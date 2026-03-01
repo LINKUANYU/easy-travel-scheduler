@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { DraftPlace } from "@/hooks/useTripDraft"
+import { upsertTripIndex } from "@/lib/tripIndex"
 
 type Props = {
   draft: DraftPlace[];
@@ -79,9 +80,16 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
 
       const out = data as CreateTripRes;
 
-      // ✅ 成功：清空 draft、關 modal、跳轉
+      // ✅ 成功：建立trip、清空 draft、關 modal、跳轉
+      upsertTripIndex({
+        trip_id: out.trip_id,
+        title: payload.title,
+        days: payload.days,
+        start_date: payload.startDate ?? null,
+      });
       onCreated();
       setOpen(false);
+      // 建立成功後（out.trip_id 由你後端回傳）
       router.push(`/planner/${out.trip_id}`)
 
     } catch (e:any){
