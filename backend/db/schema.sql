@@ -9,17 +9,18 @@ USE `easy-travel-scheduler`;
 -- 1. 景點主表 (儲存核心文字資訊)
 CREATE TABLE IF NOT EXISTS `destinations` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `input_region` VARCHAR(100) NOT NULL,       -- 使用者輸入的搜尋詞，如：北海道
-    `city_name` VARCHAR(100) NOT NULL,          -- 搜尋關鍵字，例如：福岡
+    `input_region` VARCHAR(100) NULL,       -- 使用者輸入的搜尋詞，如：北海道
+    `city_name` VARCHAR(100) NULL,          -- 搜尋關鍵字，例如：福岡
     `place_name` VARCHAR(255) NOT NULL,         -- 景點名稱，例如：大濠公園
-    `geo_tags` VARCHAR(255),                    -- 用於「向上支援」的標籤字串 (存入：日本,北海道,札幌)
-    `description` TEXT,                         -- 景點介紹
-    `address` VARCHAR(255),                     -- 地址
+    `geo_tags` VARCHAR(255) NULL,                    -- 用於「向上支援」的標籤字串 (存入：日本,北海道,札幌)
+    `description` TEXT NULL,                         -- 景點介紹
+    `address` VARCHAR(255) NULL,                     -- 地址
     `google_place_id` VARCHAR(255),             -- google map id 
     `lat` DECIMAL(10, 8),                       -- 緯度
     `lng` DECIMAL(11, 8),                       -- 經度
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, -- 追蹤更新時間
+    `source` ENUM('ai','manual') NOT NULL DEFAULT 'ai',
     INDEX idx_city(`city_name`),                  -- 加快搜尋快取速度
     INDEX idx_region (`input_region`),
     FULLTEXT INDEX idx_geo_tags (`geo_tags`) WITH PARSER ngram, -- 全文檢索標籤，支援搜尋「日本」時能抓到資料，針對中文推薦使用 ngram 分詞器
@@ -67,6 +68,7 @@ CREATE TABLE `trip_places` (
   `destination_id` INT NOT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`trip_id`, `destination_id`),
+  UNIQUE KEY `uk_trip_destination` (`trip_id`, `destination_id`),
   CONSTRAINT `fk_trip_places_trip`
     FOREIGN KEY (`trip_id`) REFERENCES `trips`(`id`)
     ON DELETE CASCADE,

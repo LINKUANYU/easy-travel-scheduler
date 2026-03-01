@@ -35,10 +35,10 @@ async def search_destinations_api(
     exsiting_ids = {s['google_place_id'] for s in existing_spots_data if s.get('google_place_id')}
     for spot in new_search_data:
         attraction_name = spot.get('attraction')
-        lat, lng, place_id = get_coordinates(attraction_name)
+        lat, lng, place_id, address = get_coordinates(attraction_name)
         # 如果新的景點的id不在原本資料中
         if place_id and place_id not in exsiting_ids:
-            spot['lat'], spot['lng'], spot['google_place_id'] = lat, lng, place_id  # 就新增key, value
+            spot['lat'], spot['lng'], spot['google_place_id'], spot["address"] = lat, lng, place_id, address  # 就新增key, value
             final_new_data.append(spot) 
             exsiting_ids.add(place_id) # 每一筆寫完後馬上加入既有組別，避免new_search_data自身資料id相同重複寫入
 

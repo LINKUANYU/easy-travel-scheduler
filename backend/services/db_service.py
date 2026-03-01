@@ -84,9 +84,12 @@ def get_existing_destinations(location, cur):
                 p.source_url as source
             FROM destinations d
             LEFT JOIN destination_photos p ON d.id = p.destination_id
-            WHERE input_region = %s 
-            OR city_name LIKE %s 
-            OR geo_tags LIKE %s
+            WHERE d.source = 'ai'
+            AND (
+                    input_region = %s 
+                OR city_name LIKE %s 
+                OR geo_tags LIKE %s
+            )
         """
 
         search_patten = f"%{location}%"
@@ -130,8 +133,8 @@ def save_spot_data(data, cur):
 
     dest_sql = """
         INSERT INTO destinations
-            (input_region, city_name, place_name, description, geo_tags, google_place_id, lat, lng) 
-        VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+            (input_region, city_name, place_name, description, geo_tags, google_place_id, lat, lng, address) 
+        VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     img_sql = "INSERT INTO destination_photos(destination_id, photo_url, source_url) VALUES(%s, %s, %s)"        
@@ -148,7 +151,8 @@ def save_spot_data(data, cur):
                         item.get('geo_tags'),
                         item.get('google_place_id'),
                         item.get('lat'),
-                        item.get('lng')
+                        item.get('lng'),
+                        item.get('address')
                     )
                 )
             dest_id = cur.lastrowid  # ✅ 只有成功 INSERT 才會有有效 id

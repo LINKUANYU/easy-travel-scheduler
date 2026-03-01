@@ -149,31 +149,28 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
     if not dest:
         # 3) 不存在就建立一筆最小 destination（先不串 Places Details）
         #    之後你把 Autocomplete 接上時，把 place_name/city/lat/lng 一起送進來即可
+        details = fetch_place_details_new(gpid)
         cur.execute(
             """
-            INSERT INTO destinations (place_name, city_name, google_place_id, lat, lng)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO destinations
+            (source, place_name, city_name, address, google_place_id, lat, lng,
+            input_region, geo_tags, description)
+            VALUES
+            ('manual', %s, %s, %s, %s, %s, %s,
+            NULL, NULL, NULL)
             """,
-            (payload.place_name, payload.city_name, gpid, payload.lat, payload.lng),
+            (
+                details["place_name"],
+                details["city_name"],
+                details["address"],
+                gpid,
+                details["lat"],
+                details["lng"],
+            ),
         )
         destination_id = cur.lastrowid
     else:
         destination_id = dest["id"]
-
-        # （可選）如果既有 destination 欄位是空的，而 payload 有值，就補上
-        if payload.place_name or payload.city_name or payload.lat is not None or payload.lng is not None:
-            cur.execute(
-                """
-                UPDATE destinations
-                SET
-                  place_name = COALESCE(place_name, %s),
-                  city_name  = COALESCE(city_name, %s),
-                  lat        = COALESCE(lat, %s),
-                  lng        = COALESCE(lng, %s)
-                WHERE id=%s
-                """,
-                (payload.place_name, payload.city_name, payload.lat, payload.lng, destination_id),
-            )
 
     # 4) link trip_places（用 UNIQUE(trip_id, destination_id) 擋重複）
     try:
