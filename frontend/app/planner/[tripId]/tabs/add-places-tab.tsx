@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
 
 type TripPlace = {
   destination_id: number;
@@ -25,7 +26,7 @@ function normalizePlacesPayload(payload: any): TripPlace[] {
 export default function AddPlacesTab({ tripId }: { tripId: number }) {
   // qc 是 React Query 的全域管理實體，當你成功加入一個新景點後，你會用這個 qc 來下達指令：「嘿！那個標籤為 ["tripPlaces", tripId] 的資料已經舊了，去重抓一遍！」這就是所謂的 Invalidation
   const qc = useQueryClient();
-  const [gpid, setGpid] = useState("");
+  const [uiMsg, setUiMsg] = useState<string>("");
 
   // 資料抓取，只要tripId 改變就執行，並確保回傳陣列
   const placesQ = useQuery({
@@ -43,8 +44,10 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
       return apiPost<any>(`http://localhost:8000/api/trips/${tripId}/places`, { google_place_id });
     },
     onSuccess: async () => {
-      setGpid("");
+      setUiMsg("已加入！");
       await qc.invalidateQueries({ queryKey: ["tripPlaces", tripId] });
+      // 小提示訊息 1.5 秒後消失
+      window.setTimeout(() => setUiMsg(""), 1500);
     },
   });
 
@@ -55,6 +58,9 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["tripPlaces", tripId] });
     },
+    onError: (e: any) => {
+      setUiMsg(`加入失敗：${e?.message || "unknown error"}`);
+    },
   });
 
   const places = useMemo(() => placesQ.data ?? [], [placesQ.data]);
@@ -63,27 +69,32 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
     <div style={{ display: "grid", gap: 12 }}>
       {/* 先用最小可用：手動貼 google_place_id，確保端到端打通 */}
       <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-        <div style={{ fontWeight: 800, marginBottom: 6 }}>手動加入（先打通流程）</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            value={gpid}
-            onChange={(e) => setGpid(e.target.value)}
-            placeholder="貼上 google_place_id（place_id）"
-            style={{ flex: 1, padding: "8px 10px", borderRadius: 10, border: "1px solid #ccc" }}
-          />
-          <button
-            onClick={() => addM.mutate(gpid.trim())} // 包裝函式，沒寫() => 會馬上執行。
-            disabled={!gpid.trim() || addM.isPending}
-            style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd" }}
-          >
-            {addM.isPending ? "Adding…" : "加入"}
-          </button>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontWeight: 800 }}>加入景點（Google Places）</div>
+          {addM.isPending && (
+            <span style={{ fontSize: 13, opacity: 0.75 }}>Adding…</span>
+          )}
+          {uiMsg && (
+            <span style={{ fontSize: 13, opacity: 0.85 }}>{uiMsg}</span>
+          )}
         </div>
-
-        {/* 下一步：把這塊換成 Google Places Autocomplete UI */}
-        <p style={{ marginTop: 8, fontSize: 13, opacity: 0.7 }}>
-          下一步我們會把這裡改成 Place Autocomplete，選到點後自動拿 place_id 丟到同一支 POST API。
-        </p>
+        <div style={{ marginTop: 8 }}>
+          <PlaceAutocompleteInput
+            disabled={addM.isPending}
+            onPick={({ placeId, label }) => {
+              // 可選：避免重複加入（前端先擋一次，後端也要有 unique 才安全）
+              const exists = places.some((p) => p.google_place_id === placeId);
+              if (exists) {
+                setUiMsg(`已在清單中：${label || placeId}`);
+                window.setTimeout(() => setUiMsg(""), 1500);
+                return;
+              }
+              setUiMsg(label ? `加入中：${label}` : "加入中…");
+              addM.mutate(placeId);
+            }}
+          />
+        </div>
 
         {addM.isError && (
           <p style={{ marginTop: 8, color: "crimson" }}>
