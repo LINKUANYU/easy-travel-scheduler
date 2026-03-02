@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
 import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
+import TripMap from "@/components/planner/TripMap";
 
 type TripPlace = {
   destination_id: number;
@@ -66,78 +67,93 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
   const places = useMemo(() => placesQ.data ?? [], [placesQ.data]);
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      {/* 先用最小可用：手動貼 google_place_id，確保端到端打通 */}
-      <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-        
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontWeight: 800 }}>加入景點（Google Places）</div>
-          {addM.isPending && (
-            <span style={{ fontSize: 13, opacity: 0.75 }}>Adding…</span>
+
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "420px 1fr",
+        gap: 12,
+        alignItems: "start",
+      }}
+    >
+      {/* 左欄：加入 + 清單 */}
+      <div style={{ display: "grid", gap: 12 }}>
+        {/* 先用最小可用：手動貼 google_place_id，確保端到端打通 */}
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontWeight: 800 }}>加入景點（Google Places）</div>
+            {addM.isPending && (
+              <span style={{ fontSize: 13, opacity: 0.75 }}>Adding…</span>
+            )}
+            {uiMsg && (
+              <span style={{ fontSize: 13, opacity: 0.85 }}>{uiMsg}</span>
+            )}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <PlaceAutocompleteInput
+              disabled={addM.isPending}
+              onPick={({ placeId, label }) => {
+                // 可選：避免重複加入（前端先擋一次，後端也要有 unique 才安全）
+                const exists = places.some((p) => p.google_place_id === placeId);
+                if (exists) {
+                  setUiMsg(`已在清單中：${label || placeId}`);
+                  window.setTimeout(() => setUiMsg(""), 1500);
+                  return;
+                }
+                setUiMsg(label ? `加入中：${label}` : "加入中…");
+                addM.mutate(placeId);
+              }}
+            />
+          </div>
+
+          {addM.isError && (
+            <p style={{ marginTop: 8, color: "crimson" }}>
+              Add failed: {(addM.error as Error).message}
+            </p>
           )}
-          {uiMsg && (
-            <span style={{ fontSize: 13, opacity: 0.85 }}>{uiMsg}</span>
-          )}
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <PlaceAutocompleteInput
-            disabled={addM.isPending}
-            onPick={({ placeId, label }) => {
-              // 可選：避免重複加入（前端先擋一次，後端也要有 unique 才安全）
-              const exists = places.some((p) => p.google_place_id === placeId);
-              if (exists) {
-                setUiMsg(`已在清單中：${label || placeId}`);
-                window.setTimeout(() => setUiMsg(""), 1500);
-                return;
-              }
-              setUiMsg(label ? `加入中：${label}` : "加入中…");
-              addM.mutate(placeId);
-            }}
-          />
         </div>
 
-        {addM.isError && (
-          <p style={{ marginTop: 8, color: "crimson" }}>
-            Add failed: {(addM.error as Error).message}
-          </p>
-        )}
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontWeight: 800 }}>Trip 景點池</div>
+
+          {placesQ.isLoading ? (
+            <p>Loading places…</p>
+          ) : placesQ.isError ? (
+            <p>Load places failed: {(placesQ.error as Error).message}</p>
+          ) : places.length === 0 ? (
+            <p>尚未加入景點。</p>
+          ) : (
+            <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+              {places.map((p) => (
+                <li
+                  key={p.destination_id}
+                  style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}
+                >
+                  <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
+                  <div style={{ fontSize: 13, opacity: 0.75 }}>
+                    {p.city_name ? `${p.city_name} · ` : ""}
+                    {p.google_place_id ?? ""}
+                  </div>
+
+                  <div style={{ marginTop: 8 }}>
+                    <button
+                      onClick={() => removeM.mutate(p.destination_id)}
+                      disabled={removeM.isPending}
+                      style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                    >
+                      {removeM.isPending ? "Removing…" : "移除"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-
-      <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 800 }}>Trip 景點池</div>
-
-        {placesQ.isLoading ? (
-          <p>Loading places…</p>
-        ) : placesQ.isError ? (
-          <p>Load places failed: {(placesQ.error as Error).message}</p>
-        ) : places.length === 0 ? (
-          <p>尚未加入景點。</p>
-        ) : (
-          <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
-            {places.map((p) => (
-              <li
-                key={p.destination_id}
-                style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}
-              >
-                <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
-                <div style={{ fontSize: 13, opacity: 0.75 }}>
-                  {p.city_name ? `${p.city_name} · ` : ""}
-                  {p.google_place_id ?? ""}
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={() => removeM.mutate(p.destination_id)}
-                    disabled={removeM.isPending}
-                    style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                  >
-                    {removeM.isPending ? "Removing…" : "移除"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      {/* 右欄：地圖 */}
+      <div>
+        <TripMap places={places} />
       </div>
     </div>
   );

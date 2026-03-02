@@ -48,76 +48,56 @@ export default function PlaceAutocompleteInput({
     };
 
     const onLoad = () => {
-      if (cancelled) return;
-      setStatus({ kind: "ready" });
+      if (!cancelled) setStatus({ kind: "ready" });
     };
 
     const onErr = (e: any) => {
-      if (cancelled) return;
-      // gmp-error：通常是 key / API / referrer 限制問題:contentReference[oaicite:1]{index=1}
-      setStatus({ kind: "error", message: e?.message || "gmp-error (request denied)" });
+      if (!cancelled) setStatus({ kind: "error", message: e?.message || "gmp-error" });
     };
 
     const onSelect = (e: any) => {
       if (cancelled) return;
-
-      // 事件型別：PlacePredictionSelectEvent，選到的 prediction 在 event.placePrediction:contentReference[oaicite:2]{index=2}
       const placePrediction = e?.placePrediction ?? e?.detail?.placePrediction;
-      const placeId: string | undefined = placePrediction?.placeId; // PlacePrediction.placeId:contentReference[oaicite:3]{index=3}
+      const placeId: string | undefined = placePrediction?.placeId;
       if (!placeId) return;
 
-      const main = placePrediction?.mainText?.text; // FormattableText.text:contentReference[oaicite:4]{index=4}
+      const main = placePrediction?.mainText?.text;
       const secondary = placePrediction?.secondaryText?.text;
       const label = [main, secondary].filter(Boolean).join(" · ");
 
       onPick({ placeId, label });
 
-      // 清空輸入：官方沒有提供「set value=''」的穩定 API，
-      // 最穩的做法是重新建立 widget（很輕量）
       setResetKey((k) => k + 1);
       setStatus({ kind: "loading" });
     };
 
     (async () => {
       setStatus({ kind: "loading" });
+
+      // ✅ 一次即可
       await loadPlacesLibrary();
       if (cancelled) return;
 
       const host = hostRef.current;
       if (!host) return;
-
       host.innerHTML = "";
 
-      // 建立 PlaceAutocompleteElement（Autocomplete New 的 widget）:contentReference[oaicite:5]{index=5}
-      // ✅ 先確保 places library 已載入（你原本的 loadPlacesLibrary 仍可保留）
-      await loadPlacesLibrary();
-
-      // ✅ 用官方方式取出 PlaceAutocompleteElement（TS 用 any 解決型別問題）
+      // ✅ 官方建議用 importLibrary 取得 PlaceAutocompleteElement
       const { PlaceAutocompleteElement } = (await (google.maps as any).importLibrary("places")) as any;
-
-      if (!PlaceAutocompleteElement) {
-      throw new Error("PlaceAutocompleteElement not found. Is Places library loaded?");
-      }
-
       const widget = new PlaceAutocompleteElement({});
       widgetRef.current = widget;
 
-      // placeholder：官方支援 placeholder 屬性:contentReference[oaicite:6]{index=6}
-      widget.placeholder = isReady ? placeholder : placeholder;
-
-      // 基本外觀（你也可以用 CSS variables 進一步調整）
+      widget.placeholder = placeholder;
       widget.style.display = "block";
       widget.style.width = "100%";
       widget.style.border = "1px solid #ccc";
       widget.style.borderRadius = "10px";
 
-      // 綁事件：gmp-load / gmp-error / gmp-select:contentReference[oaicite:7]{index=7}
       widget.addEventListener("gmp-load", onLoad as any);
       widget.addEventListener("gmp-error", onErr as any);
       widget.addEventListener("gmp-select", onSelect as any);
 
       host.appendChild(widget);
-      // 注意：ready 會在 gmp-load 後才設為 ready
     })().catch((e: any) => {
       console.error(e);
       if (!cancelled) setStatus({ kind: "error", message: e?.message || String(e) });
@@ -127,7 +107,6 @@ export default function PlaceAutocompleteInput({
       cancelled = true;
       cleanup();
     };
-    // resetKey 變動就重建 widget（用來清空）
   }, [resetKey, placeholder, onPick]);
 
   // disabled 狀態：用 pointer-events/opacity 控制（widget 本身不一定有 disabled API）
