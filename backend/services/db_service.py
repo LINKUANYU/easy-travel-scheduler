@@ -48,11 +48,11 @@ def get_conn():
     
     # 給路由用的
     try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
+        yield conn       # 在這裡交給路由使用
+        conn.commit()    # 路由邏輯正常return後執行
+    except Exception:    # 路由拋出 HTTPException 或 IntegrityError
+        conn.rollback()  # 執行這個
+        raise            # 繼續往外丟給Fast api
     finally:
         if conn:
             conn.close()

@@ -78,6 +78,28 @@ CREATE TABLE `trip_places` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+CREATE TABLE `itinerary_items` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `trip_id` INT NOT NULL,
+  `day_index` INT NOT NULL,                 -- 1..N
+  `destination_id` INT NOT NULL,
+  `position` INT NOT NULL,                  -- 當天排序 0..n
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY `uk_trip_destination_once` (`trip_id`, `destination_id`),
+  KEY `idx_trip_day_pos` (`trip_id`, `day_index`, `position`),
+
+  CONSTRAINT `fk_itinerary_trip`
+    FOREIGN KEY (`trip_id`) REFERENCES `trips`(`id`)
+    ON DELETE CASCADE,
+  CONSTRAINT `fk_itinerary_destination`
+    FOREIGN KEY (`destination_id`) REFERENCES `destinations`(`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+
 
 
 

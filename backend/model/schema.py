@@ -66,6 +66,31 @@ class AddTripPlaceIn(BaseModel):
 class OkOut(BaseModel):
     ok: bool = True
 
+class ItineraryAddIn(BaseModel):
+    destination_id: int
+
+class ItineraryItemOut(BaseModel):
+    item_id: int
+    trip_id: int
+    day_index: int
+    position: int
+    destination_id: int
+    place_name: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    google_place_id: Optional[str] = None
+
+class ItinerarySummaryRow(BaseModel):
+    destination_id: int
+    day_index: int
+    position: int
+    item_id: int
+
+class OkOut(BaseModel):
+    ok: bool
+
+
+
 
 class SignupIn(BaseModel):
     email: EmailStr
