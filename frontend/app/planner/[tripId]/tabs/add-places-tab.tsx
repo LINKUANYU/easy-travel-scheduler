@@ -129,7 +129,7 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
           preview={preview}
           isAddingPreview={addM.isPending}
           onAddPreview={(placeId) => {
-            // 前端先擋重複（後端也要 unique 才安全）
+            // 檢查景點池內是否已經有了
             const exists = places.some((p) => p.google_place_id === placeId);
             if (exists) return;
             addM.mutate(placeId);
@@ -140,15 +140,16 @@ export default function AddPlacesTab({ tripId }: { tripId: number }) {
               <PlaceAutocompleteInput
                 disabled={previewLoading}
                 placeholder="搜尋並選擇地點（Google Places）"
-                onPick={async ({ placeId, label }) => {
+                onPick={async ({ placeId, label }) => {  //接收子層丟出來的 { placeId, label }
                   setPreviewErr("");
                   setPreviewLoading(true);
                   setPreview(null);
-
+                  // 每次你點選地點，pickTokenRef 就會加 1。假設現在是第 5 次搜尋，當前的 token 就是 5。
                   const token = ++pickTokenRef.current;
                   try {
+                    // 拿著這個 ID 去問 Google 詳細座標，會花時間
                     const data = await fetchPlacePreview(placeId);
-                    if (token !== pickTokenRef.current) return;
+                    if (token !== pickTokenRef.current) return;  // 資料回來時使用者如果已經又選下個地點就return
                     // 可選：把 label 覆蓋進 name（若 API 沒回 displayName）
                     setPreview({ ...data, name: data.name ?? label });
                   } catch (e: any) {

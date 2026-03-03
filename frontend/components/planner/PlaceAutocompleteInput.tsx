@@ -5,6 +5,7 @@ import { loadPlacesLibrary } from "@/lib/googleMapsLoader";
 
 type Pick = { placeId: string; label?: string };
 
+// 自定義狀態
 type Status =
   | { kind: "loading" }
   | { kind: "ready" }
@@ -19,8 +20,8 @@ export default function PlaceAutocompleteInput({
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const widgetRef = useRef<any>(null);
+  const hostRef = useRef<HTMLDivElement>(null);  // 放實體input的DOM
+  const widgetRef = useRef<any>(null);  // 放實體input
   const [status, setStatus] = useState<Status>({ kind: "loading" });
   const [resetKey, setResetKey] = useState(0);
 
@@ -33,14 +34,18 @@ export default function PlaceAutocompleteInput({
     return "";
   }, [status.kind]);
 
+  // 把onPick函式 用ref存起來，useRef：改變ref.current不觸發re-render
   const onPickRef = useRef(onPick);
+  // 在父層每次re-render後都會重新建立onPick的函式，每當onPick更新就更新onPickRef
   useEffect(() => {
     onPickRef.current = onPick;
   }, [onPick]);
 
+  // 建立搜尋 input
   useEffect(() => {
     let cancelled = false;
 
+    // 清空所有東西
     const cleanup = () => {
       const el = widgetRef.current;
       if (el) {
@@ -52,34 +57,37 @@ export default function PlaceAutocompleteInput({
       if (hostRef.current) hostRef.current.innerHTML = "";
     };
 
-    const onLoad = () => {
-      if (!cancelled) setStatus({ kind: "ready" });
+    // 為了配合搜尋input的事件執行的方程式：搜尋input 準備好的時候執行
+    const onLoad = () => {  
+      if (!cancelled) setStatus({ kind: "ready" });  // 把狀態變成"ready"
     };
-
+    // 為了配合搜尋input的事件執行的方程式：搜尋input 有錯誤的時候執行
     const onErr = (e: any) => {
       if (!cancelled) setStatus({ kind: "error", message: e?.message || "gmp-error" });
+      // 把狀態變成"error"
     };
-
+    // 為了配合搜尋input的事件執行的方程式：搜尋input 選到地點的時候執行
     const onSelect = (e: any) => {
       if (cancelled) return;
+      // 從 api 拿到的資料
       const placePrediction = e?.placePrediction ?? e?.detail?.placePrediction;
-      const placeId: string | undefined = placePrediction?.placeId;
+      const placeId: string | undefined = placePrediction?.placeId;  // google_place_id
       if (!placeId) return;
 
-      const main = placePrediction?.mainText?.text;
-      const secondary = placePrediction?.secondaryText?.text;
+      const main = placePrediction?.mainText?.text;  // 地點名稱
+      const secondary = placePrediction?.secondaryText?.text;  // 副標題
       const label = [main, secondary].filter(Boolean).join(" · ");
 
-      onPickRef.current({ placeId, label });
+      onPickRef.current({ placeId, label });  // 回給父層
 
-      setResetKey((k) => k + 1);
+      setResetKey((k) => k + 1);  // 讓Effect 重跑，Reset 整個搜尋input
       setStatus({ kind: "loading" });
     };
 
     (async () => {
       setStatus({ kind: "loading" });
 
-      // ✅ 一次即可
+      // 一次即可，確保「最外層」的 Google Maps 載入腳本（Loader）已經成功把 JS 檔案抓到你的瀏覽器裡。
       await loadPlacesLibrary();
       if (cancelled) return;
 
@@ -89,7 +97,7 @@ export default function PlaceAutocompleteInput({
 
       // ✅ 官方建議用 importLibrary 取得 PlaceAutocompleteElement
       const { PlaceAutocompleteElement } = (await (google.maps as any).importLibrary("places")) as any;
-      const widget = new PlaceAutocompleteElement({});
+      const widget = new PlaceAutocompleteElement({});  // 建立實體搜尋input
       widgetRef.current = widget;
 
       widget.placeholder = placeholder;
@@ -98,11 +106,18 @@ export default function PlaceAutocompleteInput({
       widget.style.border = "1px solid #ccc";
       widget.style.borderRadius = "10px";
 
+      // google 原生事件 gmp-load (載入成功事件)：外部腳本下載完成，且這個特殊的 HTML 元素（PlaceAutocompleteElement）在你的瀏覽器中成功渲染並準備好接受輸入時。
       widget.addEventListener("gmp-load", onLoad as any);
+      // google 原生事件 gmp-error (載入失敗事件)
       widget.addEventListener("gmp-error", onErr as any);
+      // google 原生事件 gmp-select (選取地點事件)
       widget.addEventListener("gmp-select", onSelect as any);
 
-      host.appendChild(widget);
+      host.appendChild(widget);  // 掛進div內
+      // 讓狀態變成"ready"
+      if (!cancelled) {
+        setStatus({ kind: "ready" });
+      }
     })().catch((e: any) => {
       console.error(e);
       if (!cancelled) setStatus({ kind: "error", message: e?.message || String(e) });
@@ -114,7 +129,7 @@ export default function PlaceAutocompleteInput({
     };
   }, [resetKey, placeholder]);
 
-  // disabled 狀態：用 pointer-events/opacity 控制（widget 本身不一定有 disabled API）
+  // Google 的 Web Component 原生元件有時候不聽 React 的話（不支援標準的 disabled 屬性），所以我們直接用 CSS 從外部「封鎖」它。
   useEffect(() => {
     const el = widgetRef.current;
     if (!el) return;

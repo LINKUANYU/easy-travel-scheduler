@@ -22,8 +22,8 @@ function escapeHtml(s: string) {
 
 export default function TripMap({
   places,  // 上層傳進來的景點
-  preview,  // 
-  topLeft,
+  preview,  // 上層傳進來的資料(google input抓到的placeId 再去fetch 完的資料)
+  topLeft,  // 放google input 
   onAddPreview,  // preview 中的「加入trip」，callback 回傳給上層
   onClearPreview,  // preview 中的「關閉預覽、X」，callback 回傳給上層
   isAddingPreview,
@@ -143,7 +143,7 @@ export default function TripMap({
         const photosHtml = (preview!.photoUrls ?? [])
           .slice(0, 3)
           .map(
-            (u:PlacePreview) =>
+            (u:any) =>
               `<img src="${escapeHtml(u)}" style="width:84px;height:64px;object-fit:cover;border-radius:10px;margin-right:8px;border:1px solid #eee;" />`
           )
           .join("");
