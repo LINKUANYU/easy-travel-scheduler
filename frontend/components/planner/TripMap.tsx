@@ -110,13 +110,13 @@ export default function TripMap({
       // 3) 按照trip清單建立圖釘
       for (let i = 0; i < valid.length; i++) {
         const p = valid[i];
-        const pin = new PinElement({ glyphText: String(i + 1) });  // 設定圖釘的數字
+        // const pin = new PinElement({ glyphText: String(i + 1) });  // 設定圖釘的數字
 
         const am = new AdvancedMarkerElement({
           map,  // 要放在哪個map
           position: { lat: p.lat as number, lng: p.lng as number }, // 放的位置
           title: p.place_name ?? `#${p.destination_id}`,  //
-          content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
+          // content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
         });
 
         markersRef.current.push(am);  // 放到Ref中
@@ -251,7 +251,7 @@ export default function TripMap({
             });
           }
         });
-
+        // 5a) 有預覽視窗時：只顯示該地點的畫面
         const offset = 0.005
         map.panTo({  // MAP 平滑滑行
           lat: (preview!.lat as number) + offset,  // 微調圖釘畫面向下
@@ -260,16 +260,19 @@ export default function TripMap({
         map.setZoom(15);
       }
 
-      // 5) 設定地圖畫面的邊界 fit bounds：包含 trip + preview
-      const pts: Array<{ lat: number; lng: number }> = [];  // 宣告一個陣列
-      for (const p of valid) pts.push({ lat: p.lat as number, lng: p.lng as number });  // 把既有地點塞進去
-      if (previewValid) pts.push({ lat: preview!.lat as number, lng: preview!.lng as number });  // 把preview 塞進去
+      // 5b) 在沒有預覽視窗時：顯示地圖包含景點池的畫面，邊界 fit bounds
+      if (!previewValid){
+        const pts: Array<{ lat: number; lng: number }> = [];  // 宣告一個陣列
+        for (const p of valid) pts.push({ lat: p.lat as number, lng: p.lng as number });  // 把既有地點塞進去
+        if (previewValid) pts.push({ lat: preview!.lat as number, lng: preview!.lng as number });  // 把preview 塞進去
 
-      if (pts.length > 1) {
-        const bounds = new google.maps.LatLngBounds();  // 建立一個「邊界盒子」
-        for (const p of pts) bounds.extend(p);  // 每當你執行一次 bounds.extend(p)，這個隱形的矩形就會自動「撐大」，直到剛好能裝下這個座標點 p。
-        map.fitBounds(bounds);  // 自動調整你的中心點和縮放層級 (Zoom)，讓畫面剛好裝下這個隱形矩形。
+        if (pts.length > 1) {
+          const bounds = new google.maps.LatLngBounds();  // 建立一個「邊界盒子」
+          for (const p of pts) bounds.extend(p);  // 每當你執行一次 bounds.extend(p)，這個隱形的矩形就會自動「撐大」，直到剛好能裝下這個座標點 p。
+          map.fitBounds(bounds);  // 自動調整你的中心點和縮放層級 (Zoom)，讓畫面剛好裝下這個隱形矩形。
+        }
       }
+
     }
 
     boot();
