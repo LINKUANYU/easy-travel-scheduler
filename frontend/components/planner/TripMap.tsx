@@ -124,6 +124,10 @@ export default function TripMap({
 
       // 4) 建立預覽圖釘、預覽視窗infowindow ( 按鈕寫在 html 字串)
       if (previewValid) {
+        // 檢查這個預覽點是否已經在 places 陣列中
+        const isAlreadyInTrip = places.some(
+          (p) => p.google_place_id === preview!.id
+        );
         const pin = new PinElement({ glyphText: "★" });
         const am = new AdvancedMarkerElement({
           map,
@@ -143,6 +147,22 @@ export default function TripMap({
               `<img src="${escapeHtml(u)}" style="width:84px;height:64px;object-fit:cover;border-radius:10px;margin-right:8px;border:1px solid #eee;" />`
           )
           .join("");
+        
+        const addBtnHtml = isAlreadyInTrip
+          ? `<button id="${addId}" disabled style="
+              padding:8px 12px; border-radius:10px; border:1px solid #eee;
+              background:#f5f5f5; color:#999; font-weight:700; cursor:not-allowed;
+            ">
+              ✓ 已在行程中
+            </button>`
+          : `<button id="${addId}" style="
+              padding:8px 12px; border-radius:10px; border:1px solid #ddd;
+              background:white; font-weight:700; cursor:pointer;
+            ">
+              加入 Trip
+            </button>`;
+
+
 
         const html = `
           <div style="max-width:320px">
@@ -159,12 +179,7 @@ export default function TripMap({
             ${photosHtml ? `<div style="display:flex;margin-bottom:10px">${photosHtml}</div>` : ""}
 
             <div style="display:flex;gap:8px;align-items:center">
-              <button id="${addId}" style="
-                padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:white;
-                font-weight:700;cursor:pointer;
-              ">
-                加入 Trip
-              </button>
+              ${addBtnHtml}
 
               <button id="${clearId}" style="
                 padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:white;
@@ -201,7 +216,8 @@ export default function TripMap({
           const addBtn = document.getElementById(addId) as HTMLButtonElement | null;
           const clearBtn = document.getElementById(clearId) as HTMLButtonElement | null;
 
-          if (addBtn) {
+          // 只有在「不在行程中」時，才需要處理 Loading 和點擊事件
+          if (addBtn && !isAlreadyInTrip) {
             // 如果你要顯示 pending（簡單版：點了就改文字、disable）
             if (isAddingPreview) {
               addBtn.disabled = true;
@@ -236,7 +252,11 @@ export default function TripMap({
           }
         });
 
-        map.panTo({ lat: preview!.lat as number, lng: preview!.lng as number }); // MAP 平滑滑行
+        const offset = 0.005
+        map.panTo({  // MAP 平滑滑行
+          lat: (preview!.lat as number) + offset,  // 微調圖釘畫面向下
+          lng: preview!.lng as number 
+        }); 
         map.setZoom(15);
       }
 
