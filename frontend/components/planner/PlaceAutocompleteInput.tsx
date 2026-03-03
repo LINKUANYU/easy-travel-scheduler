@@ -33,6 +33,11 @@ export default function PlaceAutocompleteInput({
     return "";
   }, [status.kind]);
 
+  const onPickRef = useRef(onPick);
+  useEffect(() => {
+    onPickRef.current = onPick;
+  }, [onPick]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -65,7 +70,7 @@ export default function PlaceAutocompleteInput({
       const secondary = placePrediction?.secondaryText?.text;
       const label = [main, secondary].filter(Boolean).join(" · ");
 
-      onPick({ placeId, label });
+      onPickRef.current({ placeId, label });
 
       setResetKey((k) => k + 1);
       setStatus({ kind: "loading" });
@@ -107,7 +112,7 @@ export default function PlaceAutocompleteInput({
       cancelled = true;
       cleanup();
     };
-  }, [resetKey, placeholder, onPick]);
+  }, [resetKey, placeholder]);
 
   // disabled 狀態：用 pointer-events/opacity 控制（widget 本身不一定有 disabled API）
   useEffect(() => {
