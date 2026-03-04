@@ -63,8 +63,6 @@ class AddTripPlaceIn(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
 
-class OkOut(BaseModel):
-    ok: bool = True
 
 class ItineraryAddIn(BaseModel):
     destination_id: int
@@ -86,10 +84,13 @@ class ItinerarySummaryRow(BaseModel):
     position: int
     item_id: int
 
+class ItineraryReorderIn(BaseModel):
+    ordered_item_ids: List[int]
+
+
+
 class OkOut(BaseModel):
-    ok: bool
-
-
+    ok: bool = True
 
 
 class SignupIn(BaseModel):

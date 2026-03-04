@@ -2,11 +2,14 @@
 
 import { useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiDelete, apiGet, apiPost } from "@/lib/api";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
 import TripMap from "@/components/planner/TripMap";
 import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/attraction";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -166,6 +169,26 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       window.setTimeout(() => setUiMsg(""), 1500);
     },
   });
+
+  // [將當日排程內的景點重新排序]
+  const reorderM = useMutation({
+    mutationFn: async (ordered_item_ids: number[]) => {
+      return apiPut<{ ok: boolean }>(
+        `http://localhost:8000/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
+        { ordered_item_ids }
+      );
+    },
+    onSuccess: async () => {
+      // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
+      await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
+    },
+    onError: (e: any) => {
+      setUiMsg(`排序更新失敗：${e?.message || "unknown error"}`);
+      window.setTimeout(() => setUiMsg(""), 1500);
+      // 失敗時建議回復伺服器版本
+      qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
+    },
+  });
   
   // Day 切換函數
   function prevDay(){
@@ -174,6 +197,72 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   function nextDay(){
     setActiveDay((d) => Math.min(days, d + 1));
   }
+
+  // *** 拖拉套件 ***
+  // SortableRow：UI 的執行工人，像是一個「透明的防護罩」，把你的景點資料（例如台北 101）包起來。
+  function SortableRow({ id, children }: {
+    id: number;
+    children: (args: { dragAttributes: any; dragListeners: any; style: React.CSSProperties }) => React.ReactNode;
+  }) {
+    // useSortable：賦予元件「排序靈魂」它幫你算好了所有拖拉需要的參數
+    // setNodeRef: 告訴 dnd-kit：「嘿，這塊 DOM 元素（那個 <div>）就是我們要移動的東西。」
+    // transform & transition: 這是最魔法的地方。當你拖動別的項目蓋過它時，它會算出位移量（transform），讓這行自動「閃開」騰出空間，並帶有平滑的動畫（transition）。
+    // isDragging: 一個布林值，讓你知道「現在是不是正在抓著我」。
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+    // 處理視覺畫面
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),  // 將座標物件轉成 CSS 字串，如 translate3d(0, 50px, 0)
+      transition,  // 讓移動過程有流暢的動畫
+      opacity: isDragging ? 0.6 : 1,  // 拖拽時讓本體變半透明，視覺效果更好
+    };
+
+    return (
+      <div ref={setNodeRef} style={style}>
+        {children({ dragAttributes: attributes, dragListeners: listeners, style })}
+        {/* 這不是普通的 children（像 <div>內容</div>），而是一個函數。
+        因為有時候我們不希望「整個整列」一點擊就拖走，我們可能只想讓左邊的「六個點圖示 (Drag Handle)」負責觸發拖拉。 */}
+      </div>
+    );
+  }
+
+  // PointerSensor (感應器類型) 這是最通用的感應器，它同時支援滑鼠 (Mouse) 和 觸控螢幕 (Touch)。
+  // distance: 當位移 > 6 像素：系統才會確認：「開始動作」這時才會把元件抓起來變透明，進入拖拉狀態。
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  // onDragEnd 的角色（決策者）：
+  // 這是整段拖拉流程的 「終點站」。當工人（SortableRow）完成搬運後，大腦（onDragEnd）要負責拍板定案：
+  function onDragEnd(event: any) {
+    const { active, over } = event;
+    // active: 你現在正抓著、準備移動的那個物件。over: 你放開滑鼠時，底下壓著的那個目標物件。
+    if (!over || active.id === over.id) return;
+    // 如果你放開的地方沒有東西（!over），或者你抓起來又放回原位（id 相同），就直接結束，
+
+    const ids = dayItems.map((x) => x.item_id);  // 取出所有item_id
+    const oldIndex = ids.indexOf(active.id);  // 抓著的Item 原本位置的排序
+    const newIndex = ids.indexOf(over.id);  // 抓著的Item 新位置的排序
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    // arrayMove: 這是 dnd-kit 提供的工具。原本是 [A, B, C]，把 A 移到 C ，它會幫你算出新的陣列：[B, C, A]。
+    const newItems = arrayMove(dayItems, oldIndex, newIndex);  // 原本物件dayItem 裡的東西都還在，只是順序變了
+
+    // 1) 立即更新 UI（更新 react-query cache）
+    qc.setQueryData(["dayItinerary", tripId, activeDay], newItems);
+    // setQueryData (key, data) 是讓你「強行寫入」**資料到快取（Cache）裡。
+
+    // 2) call 後端 bulk reorder api
+    reorderM.mutate(newItems.map((x) => x.item_id));  // 送後端用 item_id 組成的新排序陣列
+  }
+  /**
+  整體架構中的運作流程圖
+  使用者動作：滑鼠點擊 ⠿ 並移動超過 6px（sensors 認可動作）。
+  視覺回饋：SortableRow 接收到 useSortable 的指令，讓元件變透明並跟著滑鼠跑。
+  動作結束：使用者放開滑鼠，觸發 onDragEnd。
+  資料更新（雙軌制）：
+    快速軌道 (Frontend)：onDragEnd 直接把結果塞進 React Query Cache，畫面瞬間排好。
+    慢速軌道 (Backend)：onDragEnd 同時把 ID 陣列送往 FastAPI，完成資料庫持久化。
+   */
+
 
 
   return (
@@ -210,43 +299,75 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
             ) : dayItems.length === 0 ? (
               <p style={{ opacity: 0.7 }}>今天還沒加入行程</p>
             ) : (
-              // 對當日每個行程做設計
-              dayItems.map((it) => (
-                <div
-                  key={it.item_id}
-                  style={{
-                    border: "1px solid #eee",
-                    borderRadius: 12,
-                    padding: 10,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {it.position + 1}. {it.place_name ?? `#${it.destination_id}`}
-                    </div>
-                  </div>
+              // DndContext 它是最外層的容器，是環境提供者的角色，任務：感測器 (Sensors)、碰撞偵測 (Collision)、事件調度 (onDragEnd)
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                {/* SortableContext 劃定了「這區的東西可以互相排隊」的範圍。items: 必須傳入一個單純的 ID 陣列。「在這個範圍內，這些 ID 才是我們要追蹤的目標」。 */}
+                <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                    {dayItems.map((it, idx) => (
+                      // SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props)
+                      <SortableRow key={it.item_id} id={it.item_id}>
+                        {/* 這邊把屬性、監聽器「權限」傳出來 */}
+                        {({ dragAttributes, dragListeners }) => (
+                          <div
+                            style={{
+                              border: "1px solid #eee",
+                              borderRadius: 12,
+                              padding: 10,
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              alignItems: "center",
+                            }}
+                          >
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+                              {/* 拖拉把手（建議只用把手拖） */}
+                              <span
+                                {...dragAttributes}
+                                {...dragListeners}
+                                style={{
+                                  cursor: "grab",
+                                  padding: "4px 6px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: 8,
+                                  userSelect: "none",
+                                }}
+                                title="拖拉排序"
+                              >
+                                ⠿
+                              </span>
 
-                  <button
-                    onClick={() => removeItemM.mutate(it.item_id)}
-                    disabled={removeItemM.isPending}
-                    style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: "pointer" }}
-                    aria-label="remove itinerary"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontWeight: 700,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
+                                  {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => removeItemM.mutate(it.item_id)}
+                              disabled={removeItemM.isPending}
+                              style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                              aria-label="remove itinerary"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
+                      </SortableRow>
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
             )}
           </div>
         </div>

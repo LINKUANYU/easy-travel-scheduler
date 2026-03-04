@@ -22,9 +22,7 @@ def _ensure_trip_place(cur, trip_id: int, destination_id: int):
     "/api/trips/{trip_id}/days/{day_index}/itinerary",
     response_model=list[ItineraryItemOut]
 )
-def get_day_itinerary(trip_id: str, day_index: str, cur = Depends(get_cur)):
-    day_index = int(day_index)
-    trip_id = int(trip_id)
+def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
     _ensure_trip_day(cur, trip_id, day_index)
 
     cur.execute(
@@ -55,6 +53,7 @@ def get_day_itinerary(trip_id: str, day_index: str, cur = Depends(get_cur)):
     response_model=list[ItinerarySummaryRow],
 )
 def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
+
     cur.execute(
         """
         SELECT
@@ -77,8 +76,8 @@ def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
     response_model=ItineraryItemOut,
 )
 def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, cur=Depends(get_cur)):
-    destination_id = payload.destination_id
 
+    destination_id = payload.destination_id
     _ensure_trip_day(cur, trip_id, day_index)
     _ensure_trip_place(cur, trip_id, destination_id)
 
@@ -159,3 +158,53 @@ def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur)):
     cur.execute("DELETE FROM itinerary_items WHERE id=%s", (item_id,))
 
     return {"ok": True}
+
+
+# 更新：更新某天行程內景點的排序
+@router.put(
+    "/api/trips/{trip_id}/days/{day_index}/itinerary/reorder",
+    response_model=OkOut,
+)
+def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorderIn, cur=Depends(get_cur)):
+    # ordered 前端送進來已排序好的item_id
+    ordered = payload.ordered_item_ids
+    if not ordered:
+        raise HTTPException(status_code=400, detail="ordered_item_ids is required")
+
+    try:
+        # FOR UPDATE 鎖住該 day 的 itinerary items（避免競態）
+        cur.execute(
+            """
+            SELECT id FROM itinerary_items
+            WHERE trip_id =%s AND day_index = %s
+            FOR UPDATE
+        """,
+        (trip_id, day_index)
+        )
+        rows = cur.fetchall() or []
+        existing_ids = [r["id"] for r in rows]
+
+        # 防呆：前端送來的 ids 必須與目前 day 的 ids 完全一致（不多不少）
+        if set(existing_ids) != set(ordered):  # set集合，裡面的元素不能重複（會自動去重）。
+            raise HTTPException(status_code=400, detail="ordered_item_ids mismatch")
+        
+        
+        update_rows = []
+        # 依照每個item_id 的位置 更新他們的position
+        for pos, item_id in enumerate(ordered):
+            update_rows.append((pos, item_id))
+
+        cur.executemany(
+            """
+            UPDATE itinerary_items
+            SET position = %s
+            WHERE id = %s AND trip_id = %s AND day_index = %s
+            """,
+            [(pos, item_id, trip_id, day_index) for (pos, item_id) in update_rows]
+        )
+
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception:
+        raise
