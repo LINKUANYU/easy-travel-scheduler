@@ -19,11 +19,12 @@ def _ensure_trip_place(cur, trip_id: int, destination_id: int):
 
 # 讀：該份trip的某一天的行程
 @router.get(
-    "/api/trips/{tripId}/days/{day_index}/itinerary",
+    "/api/trips/{trip_id}/days/{day_index}/itinerary",
     response_model=list[ItineraryItemOut]
 )
-def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
-
+def get_day_itinerary(trip_id: str, day_index: str, cur = Depends(get_cur)):
+    day_index = int(day_index)
+    trip_id = int(trip_id)
     _ensure_trip_day(cur, trip_id, day_index)
 
     cur.execute(
