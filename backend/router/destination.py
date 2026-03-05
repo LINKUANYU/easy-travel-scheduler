@@ -6,7 +6,7 @@ from services.geo_service import *
 
 router = APIRouter()
 
-@router.post("/api/search", response_model=SearchResponse)
+@router.post("/api/search", response_model=list[Attraction])
 async def search_destinations_api(
     payload: SearchRequest,
     background_tasks: BackgroundTasks,
@@ -16,20 +16,20 @@ async def search_destinations_api(
     
     # 1.【搜尋】階段：多欄位模糊比對 (向上支援與向下支援的關鍵)
     # 我們同時找：輸入區域、城市名稱、以及標籤內是否包含關鍵字
-    print("1")
+    
     existing_spots_data = get_existing_destinations(location, cur)
-    print("2")
+    
     # 2. 【門檻檢查】：如果有 10 個以上景點，直接回傳，省下 Gemini 費用
     if len(existing_spots_data) >= 10:
         # 組合資料回給前端
         print(f"資料庫足夠的「{location}」資料")
-        return {"message": "existing_spots_data", "data": existing_spots_data}
+        return existing_spots_data
 
     # 3.【資料不足】叫整套搜尋API補完資料
-    print("3")
+    
     new_search_data = run_web_scraping_workflow(location)
     
-    print("7")
+    
     # --去重處理：先找google place id
     final_new_data = []
     exsiting_ids = {s['google_place_id'] for s in existing_spots_data if s.get('google_place_id')}
@@ -43,11 +43,11 @@ async def search_destinations_api(
             exsiting_ids.add(place_id) # 每一筆寫完後馬上加入既有組別，避免new_search_data自身資料id相同重複寫入
 
     # 4. 【寫入景點資料】
-    print("8")
+    
     saved_new_data = save_spot_data(final_new_data, cur)
     
     # 5. 【組合新舊資料回給前端】
     total_display_data = existing_spots_data + saved_new_data
 
     # 6. 【回給前端
-    return {"message": "total_display_data", "data": total_display_data}
+    return total_display_data

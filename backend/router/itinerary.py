@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from model.schema import *
-from services.db_service import get_cur
+from services.db_service import get_cur, get_conn
 from pymysql import IntegrityError
 
 router = APIRouter()
@@ -16,6 +16,21 @@ def _ensure_trip_place(cur, trip_id: int, destination_id: int):
     cur.execute("SELECT 1 FROM trip_places WHERE trip_id=%s AND destination_id=%s", (trip_id, destination_id))
     if not cur.fetchone():
         raise HTTPException(status_code=400, detail="Place is not in trip_places")
+
+def _repack_day_position(cur, trip_id: int, day_index: int):
+    cur.execute(
+        """
+        SELECT id, destination_id
+        FROM itinerary_items
+        WHERE trip_id = %s
+        AND day_index = %s
+        ORDER BY position ASC
+    """, (trip_id, day_index)
+    )
+    rows = cur.fetchall()
+
+    for pos, r in enumerate(rows):
+        cur.execute("UPDATE itinerary_items SET position = %s WHERE id = %s", (pos, r["id"]))
 
 # 讀：該份trip的某一天的行程
 @router.get(
@@ -75,13 +90,14 @@ def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
     "/api/trips/{trip_id}/days/{day_index}/itinerary",
     response_model=ItineraryItemOut,
 )
-def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, cur=Depends(get_cur)):
+def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, cur=Depends(get_cur), conn = Depends(get_conn)):
 
     destination_id = payload.destination_id
     _ensure_trip_day(cur, trip_id, day_index)
     _ensure_trip_place(cur, trip_id, destination_id)
-
+    _repack_day_position(cur, trip_id, day_index)  # 保險先把排序重新壓縮
     try:
+        conn.begin()
         # 取得當天最後一個 position（鎖住該 day 的尾端，避免競態）
         cur.execute(
             """
@@ -146,16 +162,20 @@ def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, 
     "/api/trips/{trip_id}/itinerary/{item_id}",
     response_model=OkOut,
 )
-def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur)):
+def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur), conn=Depends(get_conn)):
 
-    cur.execute("SELECT trip_id FROM itinerary_items WHERE id=%s", (item_id,))
+    cur.execute("SELECT trip_id, day_index FROM itinerary_items WHERE id=%s", (item_id,))
     row = cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Item not found")
     if row["trip_id"] != trip_id:
         raise HTTPException(status_code=400, detail="Trip mismatch")
 
+    day_index = row["day_index"]
+    conn.begin()
     cur.execute("DELETE FROM itinerary_items WHERE id=%s", (item_id,))
+
+    _repack_day_position(cur, trip_id, day_index)  # 刪除後排序重新壓縮
 
     return {"ok": True}
 

@@ -292,7 +292,13 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
 
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ 
+      display: "grid",
+      gap: 12,
+      height: "calc(100vh - 110px)", // 設定為視窗高度，需扣除上下空間
+      boxSizing: "border-box",
+      overflow: "hidden" // 防止最外層出現捲軸
+    }}>
       {uiMsg && <div style={{ fontSize: 13, opacity: 0.85 }}>{uiMsg}</div>}
 
       <div
@@ -300,24 +306,28 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
           display: "grid",
           gridTemplateColumns: "1fr 1fr 2fr", // ✅ 25/25/50
           gap: 12,
-          alignItems: "start",
+          alignItems: "stretch",
+          height: "100%", // ✅ 撐滿父容器
+          minHeight: 0    // ✅ 重要：防止內容撐開 Grid
         }}
       >
         {/* =========================
             左 25%：每日行程
            ========================= */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button onClick={prevDay} disabled={activeDay === 1} style={{cursor: "pointer"}}>
-              ◀
-            </button>
-            <div style={{ fontWeight: 800 }}>Day {activeDay}</div>
-            <button onClick={nextDay} disabled={activeDay === days} style={{cursor: "pointer"}}>
-              ▶
-            </button>
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
+          <div style={{ flexShrink: 0 }}> {/* 固定高度，不被壓縮 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button onClick={prevDay} disabled={activeDay === 1} style={{cursor: "pointer"}}>
+                ◀
+              </button>
+              <div style={{ fontWeight: 800 }}>Day {activeDay}</div>
+              <button onClick={nextDay} disabled={activeDay === days} style={{cursor: "pointer"}}>
+                ▶
+              </button>
+            </div>
           </div>
-
-          <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+          {/* 滾動內容區 */}
+          <div style={{ marginTop: 10, overflowY: "auto", flexGrow: 1, paddingRight:4 }}>
             {dayItinQ.isLoading ? (
               <p>Loading itinerary…</p>
             ) : dayItinQ.isError ? (
@@ -404,7 +414,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
         {/* =========================
             中 25%：景點池（加入行程按鈕）
            ========================= */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
           <div style={{ fontWeight: 800, marginBottom: 10 }}>Trip 景點池</div>
 
           {placesQ.isLoading ? (
@@ -414,71 +424,73 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
           ) : sortedPlaces.length === 0 ? (
             <p>尚未加入景點。</p>
           ) : (
-            <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
-              {sortedPlaces.map((p) => {
-                const scheduled = scheduledMap.get(p.destination_id);  // 從上面做好的 scheduledMap 表中找是否已存在某一天的行程內
-                return (
-                  <li
-                    key={p.destination_id}
-                    style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, cursor: "pointer" }}
-                    onClick={() => updatePreview(p.google_place_id, p.place_name)}
-                  >
-                    <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
-                    <div style={{ fontSize: 13, opacity: 0.75 }}>
-                      {p.city_name ? `${p.city_name} · ` : ""}
-                      {p.google_place_id ?? ""}
-                    </div>
+            <div style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
+              <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+                {sortedPlaces.map((p) => {
+                  const scheduled = scheduledMap.get(p.destination_id);  // 從上面做好的 scheduledMap 表中找是否已存在某一天的行程內
+                  return (
+                    <li
+                      key={p.destination_id}
+                      style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, cursor: "pointer" }}
+                      onClick={() => updatePreview(p.google_place_id, p.place_name)}
+                    >
+                      <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
+                      <div style={{ fontSize: 13, opacity: 0.75 }}>
+                        {p.city_name ? `${p.city_name} · ` : ""}
+                        {p.google_place_id ?? ""}
+                      </div>
 
-                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                      {/* 加入行程 / 已加入 */}
-                      {scheduled ? (
+                      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                        {/* 加入行程 / 已加入 */}
+                        {scheduled ? (
+                          <button
+                            disabled
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #ddd",
+                              opacity: 0.6,
+                            }}
+                            title={`已加入 Day ${scheduled.day_index}`}
+                          >
+                            已加入
+                          </button>
+
+                        ) : (
+                          <button
+                            onClick={() => addToDayM.mutate(p.destination_id)}
+                            disabled={addToDayM.isPending}
+                            style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: "pointer" }}
+                          >
+                            {addToDayM.isPending ? "Adding…" : "加入行程"}
+                          </button>
+                        )}
+
+                        {/* 你原本的「移除景點池」按鈕（可保留）
+                          Phase 1 建議：若 scheduled 就 disable，避免刪掉後 itinerary 變孤兒/不一致
+                        */}
                         <button
-                          disabled
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            opacity: 0.6,
-                          }}
-                          title={`已加入 Day ${scheduled.day_index}`}
+                          onClick={() => removeM.mutate(p.destination_id)}
+                          disabled={removeM.isPending || !!scheduled}
+                          style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: scheduled ? "not-allowed" : "pointer"}}
+                          title={scheduled ? "此景點已加入行程，請先從行程移除" : ""}
                         >
-                          已加入
+                          
+                          {removeM.isPending ? "Removing…" : "移除"}
                         </button>
-
-                      ) : (
-                        <button
-                          onClick={() => addToDayM.mutate(p.destination_id)}
-                          disabled={addToDayM.isPending}
-                          style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: "pointer" }}
-                        >
-                          {addToDayM.isPending ? "Adding…" : "加入行程"}
-                        </button>
-                      )}
-
-                      {/* 你原本的「移除景點池」按鈕（可保留）
-                         Phase 1 建議：若 scheduled 就 disable，避免刪掉後 itinerary 變孤兒/不一致
-                      */}
-                      <button
-                        onClick={() => removeM.mutate(p.destination_id)}
-                        disabled={removeM.isPending || !!scheduled}
-                        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: scheduled ? "not-allowed" : "pointer"}}
-                        title={scheduled ? "此景點已加入行程，請先從行程移除" : ""}
-                      >
-                        
-                        {removeM.isPending ? "Removing…" : "移除"}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
 
         {/* =========================
             右 50%：地圖（你原本的）
            ========================= */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", height: "100%" }}>
           <TripMap
             places={places}
             scheduleSummary={summaryQ.data ?? []}

@@ -51,33 +51,8 @@ export default function PlannerClient({ tripId }: { tripId: string }) {
         </div>
       </header>
 
-      {/* <nav style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <button
-          onClick={() => setTab("add")}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            fontWeight: tab === "add" ? 800 : 500,
-          }}
-        >
-          Add places
-        </button>
-        <button
-          onClick={() => setTab("schedule")}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            fontWeight: tab === "schedule" ? 800 : 500,
-          }}
-        >
-          Schedule（下一階段）
-        </button>
-      </nav> */}
-
       <section style={{ marginTop: 14 }}>
-        {tab === "add" ? <AddPlacesTab tripId={tid} days={trip.days} /> : <p>Schedule Tab：下一階段做</p>}
+        <AddPlacesTab tripId={tid} days={trip.days} />
       </section>
     </>
   );

@@ -58,6 +58,8 @@ export default function TripMap({
   const uidRef = useRef(`pv_${Math.random().toString(36).slice(2)}`);
   // 因為 InfoWindow 是用「HTML 字串」寫成的，不是真正的 React 元件。為了能在 document.getElementById 準確抓到這個視窗裡的按鈕，你需要一個唯一的 ID。
 
+  const hasInitialFit = useRef<boolean>(false); // 查看是否為第一次render的變數
+
   // 檢查place送進來的資料，lat/lng 不是 number 的就不要畫 marker，避免地圖 API 報錯
   const valid = useMemo(
     () => places.filter((p) => typeof p.lat === "number" && typeof p.lng === "number"),
@@ -90,24 +92,20 @@ export default function TripMap({
 
       // 1) init map once，mapRef.current 一旦有值，就不會再 new Map。
       if (!mapRef.current) {
-        const center =
-          previewValid
-            ? { lat: preview!.lat as number, lng: preview!.lng as number }  // 預覽點存在就看他
-            : valid[0]  
-              ? { lat: valid[0].lat as number, lng: valid[0].lng as number }
-              : { lat: 35.681236, lng: 139.767125 };
+        const defaultCenter ={ lat: 35.681236, lng: 139.767125 };
 
         // 召喚地圖物件
-        mapRef.current = new Map(divRef.current!, {
-          center,  
+        const mapInstance = new Map(divRef.current!, {
+          center: defaultCenter,
           zoom: 12, // 縮放層級
-          mapId: process.env.NEXT_PUBLIC_GOOGLE_MAP_ID ?? "DEMO_MAP_ID", // Map 的外觀樣式
+          mapId: "DEMO_MAP_ID", // Map 的外觀樣式
           streetViewControl: false,  // 關閉小黃人
           mapTypeControl: false,  // 關閉衛星/地圖切換
           fullscreenControl: false,  // 關閉全螢幕按鈕
           mapTypeControlOptions: { position: 0 as any },
         });
 
+        mapRef.current = mapInstance;
         infoRef.current = new google.maps.InfoWindow();
       }
 
@@ -138,7 +136,7 @@ export default function TripMap({
             background: dayColor,
             glyphColor: "#ffffff",
             borderColor: isActive ? "#FFFFFF" : "rgba(0,0,0,0.3)",
-            scale: isActive ? 1.5 : 1.0,
+            scale: isActive ? 1.5 : 1.1,
           } as any);
 
           const am = new AdvancedMarkerElement({
@@ -146,6 +144,7 @@ export default function TripMap({
             position: { lat: p.lat as number, lng: p.lng as number }, // 放的位置
             title: p.place_name ?? `#${p.destination_id}`,  //
             content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
+            zIndex: isActive ? 10 :1
           });
 
           markersRef.current.push(am);  // 放到Ref中
@@ -241,7 +240,10 @@ export default function TripMap({
         // 把html 塞入info
         infoRef.current!.setContent(html);
         // 讓 InfoWindow 永遠在最上層
-        infoRef.current!.setOptions({ zIndex: 999999 });
+        infoRef.current!.setOptions({ 
+          zIndex: 100, 
+          pixelOffset: new google.maps.Size(0, -20) // 視窗位置偏移向上
+        });
         // 畫面登場
         infoRef.current!.open({ map, anchor: am as any }); // 設定了 anchor，視窗就會自動對齊圖釘的尖端彈出來。
         // 清除「X 關閉」的監聽事件（google預設)
@@ -301,19 +303,24 @@ export default function TripMap({
         map.setZoom(15);
       }
 
-      // 5b) 在沒有預覽視窗時：顯示地圖包含景點池的畫面，邊界 fit bounds
-      if (!previewValid){
-        const pts: Array<{ lat: number; lng: number }> = [];  // 宣告一個陣列
-        for (const p of valid) pts.push({ lat: p.lat as number, lng: p.lng as number });  // 把既有地點塞進去
-        if (previewValid) pts.push({ lat: preview!.lat as number, lng: preview!.lng as number });  // 把preview 塞進去
+      // 5b) 在沒有預覽視窗 & 第一次call地圖時顯示包含景點池的畫面，邊界 fit bounds
+      if (!previewValid && !hasInitialFit.current){
+        const pts = valid.map(p => ({ lat: p.lat as number, lng: p.lng as number}));
 
-        if (pts.length > 1) {
-          const bounds = new google.maps.LatLngBounds();  // 建立一個「邊界盒子」
-          for (const p of pts) bounds.extend(p);  // 每當你執行一次 bounds.extend(p)，這個隱形的矩形就會自動「撐大」，直到剛好能裝下這個座標點 p。
-          map.fitBounds(bounds);  // 自動調整你的中心點和縮放層級 (Zoom)，讓畫面剛好裝下這個隱形矩形。
+        if (pts.length > 0){
+          const bounds = new google.maps.LatLngBounds();
+          pts.forEach(p => bounds.extend(p));
+          if (pts.length > 1) {
+            // 讓所有景點都進畫面，並留一點邊距 (padding)
+            map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+          } else {
+            // 只有一個點時，fitBounds 會縮太近，直接 center 到那一點
+            map.setCenter(pts[0]);
+            map.setZoom(15);
+          }
+          hasInitialFit.current = true;
         }
       }
-
     }
 
     boot();
@@ -335,7 +342,7 @@ export default function TripMap({
     <div
       style={{
         position: "relative",
-        height: "70vh",
+        height: "100%",
         width: "100%",
         borderRadius: 12,
         overflow: "hidden",

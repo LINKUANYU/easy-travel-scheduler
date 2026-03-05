@@ -1,21 +1,20 @@
 "use client"; // 告訴 Next.js 這是在瀏覽器執行的元件
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, } from "react";
+import { useMutation } from "@tanstack/react-query";
 import type { Attraction } from "@/types/attraction";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsSection from "@/components/ResultsSection";
 import AuthCorner from "@/components/AuthCorner";
 import StartPlanningButton from "@/components/StartPlanningButton";
+import { apiPost } from "@/lib/api";
 
 // ✅ 新增：把 draft 放在 page 當 single source
 import { useTripDraft } from "@/hooks/useTripDraft";
 // ✅ 之後你要放右下角開始規劃按鈕，就在這裡 render
 // import StartPlanningButton from "@/components/StartPlanningButton";
 
-type SearchResponse = {
-  data?: Attraction[];
-  message?: string;
-};
+type SearchResponse = Attraction[];
 
 export default function Home(){
   const [mounted, setMounted] = useState(false);
@@ -28,43 +27,31 @@ export default function Home(){
 
   const [responseMsg, setResponseMsg] = useState<string>("");
   const [travelList, setTravelList] = useState<Attraction[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
 
   // ✅ single source of truth
   const { ids, add, remove, draft, clear } = useTripDraft();
 
+  const mutation = useMutation({
+    mutationFn: (location: string) =>
+      apiPost<SearchResponse>("http://localhost:8000/api/search", {location}),
+    onSuccess: (data, location) => {
+      setCurrentDestination(location);
+      setTravelList(data);
+      setMode("results");
+      setResponseMsg("");
+    },
+    onError: (err: any) => {
+      console.error("搜尋發生錯誤", err);
+      setMode("search");
+      setTravelList([]);
+      setDestinationInput("");
+      setResponseMsg(err.message || "連線失敗，請稍後再試");
+    }
+  });
+
   const handleSearch = async (location: string) => {
     if (!location.trim()) return alert("請輸入地點");
-
-    setLoading(true);
-    setResponseMsg("");
-
-    try{
-      const response = await fetch("http://localhost:8000/api/search", {
-        method: "POST",
-        headers: {"content-type": "application/json"},
-        body: JSON.stringify({ location: location})
-      });
-
-      const data: SearchResponse = await response.json();
-      
-      setCurrentDestination(location);   // ✅ 更新標題城市
-      setMode("results");                // ✅ 不管有沒有結果，都進 results 模式
-
-      if (Array.isArray(data.data) && data.data.length > 0){
-        setTravelList(data.data);   // ✅ 用新結果覆蓋舊結果
-      }else{
-        setTravelList([]);    // ✅ 沒結果就清空顯示
-        setResponseMsg(data.message ?? "沒有找到資料");
-      }
-    }catch(err){
-      console.error("Error", err);
-      setMode("results");
-      setTravelList([]);
-      setResponseMsg("伺服器發生錯誤，請稍後再試");
-    }finally{
-      setLoading(false);
-    }
+    mutation.mutate(location)
 
   }
 
@@ -74,7 +61,7 @@ export default function Home(){
       <AuthCorner/> 
       */}
       
-      {loading ? (
+      {mutation.isPending ? (
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="flex flex-col items-center justify-center gap-3">
             <div className="h-10 w-10 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin" />
@@ -86,7 +73,7 @@ export default function Home(){
           destination={destinationInput}
           onDestinationChange={setDestinationInput}
           onSearch={() => handleSearch(destinationInput)}
-          loading={loading}
+          loading={mutation.isPending}
           responseMsg={responseMsg}
         />
       ) : (

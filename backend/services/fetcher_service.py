@@ -50,11 +50,12 @@ def get_travel_blog_urls(location):
                 if is_valid_url and is_relevant and correct_location:
                     urls.append(r['href'])
     except Exception as e:
-        print(f"⚠️ 搜尋發生錯誤: {e}")
+        print(f"⚠️ duckduckgo搜尋發生錯誤: {e}")
+        raise HTTPException(status_code=500, detail="duckduckgo搜尋發生錯誤")
     
-    if not urls:
+    if len(urls) < 3:
         print("❌ 警告：搜尋結果為空！請檢查關鍵字是否正確。")
-        raise HTTPException(status_code=500, detail="沒有符合要求的網址")
+        raise HTTPException(status_code=500, detail="沒有符合要求的地點，請重新輸入")
     print(f"總共搜尋{len(ddgs_gen)}筆結果，有{len(urls)}筆符合要求")
     print(urls[:3])
     return urls[:3]
@@ -129,6 +130,10 @@ def extract_spots_from_urls(urls, location):
             else:
                 # 如果沒抓到標籤，就嘗試直接解析
                 data = json.loads(raw_data)
+
+            if len(data) < 3:
+                print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
+                raise HTTPException(status_code=500, detail="沒有符合要求的地點，請重新輸入")
             print(f"總共有 {len(data)} 筆景點")
             return data
         
@@ -229,11 +234,11 @@ def integrate_spot_results(location, ai_gen_data, img_data):
 
 def run_web_scraping_workflow(location):
     urls = get_travel_blog_urls(location)
-    print("4")
+    
     ai_gen_data = extract_spots_from_urls(urls, location)
-    print("5")
+    
     img_data = fetch_attraction_images(ai_gen_data)
-    print("6")
+    
     result = integrate_spot_results(location, ai_gen_data, img_data)
 
     return result
