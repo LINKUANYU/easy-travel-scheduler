@@ -1,23 +1,27 @@
 // TripMap.tsx
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { use, useEffect, useMemo, useRef } from "react";
 import { loadGoogleMaps } from "@/lib/googleMapsLoader";
 import type { PlacePreview } from "@/lib/placePreview";
+import type { TripPlace, ItinerarySummaryRow } from "@/types/attraction";
 
-type TripPlace = {
-  destination_id: number;
-  place_name?: string;
-  lat?: number | null;
-  lng?: number | null;
-  google_place_id?: string;
-};
 
 // 這是為了防止 XSS 攻擊做轉譯
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string
   ));
+}
+
+
+const DAY_COLORS = [
+  "#1A73E8", "#34A853", "#FBBC05", "#EA4335",
+  "#A142F4", "#00ACC1", "#F06292", "#7CB342",
+];
+
+function colorForDay(dayIndex: number) {
+  return DAY_COLORS[(dayIndex - 1) % DAY_COLORS.length];
 }
 
 export default function TripMap({
@@ -27,6 +31,8 @@ export default function TripMap({
   onAddPreview,  // preview 中的「加入trip」，callback 回傳給上層
   onClearPreview,  // preview 中的「關閉預覽、X」，callback 回傳給上層
   isAddingPreview,
+  scheduleSummary,
+  activeDay
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
@@ -34,6 +40,8 @@ export default function TripMap({
   onAddPreview?: (placeId: string) => void;
   onClearPreview?: () => void;
   isAddingPreview?: boolean;
+  scheduleSummary?: ItinerarySummaryRow[];
+  activeDay?: number
 }) {
   /** Ref特性：不觸發re-render、裡面東西不會消失
   Google Map / Marker 是「外部物件」，不應該放在 React state（state 變動會觸發 re-render，反而干擾）
@@ -54,6 +62,14 @@ export default function TripMap({
   const valid = useMemo(
     () => places.filter((p) => typeof p.lat === "number" && typeof p.lng === "number"),
     [places]
+  );
+
+  const schedMap = useMemo(
+    () => {
+      const m = new Map<number, ItinerarySummaryRow>();
+      for ( const r of scheduleSummary ?? []) m.set(r.destination_id, r);
+      return m;
+    }, [scheduleSummary]
   );
 
   // 檢查preview送進來的資料
@@ -97,6 +113,7 @@ export default function TripMap({
 
       const map = mapRef.current!;
 
+
       // 2) clear old trip markers，清除所有舊圖釘
       // 在 Google Maps API 中，要讓一個圖釘消失要把它的 map 屬性設為 null
       for (const m of markersRef.current) m.map = null;  // 把所有圖釘從Ref內設成null
@@ -110,15 +127,37 @@ export default function TripMap({
       // 3) 按照trip清單建立圖釘
       for (let i = 0; i < valid.length; i++) {
         const p = valid[i];
-        // const pin = new PinElement({ glyphText: String(i + 1) });  // 設定圖釘的數字
+        // 3A) 如果有排入行程的話，改變圖釘樣式
+        const sched = schedMap.get(p.destination_id)
 
+        if (sched){
+          const dayColor = colorForDay(sched.day_index)
+          const isActive = activeDay ? sched.day_index === activeDay : false;
+          const pin = new PinElement({ 
+            glyphText: String(sched.position + 1),   // 設定圖釘的數字
+            background: dayColor,
+            glyphColor: "#ffffff",
+            borderColor: isActive ? "#FFFFFF" : "rgba(0,0,0,0.3)",
+            scale: isActive ? 1.5 : 1.0,
+          } as any);
+
+          const am = new AdvancedMarkerElement({
+            map,  // 要放在哪個map
+            position: { lat: p.lat as number, lng: p.lng as number }, // 放的位置
+            title: p.place_name ?? `#${p.destination_id}`,  //
+            content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
+          });
+
+          markersRef.current.push(am);  // 放到Ref中
+          continue;
+        }
+
+        // 3B) 沒有排入行程的話，保持預設樣式
         const am = new AdvancedMarkerElement({
           map,  // 要放在哪個map
           position: { lat: p.lat as number, lng: p.lng as number }, // 放的位置
           title: p.place_name ?? `#${p.destination_id}`,  //
-          // content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
         });
-
         markersRef.current.push(am);  // 放到Ref中
       }
 
@@ -128,7 +167,8 @@ export default function TripMap({
         const isAlreadyInTrip = places.some(
           (p) => p.google_place_id === preview!.id
         );
-        const pin = new PinElement({ glyphText: "★" });
+        
+        const pin = new PinElement({ glyphText: "★" } as any);
         const am = new AdvancedMarkerElement({
           map,
           position: { lat: preview!.lat as number, lng: preview!.lng as number },
@@ -136,6 +176,7 @@ export default function TripMap({
           content: pin,
         });
         previewMarkerRef.current = am;
+
 
         const addId = `${uidRef.current}_${preview!.id}_add`;
         const clearId = `${uidRef.current}_${preview!.id}_clear`;
@@ -288,7 +329,7 @@ export default function TripMap({
 
       infoRef.current?.close();
     };
-  }, [valid, preview?.id, previewValid, isAddingPreview, onAddPreview, onClearPreview]);
+  }, [valid, schedMap, activeDay, preview?.id, previewValid, isAddingPreview, onAddPreview, onClearPreview]);
 
   return (
     <div

@@ -7,7 +7,7 @@ import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput"
 import TripMap from "@/components/planner/TripMap";
 import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/attraction";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, pointerWithin } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -179,18 +179,21 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       );
     },
     onSuccess: async () => {
-      // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
-      await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
+      await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }); // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
+      await qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
     },
     onError: (e: any) => {
       setUiMsg(`排序更新失敗：${e?.message || "unknown error"}`);
       window.setTimeout(() => setUiMsg(""), 1500);
       // 失敗時建議回復伺服器版本
       qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
+      qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
     },
   });
   
-  // Day 切換函數
+  // ---------------------------------------------------------
+  // 5. 輔助函式
+  // ---------------------------------------------------------
   function prevDay(){
     setActiveDay((d) => Math.max(1, d - 1));
   }
@@ -198,7 +201,30 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     setActiveDay((d) => Math.min(days, d + 1));
   }
 
-  // *** 拖拉套件 ***
+  const updatePreview = async (placeId: string, displayName?: string) => {
+    if (!placeId) return;
+
+    setPreviewErr("");
+    setPreviewLoading(true);
+    setPreview(null);
+
+    const token = ++pickTokenRef.current;
+    try{
+      const data = await fetchPlacePreview(placeId);
+      if (token !== pickTokenRef.current) return;
+      setPreview({...data, name: data.name ?? displayName})
+    } catch (e: any) {
+      if (token !== pickTokenRef.current) return;
+      setPreviewErr(e?.message || String(e));
+    } finally {
+      if (token === pickTokenRef.current) setPreviewLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------
+  // 6. 拖拉套件
+  // ---------------------------------------------------------
+
   // SortableRow：UI 的執行工人，像是一個「透明的防護罩」，把你的景點資料（例如台北 101）包起來。
   function SortableRow({ id, children }: {
     id: number;
@@ -337,7 +363,10 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                                 ⠿
                               </span>
 
-                              <div style={{ minWidth: 0 }}>
+                              <div 
+                                style={{ minWidth: 0, cursor: "pointer"}} 
+                                onClick={() => updatePreview(it.google_place_id, it.place_name)}
+                              >
                                 <div
                                   style={{
                                     fontWeight: 700,
@@ -391,7 +420,8 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                 return (
                   <li
                     key={p.destination_id}
-                    style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}
+                    style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, cursor: "pointer" }}
+                    onClick={() => updatePreview(p.google_place_id, p.place_name)}
                   >
                     <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
                     <div style={{ fontSize: 13, opacity: 0.75 }}>
@@ -451,6 +481,8 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
         <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden" }}>
           <TripMap
             places={places}
+            scheduleSummary={summaryQ.data ?? []}
+            activeDay={activeDay}
             preview={preview}
             isAddingPreview={addM.isPending}
             onAddPreview={(placeId) => {
@@ -464,23 +496,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                 <PlaceAutocompleteInput
                   disabled={previewLoading}
                   placeholder="搜尋並選擇地點（Google Places）"
-                  onPick={async ({ placeId, label }) => {
-                    setPreviewErr("");
-                    setPreviewLoading(true);
-                    setPreview(null);
-
-                    const token = ++pickTokenRef.current;
-                    try {
-                      const data = await fetchPlacePreview(placeId);
-                      if (token !== pickTokenRef.current) return;
-                      setPreview({ ...data, name: data.name ?? label });
-                    } catch (e: any) {
-                      if (token !== pickTokenRef.current) return;
-                      setPreviewErr(e?.message || String(e));
-                    } finally {
-                      if (token === pickTokenRef.current) setPreviewLoading(false);
-                    }
-                  }}
+                  onPick={({placeId, label}) => updatePreview(placeId, label)}
                 />
 
                 {(previewLoading || previewErr) && (

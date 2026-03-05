@@ -19,7 +19,7 @@ export interface TripPlace {
   destination_id: number;
   place_name?: string;
   city_name?: string;
-  google_place_id?: string;
+  google_place_id: string;
   lat?: number | null;
   lng?: number | null;
   // 你後端如果有 photos/cover 也可加上來
@@ -34,7 +34,7 @@ export interface ItineraryItem {
   place_name?: string;
   lat?: number | null;
   lng?: number | null;
-  google_place_id?: string;
+  google_place_id: string;
 };
 
 export interface ItinerarySummaryRow {
