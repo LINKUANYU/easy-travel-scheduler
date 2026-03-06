@@ -42,7 +42,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const placesQ = useQuery({
     queryKey: ["tripPlaces", tripId],
     queryFn: async () => {
-      const payload = await apiGet<any>(`http://localhost:8000/api/trips/${tripId}/places`);
+      const payload = await apiGet<any>(`/api/trips/${tripId}/places`);
       return normalizeArrayPayload<TripPlace>(payload);
     },
   });
@@ -53,7 +53,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const summaryQ = useQuery({
     queryKey: ["itinerarySummary", tripId],
     queryFn: async () => {
-      const payload = await apiGet<any>(`http://localhost:8000/api/trips/${tripId}/itinerary/summary`);
+      const payload = await apiGet<any>(`/api/trips/${tripId}/itinerary/summary`);
       return normalizeArrayPayload<ItinerarySummaryRow>(payload);
     },
   });
@@ -63,7 +63,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     queryKey: ["dayItinerary", tripId, activeDay],
     queryFn: async () => {
       const payload = await apiGet<any>(
-        `http://localhost:8000/api/trips/${tripId}/days/${activeDay}/itinerary`
+        `/api/trips/${tripId}/days/${activeDay}/itinerary`
       );
       return normalizeArrayPayload<ItineraryItem>(payload);
     },
@@ -107,7 +107,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const addM = useMutation({
     mutationFn: async (google_place_id: string) => {
       // 依你的後端設計：這裡假設 body 叫 google_place_id
-      return apiPost<any>(`http://localhost:8000/api/trips/${tripId}/places`, { google_place_id });
+      return apiPost<any>(`/api/trips/${tripId}/places`, { google_place_id });
     },
     onSuccess: async () => {
       setUiMsg("已加入！");
@@ -120,7 +120,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   // [移除景點池裡的景點]
   const removeM = useMutation({
     mutationFn: async (destination_id: number) => {
-      return apiDelete<any>(`http://localhost:8000/api/trips/${tripId}/places/${destination_id}`);
+      return apiDelete<any>(`/api/trips/${tripId}/places/${destination_id}`);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["tripPlaces", tripId] });
@@ -135,7 +135,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const addToDayM = useMutation({
     mutationFn: async (destination_id: number) => {
       return apiPost<any>(
-        `http://localhost:8000/api/trips/${tripId}/days/${activeDay}/itinerary`,
+        `/api/trips/${tripId}/days/${activeDay}/itinerary`,
         { destination_id }
       );
     },
@@ -156,7 +156,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   // [將當日排程內的景點移除]
   const removeItemM = useMutation({
     mutationFn: async (item_id: number) => {
-      return apiDelete<any>(`http://localhost:8000/api/trips/${tripId}/itinerary/${item_id}`);
+      return apiDelete<any>(`/api/trips/${tripId}/itinerary/${item_id}`);
     },
     onSuccess: async () => {
       await Promise.all([
@@ -174,7 +174,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const reorderM = useMutation({
     mutationFn: async (ordered_item_ids: number[]) => {
       return apiPut<{ ok: boolean }>(
-        `http://localhost:8000/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
+        `/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
         { ordered_item_ids }
       );
     },

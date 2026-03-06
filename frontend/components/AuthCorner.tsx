@@ -13,7 +13,7 @@ type User = {
 
 type LogoutRes = { ok: true };
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 
 async function apiRequest<T>(  //所以你 return payload as T; 就是把回來的 JSON 當作 T 回傳
   method: "GET" | "POST",

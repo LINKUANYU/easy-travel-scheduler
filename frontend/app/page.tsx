@@ -30,7 +30,7 @@ export default function Home(){
 
   const mutation = useMutation({
     mutationFn: (location: string) =>
-      apiPost<SearchResponse>("http://localhost:8000/api/search", {location}),
+      apiPost<SearchResponse>("/api/search", {location}),
     onSuccess: (data, location) => {
       setCurrentDestination(location);
       setTravelList(data);

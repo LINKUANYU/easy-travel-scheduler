@@ -66,7 +66,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
         places: placeIds.map((gpid) => ({google_place_id: gpid})) // 如果沒景點，這裡就是空陣列 []
       }
 
-      const res = await fetch("http://localhost:8000/api/trips", {
+      const res = await fetch("/api/trips", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
