@@ -4,7 +4,7 @@
 import { use, useEffect, useMemo, useRef } from "react";
 import { loadGoogleMaps } from "@/lib/googleMapsLoader";
 import type { PlacePreview } from "@/lib/placePreview";
-import type { TripPlace, ItinerarySummaryRow } from "@/types/attraction";
+import type { TripPlace, ItinerarySummaryRow } from "@/types/all-types";
 
 
 // 這是為了防止 XSS 攻擊做轉譯

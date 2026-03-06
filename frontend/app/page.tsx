@@ -2,7 +2,7 @@
 
 import { useState, useEffect, } from "react";
 import { useMutation } from "@tanstack/react-query";
-import type { Attraction } from "@/types/attraction";
+import type { Attraction } from "@/types/all-types";
 import SearchPanel from "@/components/SearchPanel";
 import ResultsSection from "@/components/ResultsSection";
 import AuthCorner from "@/components/AuthCorner";

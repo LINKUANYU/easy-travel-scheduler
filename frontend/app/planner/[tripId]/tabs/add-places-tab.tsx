@@ -6,7 +6,7 @@ import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
 import TripMap from "@/components/planner/TripMap";
 import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
-import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/attraction";
+import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/all-types";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, pointerWithin } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
