@@ -24,7 +24,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
 
   const draftCount = draft.length;
 
-  // 去重(以防萬一)
+  // 去重(以防萬一) 如果沒景點，這裡就是空陣列 []
   const placeIds = useMemo(() => {
     const set = new Set<string>(); // 建立資料結構set
     for (const p of draft){
@@ -33,7 +33,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
     return Array.from(set);  // 把set轉成陣列
   }, [draft]);
 
-  const canOpen = draftCount > 0;
+  // const canOpen = draftCount > 0;
 
   const close = () => {
     setOpen(false);
@@ -44,7 +44,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
   const todayStr = new Intl.DateTimeFormat('fr-CA').format(new Date());
 
   const submit = async() => {
-    if (placeIds.length === 0) return;
+    // if (placeIds.length === 0) return;
     if (days < 1 || days > 60) {
       setErrMsg("請輸入天數 1~60天");
       return
@@ -63,7 +63,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
         title: title.trim() || "My trip",
         days,
         startDate: startDate ? startDate : null,
-        places: placeIds.map((gpid) => ({google_place_id: gpid}))
+        places: placeIds.map((gpid) => ({google_place_id: gpid})) // 如果沒景點，這裡就是空陣列 []
       }
 
       const res = await fetch("http://localhost:8000/api/trips", {
@@ -101,7 +101,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
   };
 
   // 沒有 draft 就不顯示按鈕
-  if (!canOpen) return null;
+  // if (!canOpen) return null;
 
   return (
     <>
@@ -110,7 +110,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
         onClick={() => setOpen(true)}
         className="fixed bottom-8 right-8 z-50 rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg hover:bg-blue-700 transition"
       >
-        開始規劃（{draftCount}）
+        下一步：開始規劃（已加入{draftCount}個景點）
       </button>
 
       {/* Modal */}
@@ -186,16 +186,12 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
                 <button
                   onClick={submit}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
-                  disabled={submitting || placeIds.length === 0}
+                  disabled={submitting}
                 >
-                  {submitting ? "建立中..." : "建立並進入 Planner"}
+                  {submitting ? "建立中..." : "建立"}
                 </button>
               </div>
             </div>
-
-            <p className="mt-3 text-xs text-gray-500">
-              本次會建立 Trip，並把你已加入的 {draftCount} 個景點一次加入 Trip 景點池。
-            </p>
           </div>
         </div>
       )}

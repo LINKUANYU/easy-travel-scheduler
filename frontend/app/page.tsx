@@ -17,9 +17,6 @@ import { useTripDraft } from "@/hooks/useTripDraft";
 type SearchResponse = Attraction[];
 
 export default function Home(){
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  
   const [mode, setMode] = useState<"search" | "results">("search");
 
   const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
@@ -77,23 +74,23 @@ export default function Home(){
           responseMsg={responseMsg}
         />
       ) : (
-        <ResultsSection
-          destination={currentDestination}
-          travelList={travelList}
-          responseMsg={responseMsg}
-          onSearchOther={handleSearch}    // ✅ 給 Results 內的「搜尋其他城市」用
-          draftIds={ids}
-          onAddToDraft={add}
-          onRemoveFromDraft={remove}
-        />
+        <>
+          <ResultsSection
+            destination={currentDestination}
+            travelList={travelList}
+            responseMsg={responseMsg}
+            onSearchOther={handleSearch}    // ✅ 給 Results 內的「搜尋其他城市」用
+            draftIds={ids}
+            onAddToDraft={add}
+            onRemoveFromDraft={remove}
+          />
+          <StartPlanningButton
+            draft={draft}
+            onCreated={clear}
+          />
+        </>
       )}
 
-      {mounted && (
-        <StartPlanningButton
-          draft={draft}
-          onCreated={clear}
-        />
-      )}
     </main>
   );
 
