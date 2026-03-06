@@ -9,12 +9,13 @@ from pymysql.err import IntegrityError
 
 
 DB_HOST = os.getenv('DB_HOST')
-DB_PORT = int(os.getenv('DB_PORT'))
+DB_PORT = int(os.getenv('DB_PORT', 3306))
 DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv("DB_NAME")
 
-if not DB_PASSWORD and not DB_USER or not DB_HOST:
-    sys.exit("Critical Error: DB connect fail, missing access keys in environment variables.")
+if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
+    sys.exit("Critical Error: Missing environment variables for DB connection.")
 
 POOL = PooledDB(
     creator=pymysql,  # 使用 PyMySQL 作為驅動
@@ -24,7 +25,7 @@ POOL = PooledDB(
     user=DB_USER,
     port=DB_PORT,
     password= DB_PASSWORD,
-    database='easy-travel-scheduler',
+    database=DB_NAME,
     charset='utf8mb4',
     cursorclass=pymysql.cursors.DictCursor, # cursor() 就會回傳字典型態的資料了
     blocking=True      # 連線池滿了時，是否要等待（True 為等待）
