@@ -1,15 +1,17 @@
 "use client";
 
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, useEffect, use } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
 import TripMap from "@/components/planner/TripMap";
 import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/all-types";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, pointerWithin } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { fetchPlaceThumb, type PlaceThumb } from "@/lib/placeThumb";
+
 
 
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -46,7 +48,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       return normalizeArrayPayload<TripPlace>(payload);
     },
   });
-  // 輔助變數
+  // 輔助變數－景點池內的資料
   const places = useMemo(() => placesQ.data ?? [], [placesQ.data]);
 
   // B. 行程摘要：用來快速對照哪些景點「已經出現在哪一天」
@@ -68,8 +70,8 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       return normalizeArrayPayload<ItineraryItem>(payload);
     },
   });
-  // 輔助變數
-  const dayItems = dayItinQ.data ?? [];
+  // 輔助變數－每日行程內的資料
+  const dayItems = dayItinQ.data ?? [];  
 
   // ---------------------------------------------------------
   // 3. 資料衍生與轉換 (Derived State - useMemo)
@@ -289,6 +291,75 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     慢速軌道 (Backend)：onDragEnd 同時把 ID 陣列送往 FastAPI，完成資料庫持久化。
    */
 
+  
+  // ---------------------------------------------------------
+  // 7. 景點池、每日行程補縮圖
+  // ---------------------------------------------------------
+  // Record 定義成一個物件 {string: PlaceThumb} 組成
+  const [ thumbMap, setThumbMap ] = useState<Record<string, PlaceThumb>>({});
+
+  // 拿「每日景點」、「景點池」的google ids
+  const neededPlaceIds = useMemo(() => {
+    const ids = new Set<string>();
+    
+    for (const it of dayItems) {
+      if (it.google_place_id) ids.add(it.google_place_id);
+    }
+    for (const p of sortedPlaces) {
+      if (p.google_place_id) ids.add(p.google_place_id)};
+
+    return Array.from(ids)
+  }, [dayItems, sortedPlaces]);
+
+  useEffect(() => {
+    let cancelled = false;  
+
+    // 從「目前畫面需要的所有 placeId」裡，只挑出「還沒存在 thumbMap 裡」的那些 id。
+    const missingIds = neededPlaceIds.filter((id) => !thumbMap[id]);
+    // 這裡的 id 不是固定文字，而是 filter() 每次跑時拿到的一個 place id，例如 "ChIJL..."。所以你不能寫：thumbMap.id
+    
+    if (missingIds.length === 0) return;
+
+    async function loadThumb(){
+      const results = await Promise.allSettled(
+        missingIds.map((placeId) => fetchPlaceThumb(placeId)) // 對每個都去抓圖
+      );
+      
+      if (cancelled) return; // 因為非同步，資料抓完先檢查元件有沒有被卸載，沒有才繼續渲染
+
+      setThumbMap((prev) => { // 先傳入舊的state
+        const next = { ...prev };
+
+        // result 與 missingIds 的順序會對齊
+        results.forEach((result, index) => {
+          const placeId = missingIds[index];  // 把missingIds 陣列裡的id抓出來
+          if (next[placeId]) return;  // 如果已經存在在舊的state就retrun
+
+          next[placeId] =             // 如果不存在就新增一個{placeId: result.value 圖片結果}
+            result.status === "fulfilled"  // 如果fetch 是成功的話
+              ? result.value
+              : ({} as PlaceThumb);  // fetch 失敗就放空的
+        });
+        
+        return next;
+      });
+    }
+
+    loadThumb();
+
+    return () => {
+      cancelled = true;  // cleanup 代表這一輪 effect 結束了，之後它的 async 結果就不要再碰 state 了。
+    };
+
+  }, [neededPlaceIds]);
+
+  function getThumbUrl(placeId?: string | null) {
+    if (!placeId) return undefined;
+
+    const thumb = thumbMap[placeId];
+    
+    return thumb?.url
+  }
 
 
   return (
@@ -340,69 +411,99 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                 {/* SortableContext 劃定了「這區的東西可以互相排隊」的範圍。items: 必須傳入一個單純的 ID 陣列。「在這個範圍內，這些 ID 才是我們要追蹤的目標」。 */}
                 <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>
                   <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-                    {dayItems.map((it, idx) => (
-                      // SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props)
-                      <SortableRow key={it.item_id} id={it.item_id}>
-                        {/* 這邊把屬性、監聽器「權限」傳出來 */}
-                        {({ dragAttributes, dragListeners }) => (
-                          <div
-                            style={{
-                              border: "1px solid #eee",
-                              borderRadius: 12,
-                              padding: 10,
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 8,
-                              alignItems: "center",
-                            }}
-                          >
-                            <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-                              {/* 拖拉把手（建議只用把手拖） */}
-                              <span
-                                {...dragAttributes}
-                                {...dragListeners}
-                                style={{
-                                  cursor: "grab",
-                                  padding: "4px 6px",
-                                  border: "1px solid #ddd",
-                                  borderRadius: 8,
-                                  userSelect: "none",
-                                }}
-                                title="拖拉排序"
-                              >
-                                ⠿
-                              </span>
+                    {dayItems.map((it, idx) => {
+                      const thumbUrl = getThumbUrl(it.google_place_id);
 
-                              <div 
-                                style={{ minWidth: 0, cursor: "pointer"}} 
-                                onClick={() => updatePreview(it.google_place_id, it.place_name)}
-                              >
-                                <div
+                      return (
+                        // SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props)
+                        <SortableRow key={it.item_id} id={it.item_id}>
+                          {/* 這邊把屬性、監聽器「權限」傳出來 */}
+                          {({ dragAttributes, dragListeners }) => (
+                            <div
+                              style={{
+                                border: "1px solid #eee",
+                                borderRadius: 12,
+                                padding: 10,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+                                {/* 拖拉把手（建議只用把手拖） */}
+                                <span
+                                  {...dragAttributes}
+                                  {...dragListeners}
                                   style={{
-                                    fontWeight: 700,
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
+                                    cursor: "grab",
+                                    padding: "4px 6px",
+                                    border: "1px solid #ddd",
+                                    borderRadius: 8,
+                                    userSelect: "none",
                                   }}
+                                  title="拖拉排序"
                                 >
-                                  {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
-                                  {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                  ⠿
+                                </span>
+                                
+                                {thumbUrl ? (
+                                  <img
+                                    src={thumbUrl}
+                                    alt={it.place_name ?? "place"}
+                                    style={{
+                                      width: 56,
+                                      height: 56,
+                                      objectFit: "cover",
+                                      borderRadius: 10,
+                                      flexShrink: 0,
+                                      border: "1px solid #eee",
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: 56,
+                                      height: 56,
+                                      borderRadius: 10,
+                                      background: "#f3f3f3",
+                                      flexShrink: 0,
+                                      border: "1px solid #eee",
+                                    }}
+                                  />
+                                )}
+
+                                <div 
+                                  style={{ minWidth: 0, cursor: "pointer"}} 
+                                  onClick={() => updatePreview(it.google_place_id, it.place_name)}
+                                >
+                                  <div
+                                    style={{
+                                      fontWeight: 700,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
+                                    {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <button
-                              onClick={() => removeItemM.mutate(it.item_id)}
-                              disabled={removeItemM.isPending}
-                              style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                              aria-label="remove itinerary"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                      </SortableRow>
-                    ))}
+                              <button
+                                onClick={() => removeItemM.mutate(it.item_id)}
+                                disabled={removeItemM.isPending}
+                                style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                                aria-label="remove itinerary"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </SortableRow>
+                      )
+                    })}
                   </div>
                 </SortableContext>
               </DndContext>
@@ -428,16 +529,64 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
               <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
                 {sortedPlaces.map((p) => {
                   const scheduled = scheduledMap.get(p.destination_id);  // 從上面做好的 scheduledMap 表中找是否已存在某一天的行程內
+                  const thumbUrl = getThumbUrl(p.google_place_id);
                   return (
                     <li
                       key={p.destination_id}
                       style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, cursor: "pointer" }}
                       onClick={() => updatePreview(p.google_place_id, p.place_name)}
                     >
-                      <div style={{ fontWeight: 800 }}>{p.place_name ?? `#${p.destination_id}`}</div>
-                      <div style={{ fontSize: 13, opacity: 0.75 }}>
-                        {p.city_name ? `${p.city_name} · ` : ""}
-                        {p.google_place_id ?? ""}
+                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        {thumbUrl ? (
+                          <img
+                            src={thumbUrl}
+                            alt={p.place_name ?? "place"}
+                            style={{
+                              width: 72,
+                              height: 72,
+                              objectFit: "cover",
+                              borderRadius: 10,
+                              flexShrink: 0,
+                              border: "1px solid #eee",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 72,
+                              height: 72,
+                              borderRadius: 10,
+                              background: "#f3f3f3",
+                              flexShrink: 0,
+                              border: "1px solid #eee",
+                            }}
+                          />
+                        )}
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {p.place_name ?? `#${p.destination_id}`}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 13,
+                              opacity: 0.75,
+                              marginTop: 4,
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {p.city_name ? `${p.city_name} · ` : ""}
+                            {p.google_place_id ?? ""}
+                          </div>
+                        </div>
                       </div>
 
                       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
