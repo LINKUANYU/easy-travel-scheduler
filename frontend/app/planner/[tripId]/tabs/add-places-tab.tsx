@@ -1,16 +1,17 @@
 "use client";
 
-import { useRef, useMemo, useState, useEffect, use } from "react";
+import { useRef, useMemo, useState, useEffect, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
 import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
 import TripMap from "@/components/planner/TripMap";
 import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
-import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/types/all-types";
+import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode, LegRouteState, } from "@/types/all-types";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { fetchPlaceThumb, type PlaceThumb } from "@/lib/placeThumb";
+import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute, type SimpleComputeRoutesRequest } from "@/lib/route-leg";
 
 
 
@@ -99,6 +100,45 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     });
     return arr;
   }, [places, scheduledMap]); // 「景點池更新」或「行程表異動（導致 Map 改變）」時，才會重新排序。
+
+  //「資料完整性」 與 「單一事實來源」，確定從「景點池」來的資料一定有lat、lng。因為「每日行程」內的景點需要座標資料，所以建立這個useMemo
+  const placeByDestinationId = useMemo(() => {
+    const m = new Map<number, TripPlace>();
+    for (const p of places) {
+      m.set(p.destination_id, p);
+    }
+    return m;
+  }, [places]);
+
+  /** 計算交通方式 */
+  // 記錄「每一段目前選的是哪種交通方式」。 例如：{"101-205": "DRIVING", "205-307": "WALKING"}
+  const [legModeMap, setLegModeMap] = useState<Record<string, TravelMode>>({});
+  // 記錄「每一段實際算出來的結果」。例如：{"101-205": {mode: "DRIVING", fromItemId: 101, toItemId: 205, durationMillis: 8820000, distanceMeters: 123000}}
+  const [legRouteMap, setLegRouteMap] = useState<Record<string, LegRouteState>>({});
+  // 「建立點與點之間的路段」物件陣列
+  const dayLegPairs = useMemo(() => {
+    const pairs: Array<{
+      key: string;
+      from: ItineraryItem;
+      to: ItineraryItem;
+      mode: TravelMode;
+    }> = [];
+
+    for (let i = 0; i < dayItems.length - 1; i++) {
+      const from = dayItems[i];
+      const to = dayItems[i + 1];
+      const key = makeLegKey(from.item_id, to.item_id);
+
+      pairs.push({
+        key,
+        from,
+        to,
+        mode: legModeMap[key] ?? "DRIVING",
+      });
+    }
+
+    return pairs;
+  }, [dayItems, legModeMap]);
 
   
   // ---------------------------------------------------------
@@ -295,6 +335,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   // ---------------------------------------------------------
   // 7. 景點池、每日行程補縮圖
   // ---------------------------------------------------------
+
   // Record 定義成一個物件 {string: PlaceThumb} 組成
   const [ thumbMap, setThumbMap ] = useState<Record<string, PlaceThumb>>({});
 
@@ -361,6 +402,113 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     return thumb?.url
   }
 
+  // ---------------------------------------------------------
+  // 8. 計算交通方式
+  // ---------------------------------------------------------
+  // 建立一個持久化的參照物件，用來記錄「每一段路徑 (key)」目前的請求序號{key: 序號}。避免Race condition
+  const legReqTokenRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+
+    // 篩選需要更新的路段，存成物件陣列
+    const pending = dayLegPairs.filter(({ key, from, to, mode }) => {
+      const fromPlace = placeByDestinationId.get(from.destination_id);
+      const toPlace = placeByDestinationId.get(to.destination_id);
+
+      // 檢查座標，不完整資料就不要
+      if (!hasLatLng(fromPlace) || !hasLatLng(toPlace)) return false; 
+      // 舊資料中把[key]帶進去
+      const cached = legRouteMap[key];
+      if (!cached) return true;  // 如果不存在，就代表是新的資料，需要去計算路線
+      if (cached.mode !== mode) return true;  // 如果交通模式不一樣就是true，交通方式改變需要計算路線
+      if (cached.loading) return false;  // 如果已經在算了，就不要重新再計算
+
+      // 同一 mode 已經有結果或有錯誤 -> 不要再算
+      if (
+        typeof cached.durationMillis === "number" ||
+        typeof cached.distanceMeters === "number" ||
+        cached.error
+      ) {
+        return false;
+      }
+
+      // 其他不完整狀態，保守起見再算一次
+      return true;
+      
+    });
+
+    if (pending.length === 0) return;
+
+    async function loadLegs() {
+      for (const req of pending) {
+        // 拿 req.from.destination_id 的景點id去「景點池」資料<TripPlace>裡找 lat、 lng
+        const fromPlace = placeByDestinationId.get(req.from.destination_id);
+        const toPlace = placeByDestinationId.get(req.to.destination_id);
+
+        // 座標有缺就跳過
+        if (!hasLatLng(fromPlace) || !hasLatLng(toPlace)) continue;
+
+        // 這一段 leg 的最新請求編號 +1
+        const nextToken = (legReqTokenRef.current[req.key] ?? 0) + 1;  // (初始值不存在就設 0) +1
+        legReqTokenRef.current[req.key] = nextToken; // {key: 編號}
+
+        // 先把舊資料掛上讀取中，體驗會順暢很多。如果不先設 loading: true，使用者點擊切換交通工具後，畫面會卡在舊的數據幾秒鐘才跳掉，感覺像當機。
+        setLegRouteMap((prev) => ({
+          ...prev,
+          [req.key]: {
+            ...prev[req.key],  // 保留舊資料
+            fromItemId: req.from.item_id,
+            toItemId: req.to.item_id,
+            mode: req.mode,
+            loading: true,  // 告訴 UI：這段路正在算，請轉圈圈
+            error: undefined,  // 把之前的錯誤洗掉
+          },
+        }));
+        
+        // Call 寫好的計算路徑API
+        try {
+          const result = await computeLegRoute({
+            from: { lat: fromPlace.lat, lng: fromPlace.lng },
+            to: { lat: toPlace.lat, lng: toPlace.lng },
+            mode: req.mode,
+          });
+
+          // 如果這不是最新那筆 request 的回應，就丟掉
+          if (legReqTokenRef.current[req.key] !== nextToken) continue;
+
+          setLegRouteMap((prev) => ({
+            ...prev,
+            [req.key]: {
+              fromItemId: req.from.item_id,
+              toItemId: req.to.item_id,
+              mode: req.mode,
+              durationMillis: result.durationMillis,
+              distanceMeters: result.distanceMeters,
+              loading: false,
+              error: undefined,
+            },
+          }));
+        } catch (e: any) {
+          // 如果這不是最新那筆 request 的回應，就丟掉
+          if (legReqTokenRef.current[req.key] !== nextToken) continue;
+
+          setLegRouteMap((prev) => ({
+            ...prev,
+            [req.key]: {
+              fromItemId: req.from.item_id,
+              toItemId: req.to.item_id,
+              mode: req.mode,
+              loading: false,
+              error: e?.message || "route failed",
+            },
+          }));
+        }
+      }
+    }
+
+    loadLegs();
+
+  }, [dayLegPairs, placeByDestinationId, legRouteMap]);
+
 
   return (
     <div style={{ 
@@ -413,95 +561,175 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                   <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
                     {dayItems.map((it, idx) => {
                       const thumbUrl = getThumbUrl(it.google_place_id);
+                      const next = dayItems[idx + 1];
+
+                      const legKey = next ? makeLegKey(it.item_id, next.item_id) : null;
+                      const leg = legKey ? legRouteMap[legKey] : undefined;
+                      const legMode = legKey ? legModeMap[legKey] ?? "DRIVING" : "DRIVING";
 
                       return (
-                        // SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props)
-                        <SortableRow key={it.item_id} id={it.item_id}>
-                          {/* 這邊把屬性、監聽器「權限」傳出來 */}
-                          {({ dragAttributes, dragListeners }) => (
-                            <div
-                              style={{
-                                border: "1px solid #eee",
-                                borderRadius: 12,
-                                padding: 10,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                gap: 8,
-                                alignItems: "center",
-                              }}
-                            >
-                              <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-                                {/* 拖拉把手（建議只用把手拖） */}
-                                <span
-                                  {...dragAttributes}
-                                  {...dragListeners}
-                                  style={{
-                                    cursor: "grab",
-                                    padding: "4px 6px",
-                                    border: "1px solid #ddd",
-                                    borderRadius: 8,
-                                    userSelect: "none",
-                                  }}
-                                  title="拖拉排序"
-                                >
-                                  ⠿
-                                </span>
-                                
-                                {thumbUrl ? (
-                                  <img
-                                    src={thumbUrl}
-                                    alt={it.place_name ?? "place"}
+                        <Fragment key={it.item_id}>
+                          {/* SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props) */}
+                          <SortableRow key={it.item_id} id={it.item_id}>
+                            {/* 這邊把屬性、監聽器「權限」傳出來 */}
+                            {({ dragAttributes, dragListeners }) => (
+                              <div
+                                style={{
+                                  border: "1px solid #eee",
+                                  borderRadius: 12,
+                                  padding: 10,
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: 8,
+                                  alignItems: "center",
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+                                  {/* 拖拉把手（建議只用把手拖） */}
+                                  <span
+                                    {...dragAttributes}
+                                    {...dragListeners}
                                     style={{
-                                      width: 56,
-                                      height: 56,
-                                      objectFit: "cover",
-                                      borderRadius: 10,
-                                      flexShrink: 0,
-                                      border: "1px solid #eee",
+                                      cursor: "grab",
+                                      padding: "4px 6px",
+                                      border: "1px solid #ddd",
+                                      borderRadius: 8,
+                                      userSelect: "none",
                                     }}
-                                  />
-                                ) : (
-                                  <div
-                                    style={{
-                                      width: 56,
-                                      height: 56,
-                                      borderRadius: 10,
-                                      background: "#f3f3f3",
-                                      flexShrink: 0,
-                                      border: "1px solid #eee",
-                                    }}
-                                  />
-                                )}
-
-                                <div 
-                                  style={{ minWidth: 0, cursor: "pointer"}} 
-                                  onClick={() => updatePreview(it.google_place_id, it.place_name)}
-                                >
-                                  <div
-                                    style={{
-                                      fontWeight: 700,
-                                      whiteSpace: "nowrap",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                    }}
+                                    title="拖拉排序"
                                   >
-                                    {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
-                                    {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                    ⠿
+                                  </span>
+                                  
+                                  {thumbUrl ? (
+                                    <img
+                                      src={thumbUrl}
+                                      alt={it.place_name ?? "place"}
+                                      style={{
+                                        width: 56,
+                                        height: 56,
+                                        objectFit: "cover",
+                                        borderRadius: 10,
+                                        flexShrink: 0,
+                                        border: "1px solid #eee",
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      style={{
+                                        width: 56,
+                                        height: 56,
+                                        borderRadius: 10,
+                                        background: "#f3f3f3",
+                                        flexShrink: 0,
+                                        border: "1px solid #eee",
+                                      }}
+                                    />
+                                  )}
+
+                                  <div 
+                                    style={{ minWidth: 0, cursor: "pointer"}} 
+                                    onClick={() => updatePreview(it.google_place_id, it.place_name)}
+                                  >
+                                    <div
+                                      style={{
+                                        fontWeight: 700,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                      }}
+                                    >
+                                      {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
+                                      {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                    </div>
                                   </div>
                                 </div>
+
+                                <button
+                                  onClick={() => removeItemM.mutate(it.item_id)}
+                                  disabled={removeItemM.isPending}
+                                  style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+                                  aria-label="remove itinerary"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            )}
+                          </SortableRow>
+
+                          {next && legKey && (
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "24px 1fr",
+                                gap: 10,
+                                alignItems: "stretch",
+                                padding: "2px 0 6px 0",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "center",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: 6,
+                                    borderRadius: 999,
+                                    background: "#cdeff0",
+                                    minHeight: 56,
+                                  }}
+                                />
                               </div>
 
-                              <button
-                                onClick={() => removeItemM.mutate(it.item_id)}
-                                disabled={removeItemM.isPending}
-                                style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                                aria-label="remove itinerary"
+                              <div
+                                style={{
+                                  borderRadius: 12,
+                                  padding: "8px 10px",
+                                  background: "#fafafa",
+                                  border: "1px dashed #e5e5e5",
+                                  display: "grid",
+                                  gap: 6,
+                                }}
                               >
-                                ✕
-                              </button>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 13, opacity: 0.75 }}>交通</span>
+
+                                  <select
+                                    value={legMode}
+                                    onChange={(e) => {
+                                      // 點擊後，以改變後的值去setLegModeMap
+                                      const nextMode = e.target.value as TravelMode;
+                                      setLegModeMap((prev) => ({
+                                        ...prev,  // 拷貝一份舊資料
+                                        [legKey]: nextMode,  // 新增[legkey]: nextMode 這一項，如果[legkey]存在，就覆蓋掉原本的TravelMode
+                                      }));
+                                    }}
+                                    style={{
+                                      padding: "6px 8px",
+                                      borderRadius: 10,
+                                      border: "1px solid #ddd",
+                                      background: "white",
+                                    }}
+                                  >
+                                    <option value="DRIVING">開車</option>
+                                    <option value="WALKING">步行</option>
+                                    <option value="TRANSIT">大眾運輸</option>
+                                  </select>
+
+                                  <span style={{ fontSize: 13, opacity: 0.85 }}>
+                                    {leg?.loading
+                                      ? "計算中…"
+                                      : leg?.error
+                                      ? `失敗：${leg.error}`
+                                      : `${formatDuration(leg?.durationMillis)} · ${formatDistance(leg?.distanceMeters)}`}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           )}
-                        </SortableRow>
+                        </Fragment>
                       )
                     })}
                   </div>

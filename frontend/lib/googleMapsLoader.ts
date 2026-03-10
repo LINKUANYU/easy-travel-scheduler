@@ -81,3 +81,9 @@ export async function loadGoogleMaps(opts?: { withPlaces?: boolean }) { // optsï
 
   return { Map, AdvancedMarkerElement, PinElement };
 }
+
+export async function loadRoutesLibrary(): Promise<google.maps.RoutesLibrary> {
+  ensureBrowser();
+  ensureConfigured();
+  return (await importLibrary("routes")) as google.maps.RoutesLibrary;
+}

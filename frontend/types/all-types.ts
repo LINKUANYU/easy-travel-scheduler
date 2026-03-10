@@ -1,9 +1,9 @@
-export interface AttractionImage {
+export type AttractionImage = {
   url: string
   source: string
 }
 
-export interface Attraction {
+export type Attraction = {
   id: number
   attraction: string
   city: string
@@ -15,7 +15,7 @@ export interface Attraction {
   lng: number
 }
 
-export interface TripPlace {
+export type TripPlace = {
   destination_id: number;
   place_name?: string;
   city_name?: string;
@@ -25,7 +25,7 @@ export interface TripPlace {
   // 你後端如果有 photos/cover 也可加上來
 };
 
-export interface ItineraryItem {
+export type ItineraryItem = {
   item_id: number;
   trip_id: number;
   day_index: number;
@@ -37,9 +37,23 @@ export interface ItineraryItem {
   google_place_id: string;
 };
 
-export interface ItinerarySummaryRow {
+export type ItinerarySummaryRow = {
   destination_id: number;
   day_index: number;
   position: number;
   item_id: number;
 };
+
+export type TravelMode = "DRIVING" | "WALKING" | "TRANSIT";
+
+
+export type LegRouteState = {  
+  mode: TravelMode;
+  fromItemId: number;
+  toItemId: number;
+  durationMillis?: number;
+  distanceMeters?: number;
+  loading?: boolean;
+  error?: string;
+};
+
