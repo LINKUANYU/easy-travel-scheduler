@@ -1,5 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/app/lib/api";
+
 import PlaceAutocompleteInput from "@/app/planner/[tripId]/components/PlaceAutocompleteInput";
 import TripMap from "@/app/planner/[tripId]/components/TripMap";
 import PlannerSaveButton from "@/app/planner/[tripId]/components/PlannerSaveBtn";
@@ -9,24 +13,48 @@ import { usePlaceThumbnails } from "./hooks/usePlaceThumbnails";
 import { useRouteCalculator } from "./hooks/useRouteCalculator";
 import { usePlannerData } from "./hooks/usePlannerData";
 
-export default function PlannerWorkspace({ tripId, days }: { tripId: number, days: number }) {  // ---------------------------------------------------------
+// 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
+function normalizeTripId(x: string) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
 
-// 1. 統籌所有行程與狀態資料
-  const data = usePlannerData(tripId, days);
+export default function PlannerWorkspace({ tripId }: { tripId: string }) {
 
-// 2. 統籌影像快取資料
-const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
+  const tid = useMemo(() => normalizeTripId(tripId), [tripId]);
 
-// 3. 統籌交通計算資料
-const { legRouteMap } = useRouteCalculator(data.dayItems, data.currentDayLegModeMap, data.placeByDestinationId);
+  // 1. 抓取 Trip 基本資料 (為了取得 days 天數)
+  const tripQ = useQuery({
+    queryKey: ["trip", tid],
+    enabled: tid !== null,
+    queryFn: async () => apiGet<any>(`/api/trips/${tid}`),
+  });
 
+  // 2. 統籌所有行程與狀態資料 (等待 tid 和 trip 資料準備好才執行)
+  const days = tripQ.data?.days ?? 1; 
+  // 雖然 hook 必須在頂層呼叫，但因為 tid 和 days 在 loading 結束前可能不正確，
+  // 我們先傳入預設值，等資料回來 React Query 會自動重新渲染。
+  const data = usePlannerData(tid ?? 0, days);
 
+  // 3. 統籌影像快取資料
+  const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
+
+  // 4. 統籌交通計算資料
+  const { legRouteMap } = useRouteCalculator(data.dayItems, data.currentDayLegModeMap, data.placeByDestinationId);
+  
+  // ==========================================
+  // 阻擋畫面渲染 (Loading & Error 處理)
+  // ==========================================
+  if (tid === null) return <p className="p-4 text-red-500">tripId 不合法</p>;
+  if (tripQ.isLoading) return <p className="p-4 text-gray-500">Loading trip…</p>;
+  if (tripQ.isError) return <p className="p-4 text-red-500">Load trip failed: {(tripQ.error as Error).message}</p>;
 
   return (
     <div style={{ 
       display: "grid",
       gap: 12,
-      height: "calc(100vh - 110px)", // 設定為視窗高度，需扣除上下空間
+      padding: "16px", 
+      height: "calc(100vh - 64px)", // 視窗高度減去 Header 高度 (64px)
       boxSizing: "border-box",
       overflow: "hidden" // 防止最外層出現捲軸
     }}>

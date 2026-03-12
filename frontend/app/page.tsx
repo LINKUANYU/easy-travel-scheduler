@@ -5,7 +5,6 @@ import { useMutation } from "@tanstack/react-query";
 import type { Attraction } from "@/app/types/all-types";
 import SearchPanel from "@/app/components/home/SearchPanel";
 import ResultsSection from "@/app/components/home/ResultsSection";
-import AuthCorner from "@/app/components/AuthCorner";
 import StartPlanningButton from "@/app/components/home/StartPlanningButton";
 import { apiPost } from "@/app/lib/api";
 
@@ -53,10 +52,7 @@ export default function Home(){
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center p-24 bg-gray-100">
-      {/* 暫時先把會員系統拿掉
-      <AuthCorner/> 
-      */}
+    <main className="relative flex flex-1 w-full flex-col items-center justify-center py-4 bg-gray-100">
       
       {mutation.isPending ? (
         <div className="bg-white p-8 rounded-lg shadow-md">

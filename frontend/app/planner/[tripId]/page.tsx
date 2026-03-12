@@ -1,4 +1,4 @@
-import PlannerClient from "./planner-client";
+import PlannerWorkspace from "./planner-workspace";
 
 // 1. 將函式標記為 async
 export default async function TripPlannerPage(
@@ -10,8 +10,6 @@ export default async function TripPlannerPage(
   const { tripId } = await params;
 
   return (
-    <main style={{ padding: 16 }}>
-      <PlannerClient tripId={tripId} />
-    </main>
+    <PlannerWorkspace tripId={tripId} />
   );
 }

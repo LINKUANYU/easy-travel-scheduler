@@ -31,8 +31,10 @@ export default function PlacePoolPanel({
   isRemoving,
 }: PlacePoolPanelProps) {
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
-      <div style={{ fontWeight: 800, marginBottom: 10 }}>Trip 景點池</div>
+    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: "0px 6px", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
+      <div style={{ flexShrink: 0, height: "40px", display: "flex", alignItems: "center", fontWeight: 800, fontSize: "16px", justifyContent: "center" }}>
+        Trip 景點池
+      </div>
 
       {isLoading ? (
         <p>Loading places…</p>
@@ -41,7 +43,7 @@ export default function PlacePoolPanel({
       ) : sortedPlaces.length === 0 ? (
         <p>尚未加入景點。</p>
       ) : (
-        <div style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
+        <div className="custom-scrollbar" style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
           <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
             {sortedPlaces.map((p) => {
               const scheduled = scheduledMap.get(p.destination_id);

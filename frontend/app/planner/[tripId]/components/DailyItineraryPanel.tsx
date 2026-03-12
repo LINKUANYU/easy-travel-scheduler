@@ -95,18 +95,18 @@ export default function DailyItineraryPanel({
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
+    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: "0px 6px", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
       {/* 頂部：天數切換 */}
       <div style={{ flexShrink: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button onClick={onPrevDay} disabled={activeDay === 1} style={{cursor: "pointer"}}>◀</button>
-          <div style={{ fontWeight: 800 }}>Day {activeDay}</div>
-          <button onClick={onNextDay} disabled={activeDay === days} style={{cursor: "pointer"}}>▶</button>
+        <div style={{ flexShrink: 0, height: "40px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <button onClick={onPrevDay} disabled={activeDay === 1} className="text-gray-400 hover:text-black disabled:opacity-30 mr-6">◀</button>
+          <div style={{ fontWeight: 800, fontSize: "16px" }}>Day {activeDay}</div>
+          <button onClick={onNextDay} disabled={activeDay === days} className="text-gray-400 hover:text-black disabled:opacity-30 ml-6">▶</button>
         </div>
       </div>
 
       {/* 滾動內容區 */}
-      <div style={{ marginTop: 10, overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
+      <div className="custom-scrollbar" style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
         {isLoading ? (
           <p>Loading itinerary…</p>
         ) : error ? (
@@ -116,7 +116,7 @@ export default function DailyItineraryPanel({
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>
-              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 {dayItems.map((it, idx) => {
                   const thumbUrl = getThumbUrl(it.google_place_id);
                   const next = dayItems[idx + 1];
@@ -193,10 +193,7 @@ export default function DailyItineraryPanel({
                                     onRemoveItem(activeDay, it.item_id);
                                   }}
                                   disabled={isRemovingItem}
-                                  style={{
-                                    height: 30, width: 30, border: "1px solid #ff3535", borderRadius: 999,
-                                    background: "transparent", color: "#ff3535", fontSize: 24, lineHeight: 1, cursor: "pointer", padding: 0,
-                                  }}
+                                  className="h-8 w-8 flex items-center justify-center rounded-full text-gray-300 bg-transparent text-2xl leading-none transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                   ×
                                 </button>

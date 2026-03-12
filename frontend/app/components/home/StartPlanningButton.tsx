@@ -62,7 +62,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
       const payload = {
         title: title.trim() || "My trip",
         days,
-        startDate: startDate ? startDate : null,
+        start_date: startDate ? startDate : null,
         places: placeIds.map((gpid) => ({google_place_id: gpid})) // 如果沒景點，這裡就是空陣列 []
       }
 
@@ -85,7 +85,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
         trip_id: out.trip_id,
         title: payload.title,
         days: payload.days,
-        start_date: payload.startDate ?? null,
+        start_date: payload.start_date ?? null,
       });
       onCreated();
       setOpen(false);

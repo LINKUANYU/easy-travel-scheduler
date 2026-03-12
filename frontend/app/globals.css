@@ -24,3 +24,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 自定義極簡捲軸 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 20px;
+  transition: background-color 0.3s ease;
+}
+/* 只有當滑鼠移到容器上方時，才顯示淺灰色的捲軸 */
+.custom-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: #d1d5db; 
+}
