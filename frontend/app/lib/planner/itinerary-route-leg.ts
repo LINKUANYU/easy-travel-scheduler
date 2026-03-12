@@ -1,5 +1,5 @@
-import type { TravelMode, TripPlace } from "@/types/all-types";
-import { loadRoutesLibrary } from "./googleMapsLoader";
+import type { TravelMode, TripPlace } from "@/app/types/all-types";
+import { loadRoutesLibrary } from "../googleMapsLoader";
 
 
 export type SimpleComputeRoutesRequest = {

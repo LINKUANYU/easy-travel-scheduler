@@ -2,9 +2,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { loadGoogleMaps } from "@/lib/googleMapsLoader";
-import type { PlacePreview } from "@/lib/placePreview";
-import type { TripPlace, ItinerarySummaryRow } from "@/types/all-types";
+import { loadGoogleMaps } from "@/app/lib/googleMapsLoader";
+import type { PlacePreview } from "@/app/lib/planner/placePreview";
+import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
 
 
 // 這是為了防止 XSS 攻擊做轉譯

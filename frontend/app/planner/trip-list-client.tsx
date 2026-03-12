@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { readTripIndex, TripIndexItem } from "@/lib/tripIndex";
+import { readTripIndex, TripIndexItem } from "@/app/lib/tripIndex";
 
 export default function TripListClient() {
   const [items, setItems] = useState<TripIndexItem[]>([]);

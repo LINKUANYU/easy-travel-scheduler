@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api";
-import AddPlacesTab from "./tabs/add-places-tab";
+import { apiGet } from "@/app/lib/api";
+import AddPlacesTab from "./planner-workspace";
 
 type Trip = {
   id?: number;

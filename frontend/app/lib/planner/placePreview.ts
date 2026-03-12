@@ -1,6 +1,6 @@
 // lib/getPlaceDetails.ts
 
-import { loadPlacesLibrary } from "@/lib/googleMapsLoader";
+import { loadPlacesLibrary } from "@/app/lib/googleMapsLoader";
 
 export type PlacePreview = {
   id: string;

@@ -2,19 +2,19 @@
 
 import { useRef, useMemo, useState, useEffect, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import PlaceAutocompleteInput from "@/components/planner/PlaceAutocompleteInput";
-import TripMap from "@/components/planner/TripMap";
-import { fetchPlacePreview, type PlacePreview } from "@/lib/placePreview";
-import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode, LegRouteState, } from "@/types/all-types";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/app/lib/api";
+import PlaceAutocompleteInput from "@/app/components/planner/PlaceAutocompleteInput";
+import TripMap from "@/app/components/planner/TripMap";
+import { fetchPlacePreview, type PlacePreview } from "@/app/lib/planner/placePreview";
+import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode, LegRouteState, } from "@/app/types/all-types";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { fetchPlaceThumb, type PlaceThumb } from "@/lib/placeThumb";
-import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute,  } from "@/lib/route-leg";
-import TimePopover from "@/components/planner/TimePopover";
-import { type ItemTimeDraft, type TimeField, getDraftTimeValue, suggestArrivalTime,upsertItemTimeDraft, } from "@/lib/itinerary-time";
-import PlannerSaveButton from "@/components/planner/PlannerSaveBtn";
+import { fetchPlaceThumb, type PlaceThumb } from "@/app/lib/planner/placeThumb";
+import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute,  } from "@/app/lib/planner/itinerary-route-leg";
+import TimePopover from "@/app/components/planner/TimePopover";
+import { type ItemTimeDraft, type TimeField, getDraftTimeValue, suggestArrivalTime,upsertItemTimeDraft, } from "@/app/lib/planner/itinerary-time";
+import PlannerSaveButton from "@/app/components/planner/PlannerSaveBtn";
 
 
 function normalizeArrayPayload<T>(payload: any): T[] {

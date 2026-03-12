@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { Attraction } from "@/types/all-types";
+import type { Attraction } from "@/app/types/all-types";
 import { useState, useMemo, useEffect } from "react"; // 要在卡片內記住目前第幾張圖
 
 type Props = {

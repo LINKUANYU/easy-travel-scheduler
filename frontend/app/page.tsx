@@ -2,15 +2,15 @@
 
 import { useState, useEffect, } from "react";
 import { useMutation } from "@tanstack/react-query";
-import type { Attraction } from "@/types/all-types";
-import SearchPanel from "@/components/SearchPanel";
-import ResultsSection from "@/components/ResultsSection";
-import AuthCorner from "@/components/AuthCorner";
-import StartPlanningButton from "@/components/StartPlanningButton";
-import { apiPost } from "@/lib/api";
+import type { Attraction } from "@/app/types/all-types";
+import SearchPanel from "@/app/components/home/SearchPanel";
+import ResultsSection from "@/app/components/home/ResultsSection";
+import AuthCorner from "@/app/components/AuthCorner";
+import StartPlanningButton from "@/app/components/home/StartPlanningButton";
+import { apiPost } from "@/app/lib/api";
 
 // ✅ 新增：把 draft 放在 page 當 single source
-import { useTripDraft } from "@/hooks/useTripDraft";
+import { useTripDraft } from "@/app/hooks/useTripDraft";
 // ✅ 之後你要放右下角開始規劃按鈕，就在這裡 render
 // import StartPlanningButton from "@/components/StartPlanningButton";
 

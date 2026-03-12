@@ -1,4 +1,4 @@
-import { loadPlacesLibrary } from "./googleMapsLoader";
+import { loadPlacesLibrary } from "../googleMapsLoader";
 
 export type PlaceThumb = {
   url?: string;

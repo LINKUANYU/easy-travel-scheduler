@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import type { DraftPlace } from "@/hooks/useTripDraft"
-import { upsertTripIndex } from "@/lib/tripIndex"
+import type { DraftPlace } from "@/app/hooks/useTripDraft"
+import { upsertTripIndex } from "@/app/lib/tripIndex"
 
 type Props = {
   draft: DraftPlace[];

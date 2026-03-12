@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadPlacesLibrary } from "@/lib/googleMapsLoader";
+import { loadPlacesLibrary } from "@/app/lib/googleMapsLoader";
 
 type Pick = { placeId: string; label?: string };
 

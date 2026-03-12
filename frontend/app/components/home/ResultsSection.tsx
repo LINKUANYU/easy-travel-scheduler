@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { Attraction } from "@/types/all-types";
-import AttractionCard from "@/components/AttractionCard";
-import type { DraftPlace } from "@/hooks/useTripDraft";
+import type { Attraction } from "@/app/types/all-types";
+import AttractionCard from "@/app/components/home/AttractionCard";
+import type { DraftPlace } from "@/app/hooks/useTripDraft";
 
 
 type Props = {
