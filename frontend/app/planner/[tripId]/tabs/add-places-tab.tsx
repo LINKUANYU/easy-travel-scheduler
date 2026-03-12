@@ -11,8 +11,9 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { fetchPlaceThumb, type PlaceThumb } from "@/lib/placeThumb";
-import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute, type SimpleComputeRoutesRequest } from "@/lib/route-leg";
-
+import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute,  } from "@/lib/route-leg";
+import TimePopover from "@/components/planner/TimePopover";
+import { type ItemTimeDraft, type TimeField, getDraftTimeValue, suggestArrivalTime,upsertItemTimeDraft, } from "@/lib/itinerary-time";
 
 
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -109,6 +110,10 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     }
     return m;
   }, [places]);
+
+  // 「每一天的時間 draft state」
+  const [timeDraftByDay, setTimeDraftByDay] = useState<Record<number, Record<number, ItemTimeDraft>>>({});
+  // 第一層 key = day_index 第二層 key = item_id
 
   /** 計算交通方式 */
   // 記錄「每一段目前選的是哪種交通方式」。 例如：{"101-205": "DRIVING", "205-307": "WALKING"}
@@ -213,25 +218,25 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   });
 
   // [將當日排程內的景點重新排序]
-  const reorderM = useMutation({
-    mutationFn: async (ordered_item_ids: number[]) => {
-      return apiPut<{ ok: boolean }>(
-        `/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
-        { ordered_item_ids }
-      );
-    },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }); // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
-      await qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
-    },
-    onError: (e: any) => {
-      setUiMsg(`排序更新失敗：${e?.message || "unknown error"}`);
-      window.setTimeout(() => setUiMsg(""), 1500);
-      // 失敗時建議回復伺服器版本
-      qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
-      qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
-    },
-  });
+  // const reorderM = useMutation({
+  //   mutationFn: async (ordered_item_ids: number[]) => {
+  //     return apiPut<{ ok: boolean }>(
+  //       `/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
+  //       { ordered_item_ids }
+  //     );
+  //   },
+  //   onSuccess: async () => {
+  //     await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }); // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
+  //     await qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
+  //   },
+  //   onError: (e: any) => {
+  //     setUiMsg(`排序更新失敗：${e?.message || "unknown error"}`);
+  //     window.setTimeout(() => setUiMsg(""), 1500);
+  //     // 失敗時建議回復伺服器版本
+  //     qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
+  //     qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
+  //   },
+  // });
   
   // ---------------------------------------------------------
   // 5. 輔助函式
@@ -262,6 +267,75 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       if (token === pickTokenRef.current) setPreviewLoading(false);
     }
   };
+
+  const currentDayTimeDraftMap = timeDraftByDay[activeDay] ?? {};
+
+  function getItemTimeValue(
+    item: ItineraryItem,
+    field: TimeField
+  ) {
+    return getDraftTimeValue(currentDayTimeDraftMap, item.item_id, field, null);
+  }
+
+  function updateCurrentDayTimeDraft(
+    updater: (draftMap: Record<number, ItemTimeDraft>) => Record<number, ItemTimeDraft>
+  ) {
+    setTimeDraftByDay((prev) => ({
+      ...prev,
+      [activeDay]: updater(prev[activeDay] ?? {}),
+    }));
+  }
+
+  function applyItemTime(
+    item: ItineraryItem,
+    field: TimeField,
+    value: string | null
+  ) {
+    updateCurrentDayTimeDraft((draftMap) => {
+      let nextDraftMap = upsertItemTimeDraft(draftMap, item.item_id, {
+        [field]: value,
+      });
+
+      // 只有「A 的 departure_time 被設定」時，才考慮推算下一個景點的 arrival_time
+      if (field === "departure_time" && value) {
+        const currentIndex = dayItems.findIndex((x) => x.item_id === item.item_id);
+        const nextItem = currentIndex >= 0 ? dayItems[currentIndex + 1] : undefined;
+
+        if (nextItem) {
+          const legKey = makeLegKey(item.item_id, nextItem.item_id);
+          const durationMillis = legRouteMap[legKey]?.durationMillis;
+
+          const nextArrivalValue = getDraftTimeValue(
+            nextDraftMap,
+            nextItem.item_id,
+            "arrival_time",
+            null
+          );
+
+          // 只有 B 還沒填 arrival_time，才自動帶入建議值
+          if (!nextArrivalValue) {
+            const suggested = suggestArrivalTime(value, durationMillis);
+
+            if (suggested) {
+              nextDraftMap = upsertItemTimeDraft(nextDraftMap, nextItem.item_id, {
+                arrival_time: suggested,
+              });
+            }
+          }
+        }
+      }
+
+      return nextDraftMap;
+    });
+  }
+
+  function clearItemTime(item: ItineraryItem, field: TimeField) {
+    updateCurrentDayTimeDraft((draftMap) =>
+      upsertItemTimeDraft(draftMap, item.item_id, {
+        [field]: null,
+      })
+    );
+  }
 
   // ---------------------------------------------------------
   // 6. 拖拉套件
@@ -319,7 +393,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     // setQueryData (key, data) 是讓你「強行寫入」**資料到快取（Cache）裡。
 
     // 2) call 後端 bulk reorder api
-    reorderM.mutate(newItems.map((x) => x.item_id));  // 送後端用 item_id 組成的新排序陣列
+    // reorderM.mutate(newItems.map((x) => x.item_id));  // 送後端用 item_id 組成的新排序陣列
   }
   /**
   整體架構中的運作流程圖
@@ -572,89 +646,165 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                           {/* SortableRow 這就是你自己寫的那個封裝了 useSortable 的工人。角色：物理執行者。任務：座標計算 (Transform)、DOM 連接 (setNodeRef)、權限移交 (Render Props) */}
                           <SortableRow key={it.item_id} id={it.item_id}>
                             {/* 這邊把屬性、監聽器「權限」傳出來 */}
-                            {({ dragAttributes, dragListeners }) => (
-                              <div
-                                style={{
-                                  border: "1px solid #eee",
-                                  borderRadius: 12,
-                                  padding: 10,
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  gap: 8,
-                                  alignItems: "center",
-                                }}
-                              >
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-                                  {/* 拖拉把手（建議只用把手拖） */}
-                                  <span
-                                    {...dragAttributes}
-                                    {...dragListeners}
-                                    style={{
-                                      cursor: "grab",
-                                      padding: "4px 6px",
-                                      border: "1px solid #ddd",
-                                      borderRadius: 8,
-                                      userSelect: "none",
-                                    }}
-                                    title="拖拉排序"
-                                  >
-                                    ⠿
-                                  </span>
-                                  
+                            {({ dragAttributes, dragListeners }) => {
+                              const arrivalValue = getItemTimeValue(it, "arrival_time");
+                              const departureValue = getItemTimeValue(it, "departure_time");
+
+                              return (
+                                <div
+                                  style={{
+                                    border: "1px solid #eee",
+                                    borderRadius: 12,
+                                    padding: 10,
+                                    display: "grid",
+                                    gridTemplateColumns: "72px minmax(0, 1fr) 28px",
+                                    gap: 12,
+                                    alignItems: "center",
+                                    background: "white",
+                                  }}
+                                >
+                                  {/* 左：圖片 */}
                                   {thumbUrl ? (
                                     <img
                                       src={thumbUrl}
                                       alt={it.place_name ?? "place"}
                                       style={{
-                                        width: 56,
-                                        height: 56,
+                                        width: 80,
+                                        height: 80,
                                         objectFit: "cover",
                                         borderRadius: 10,
-                                        flexShrink: 0,
                                         border: "1px solid #eee",
+                                        display: "block",
                                       }}
                                     />
                                   ) : (
                                     <div
                                       style={{
-                                        width: 56,
-                                        height: 56,
+                                        width: 72,
+                                        height: 72,
                                         borderRadius: 10,
                                         background: "#f3f3f3",
-                                        flexShrink: 0,
                                         border: "1px solid #eee",
                                       }}
                                     />
                                   )}
 
-                                  <div 
-                                    style={{ minWidth: 0, cursor: "pointer"}} 
+                                  {/* 中：名稱 + 時間 */}
+                                  <div
+                                    style={{ minWidth: 0, cursor: "pointer" }}
                                     onClick={() => updatePreview(it.google_place_id, it.place_name)}
                                   >
                                     <div
                                       style={{
                                         fontWeight: 700,
-                                        whiteSpace: "nowrap",
+                                        fontSize: 18,
+                                        lineHeight: 1,
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                       }}
                                     >
-                                      {/* 用 idx 顯示序號，不管怎麼拉排序都不變 */}
-                                      {idx + 1}. {it.place_name ?? `#${it.destination_id}`}
+                                      {it.place_name ?? `#${it.destination_id}`}
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        marginTop: 8,
+                                        fontSize: 14,
+                                        color: "#555",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span>抵達時間：</span>
+                                      <TimePopover
+                                        label=""
+                                        value={arrivalValue}
+                                        onApply={(value) => applyItemTime(it, "arrival_time", value)}
+                                        onClear={() => clearItemTime(it, "arrival_time")}
+                                        compact
+                                      />
+                                    </div>
+                                    <div
+                                      style={{
+                                        marginTop: 8,
+                                        fontSize: 14,
+                                        color: "#555",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <span>離開時間：</span>
+                                      <TimePopover
+                                        label=""
+                                        value={departureValue}
+                                        onApply={(value) => applyItemTime(it, "departure_time", value)}
+                                        onClear={() => clearItemTime(it, "departure_time")}
+                                        compact
+                                      />
                                     </div>
                                   </div>
-                                </div>
 
-                                <button
-                                  onClick={() => removeItemM.mutate(it.item_id)}
-                                  disabled={removeItemM.isPending}
-                                  style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
-                                  aria-label="remove itinerary"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )}
+                                  {/* 右：X + ⠿ */}
+                                  <div
+                                    style={{
+                                      height: "100%",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeItemM.mutate(it.item_id);
+                                      }}
+                                      disabled={removeItemM.isPending}
+                                      style={{
+                                        height: 30,
+                                        width: 30,
+                                        border: "1px solid #ff3535",
+                                        borderRadius: 999,
+                                        background: "transparent",
+                                        color: "#ff3535",
+                                        fontSize: 24,
+                                        lineHeight: 1,
+                                        cursor: "pointer",
+                                        padding: 0,
+                                      }}
+                                      aria-label="remove itinerary"
+                                    >
+                                      ×
+                                    </button>
+
+                                    <span
+                                      {...dragAttributes}
+                                      {...dragListeners}
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{
+                                        cursor: "grab",
+                                        color: "#000",
+                                        fontSize: 24,
+                                        lineHeight: 1,
+                                        userSelect: "none",
+                                        padding: 5,
+                                        border: "1px solid #ddd",
+                                        borderRadius: 10,
+                                      }}
+                                      title="拖拉排序"
+                                    >
+                                      ⠿
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            }}
+
                           </SortableRow>
 
                           {next && legKey && (
@@ -781,8 +931,8 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                         ) : (
                           <div
                             style={{
-                              width: 72,
-                              height: 72,
+                              width: 80,
+                              height: 80,
                               borderRadius: 10,
                               background: "#f3f3f3",
                               flexShrink: 0,
@@ -795,7 +945,6 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                           <div
                             style={{
                               fontWeight: 800,
-                              whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                             }}
@@ -811,8 +960,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                               wordBreak: "break-all",
                             }}
                           >
-                            {p.city_name ? `${p.city_name} · ` : ""}
-                            {p.google_place_id ?? ""}
+                            {p.city_name ? `${p.city_name} ` : ""}
                           </div>
                         </div>
                       </div>
