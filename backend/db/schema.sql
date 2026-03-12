@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `destination_photos` (
 
 -- *** Stage 2 ***
 
-CREATE TABLE `trips` (
+CREATE TABLE IF NOT EXISTS `trips` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `user_id` INT NULL,
   `title` VARCHAR(100) NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE `trips` (
   INDEX `idx_trips_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `trip_days` (
+CREATE TABLE IF NOT EXISTS `trip_days` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `trip_id` INT NOT NULL,
   `day_index` INT NOT NULL,              -- 1..N
@@ -63,7 +63,7 @@ CREATE TABLE `trip_days` (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `trip_places` (
+CREATE TABLE IF NOT EXISTS `trip_places` (
   `trip_id` INT NOT NULL,
   `destination_id` INT NOT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -78,12 +78,14 @@ CREATE TABLE `trip_places` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
-CREATE TABLE `itinerary_items` (
+CREATE TABLE IF NOT EXISTS `itinerary_items` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `trip_id` INT NOT NULL,
   `day_index` INT NOT NULL,                 -- 1..N
   `destination_id` INT NOT NULL,
   `position` INT NOT NULL,                  -- 當天排序 0..n
+  `arrival_time` TIME NULL,
+  `departure_time` TIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   UNIQUE KEY `uk_trip_destination_once` (`trip_id`, `destination_id`),
@@ -98,7 +100,33 @@ CREATE TABLE `itinerary_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+CREATE TABLE IF NOT EXISTS `itinerary_legs` (
+  `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `trip_id` INT NOT NULL,
+  `day_index` INT NOT NULL,
+  `from_item_id` INT NOT NULL,
+  `to_item_id` INT NOT NULL,
+  `travel_mode` VARCHAR(20) NOT NULL,
+  `duration_millis` BIGINT NULL,
+  `distance_meters` INT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
+  UNIQUE KEY `uk_leg_pair` (`from_item_id`, `to_item_id`),
+  KEY `idx_leg_trip_day` (`trip_id`, `day_index`),
+
+  CONSTRAINT `fk_leg_trip`
+    FOREIGN KEY (`trip_id`) REFERENCES `trips`(`id`)
+    ON DELETE CASCADE,
+
+  CONSTRAINT `fk_leg_from_item`
+    FOREIGN KEY (`from_item_id`) REFERENCES `itinerary_items`(`id`)
+    ON DELETE CASCADE,
+
+  CONSTRAINT `fk_leg_to_item`
+    FOREIGN KEY (`to_item_id`) REFERENCES `itinerary_items`(`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 

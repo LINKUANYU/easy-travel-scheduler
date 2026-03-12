@@ -1,7 +1,7 @@
 // TripMap.tsx
 "use client";
 
-import { use, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { loadGoogleMaps } from "@/lib/googleMapsLoader";
 import type { PlacePreview } from "@/lib/placePreview";
 import type { TripPlace, ItinerarySummaryRow } from "@/types/all-types";
@@ -32,7 +32,8 @@ export default function TripMap({
   onClearPreview,  // preview 中的「關閉預覽、X」，callback 回傳給上層
   isAddingPreview,
   scheduleSummary,
-  activeDay
+  activeDay,
+  bottomRight,
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
@@ -42,6 +43,7 @@ export default function TripMap({
   isAddingPreview?: boolean;
   scheduleSummary?: ItinerarySummaryRow[];
   activeDay?: number
+  bottomRight?: React.ReactNode;
 }) {
   /** Ref特性：不觸發re-render、裡面東西不會消失
   Google Map / Marker 是「外部物件」，不應該放在 React state（state 變動會觸發 re-render，反而干擾）
@@ -370,6 +372,20 @@ export default function TripMap({
           {topLeft}
         </div>
       )}
+
+      {bottomRight && (
+        <div
+          style={{
+            position: "absolute",
+            right: 30,
+            top: 20,
+            zIndex: 5,
+          }}
+        >
+          {bottomRight}
+        </div>
+      )}
+
     </div>
   );
 }

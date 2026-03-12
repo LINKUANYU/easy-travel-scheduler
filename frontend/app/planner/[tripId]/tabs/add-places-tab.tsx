@@ -14,6 +14,7 @@ import { fetchPlaceThumb, type PlaceThumb } from "@/lib/placeThumb";
 import { makeLegKey, hasLatLng, formatDistance, formatDuration, computeLegRoute,  } from "@/lib/route-leg";
 import TimePopover from "@/components/planner/TimePopover";
 import { type ItemTimeDraft, type TimeField, getDraftTimeValue, suggestArrivalTime,upsertItemTimeDraft, } from "@/lib/itinerary-time";
+import PlannerSaveButton from "@/components/planner/PlannerSaveBtn";
 
 
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -37,6 +38,11 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewErr, setPreviewErr] = useState<string>("");
   const pickTokenRef = useRef(0);  // 防止連點造成的 Race Condition (競爭狀態)
+
+  const [draftItemsByDay, setDraftItemsByDay] = useState<Record<number, ItineraryItem[]>>({});
+  const [draftLegModeByDay, setDraftLegModeByDay] = useState<Record<number, Record<string, TravelMode>>>({});
+  const [timeDraftByDay, setTimeDraftByDay] = useState<Record<number, Record<number, ItemTimeDraft>>>({});  // 「每一天的時間 draft state」
+  const [dirtyDayMap, setDirtyDayMap] = useState<Record<number, boolean>>({});
 
   // ---------------------------------------------------------
   // 2. 資料抓取 (Data Fetching - Query)
@@ -73,7 +79,25 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     },
   });
   // 輔助變數－每日行程內的資料
-  const dayItems = dayItinQ.data ?? [];  
+  const serverDayItems = dayItinQ.data ?? [];
+  
+
+  const dayItems = draftItemsByDay[activeDay] ?? serverDayItems;
+  const currentDayLegModeMap = draftLegModeByDay[activeDay] ?? {};
+  const currentDayTimeDraftMap = timeDraftByDay[activeDay] ?? {};
+
+  useEffect(() => {
+    if (!dayItinQ.isSuccess) return;
+
+    setDraftItemsByDay((prev) => {
+      if (prev[activeDay]) return prev;
+
+      return {
+        ...prev,
+        [activeDay]: serverDayItems,
+      };
+    });
+  }, [activeDay, dayItinQ.isSuccess, serverDayItems]);
 
   // ---------------------------------------------------------
   // 3. 資料衍生與轉換 (Derived State - useMemo)
@@ -111,13 +135,11 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     return m;
   }, [places]);
 
-  // 「每一天的時間 draft state」
-  const [timeDraftByDay, setTimeDraftByDay] = useState<Record<number, Record<number, ItemTimeDraft>>>({});
-  // 第一層 key = day_index 第二層 key = item_id
+  
 
   /** 計算交通方式 */
   // 記錄「每一段目前選的是哪種交通方式」。 例如：{"101-205": "DRIVING", "205-307": "WALKING"}
-  const [legModeMap, setLegModeMap] = useState<Record<string, TravelMode>>({});
+  
   // 記錄「每一段實際算出來的結果」。例如：{"101-205": {mode: "DRIVING", fromItemId: 101, toItemId: 205, durationMillis: 8820000, distanceMeters: 123000}}
   const [legRouteMap, setLegRouteMap] = useState<Record<string, LegRouteState>>({});
   // 「建立點與點之間的路段」物件陣列
@@ -138,12 +160,12 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
         key,
         from,
         to,
-        mode: legModeMap[key] ?? "DRIVING",
+        mode: currentDayLegModeMap[key] ?? "DRIVING",
       });
     }
 
     return pairs;
-  }, [dayItems, legModeMap]);
+  }, [dayItems, currentDayLegModeMap]);
 
   
   // ---------------------------------------------------------
@@ -180,21 +202,30 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
 
   // [將景點池裡的景點加入當日排程]
   const addToDayM = useMutation({
-    mutationFn: async (destination_id: number) => {
+    mutationFn: async ({
+      dayIndex,
+      destination_id,
+    }: {
+      dayIndex: number;
+      destination_id: number;
+    }) => {
       return apiPost<any>(
-        `/api/trips/${tripId}/days/${activeDay}/itinerary`,
+        `/api/trips/${tripId}/days/${dayIndex}/itinerary`,
         { destination_id }
       );
     },
-    onSuccess: async () => {
+    onSuccess: async (newItem, { dayIndex }) => {
+      setDraftItemsByDay((prev) => ({
+        ...prev,
+        [dayIndex]: [...(prev[dayIndex] ?? []), newItem],
+      }));
+
       await Promise.all([
-        // 資料同步更新：新增景點到指定當天的api已經成功了，去更新重新 fetch itinerarySummary、dayItinerary
         qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] }),
-        qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }),
+        qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, dayIndex] }),
       ]);
     },
     onError: (e: any) => {
-      // 409: already scheduled
       setUiMsg(`加入行程失敗：${e?.message || "unknown error"}`);
       window.setTimeout(() => setUiMsg(""), 1500);
     },
@@ -202,13 +233,34 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
 
   // [將當日排程內的景點移除]
   const removeItemM = useMutation({
-    mutationFn: async (item_id: number) => {
+    mutationFn: async ({
+      dayIndex,
+      item_id,
+    }: {
+      dayIndex: number;
+      item_id: number;
+    }) => {
       return apiDelete<any>(`/api/trips/${tripId}/itinerary/${item_id}`);
     },
-    onSuccess: async () => {
+    onSuccess: async (_, { dayIndex, item_id }) => {
+      setDraftItemsByDay((prev) => ({
+        ...prev,
+        [dayIndex]: (prev[dayIndex] ?? []).filter((x) => x.item_id !== item_id),
+      }));
+
+      setTimeDraftByDay((prev) => {
+        const dayMap = { ...(prev[dayIndex] ?? {}) };
+        delete dayMap[item_id];
+
+        return {
+          ...prev,
+          [dayIndex]: dayMap,
+        };
+      });
+
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] }),
-        qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }),
+        qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, dayIndex] }),
       ]);
     },
     onError: (e: any) => {
@@ -217,35 +269,60 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     },
   });
 
-  // [將當日排程內的景點重新排序]
-  // const reorderM = useMutation({
-  //   mutationFn: async (ordered_item_ids: number[]) => {
-  //     return apiPut<{ ok: boolean }>(
-  //       `/api/trips/${tripId}/days/${activeDay}/itinerary/reorder`,
-  //       { ordered_item_ids }
-  //     );
-  //   },
-  //   onSuccess: async () => {
-  //     await qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] }); // 你可以不 invalidate（因為我們已經本地更新了），但保守起見先保留
-  //     await qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
-  //   },
-  //   onError: (e: any) => {
-  //     setUiMsg(`排序更新失敗：${e?.message || "unknown error"}`);
-  //     window.setTimeout(() => setUiMsg(""), 1500);
-  //     // 失敗時建議回復伺服器版本
-  //     qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, activeDay] });
-  //     qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] });
-  //   },
-  // });
+
+  const saveDayDraftM = useMutation({
+    mutationFn: async (dayIndex: number) => {
+      const payload = buildDaySavePayload(dayIndex);
+
+      return apiPut<any>(
+        `/api/trips/${tripId}/days/${dayIndex}/itinerary/save`,
+        payload
+      );
+    },
+
+    onSuccess: async (_, dayIndex) => {
+      setDirtyDayMap((prev) => ({
+        ...prev,
+        [dayIndex]: false,
+      }));
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, dayIndex] }),
+        qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] }),
+      ]);
+    },
+
+    onError: (e: any) => {
+      setUiMsg(`儲存失敗：${e?.message || "unknown error"}`);
+      window.setTimeout(() => setUiMsg(""), 1500);
+    },
+  });
+
   
   // ---------------------------------------------------------
   // 5. 輔助函式
   // ---------------------------------------------------------
-  function prevDay(){
-    setActiveDay((d) => Math.max(1, d - 1));
+  async function goToDay(nextDay: number) {
+    if (nextDay < 1 || nextDay > days) return;
+    if (nextDay === activeDay) return;
+
+    try {
+      if (dirtyDayMap[activeDay]) {
+        await saveDayDraftM.mutateAsync(activeDay);
+      }
+
+      setActiveDay(nextDay);
+    } catch {
+      // onError 已經顯示 uiMsg，這裡不用再重複
+    }
   }
-  function nextDay(){
-    setActiveDay((d) => Math.min(days, d + 1));
+
+  function prevDay() {
+    void goToDay(activeDay - 1);
+  }
+
+  function nextDay() {
+    void goToDay(activeDay + 1);
   }
 
   const updatePreview = async (placeId: string, displayName?: string) => {
@@ -268,13 +345,17 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     }
   };
 
-  const currentDayTimeDraftMap = timeDraftByDay[activeDay] ?? {};
 
   function getItemTimeValue(
     item: ItineraryItem,
     field: TimeField
   ) {
-    return getDraftTimeValue(currentDayTimeDraftMap, item.item_id, field, null);
+    const fallback =
+      field === "arrival_time"
+        ? item.arrival_time ?? null
+        : item.departure_time ?? null;
+
+    return getDraftTimeValue(currentDayTimeDraftMap, item.item_id, field, fallback);
   }
 
   function updateCurrentDayTimeDraft(
@@ -284,6 +365,25 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
       ...prev,
       [activeDay]: updater(prev[activeDay] ?? {}),
     }));
+  }
+
+  function markCurrentDayDirty() {
+    setDirtyDayMap((prev) => ({
+      ...prev,
+      [activeDay]: true,
+    }));
+  }
+
+  function updateCurrentDayLegMode(legKey: string, mode: TravelMode) {
+    setDraftLegModeByDay((prev) => ({
+      ...prev,
+      [activeDay]: {
+        ...(prev[activeDay] ?? {}),
+        [legKey]: mode,
+      },
+    }));
+
+    markCurrentDayDirty();
   }
 
   function applyItemTime(
@@ -324,9 +424,10 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
           }
         }
       }
-
+      
       return nextDraftMap;
     });
+    markCurrentDayDirty();
   }
 
   function clearItemTime(item: ItineraryItem, field: TimeField) {
@@ -335,7 +436,52 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
         [field]: null,
       })
     );
+    markCurrentDayDirty();
   }
+
+  
+  function buildDaySavePayload(dayIndex: number) {
+    const items = draftItemsByDay[dayIndex] ?? [];
+    const legModeMap = draftLegModeByDay[dayIndex] ?? {};
+    const timeMap = timeDraftByDay[dayIndex] ?? {};
+
+    return {
+      ordered_item_ids: items.map((x) => x.item_id),
+
+      item_times: items.map((item) => ({
+        item_id: item.item_id,
+        arrival_time: getDraftTimeValue(
+          timeMap,
+          item.item_id,
+          "arrival_time",
+          item.arrival_time ?? null
+        ),
+        departure_time: getDraftTimeValue(
+          timeMap,
+          item.item_id,
+          "departure_time",
+          item.departure_time ?? null
+        ),
+      })),
+
+      legs: items.slice(0, -1).map((from, idx) => {
+        const to = items[idx + 1];
+        const legKey = makeLegKey(from.item_id, to.item_id);
+        const leg = legRouteMap[legKey];
+
+        return {
+          from_item_id: from.item_id,
+          to_item_id: to.item_id,
+          travel_mode: legModeMap[legKey] ?? "DRIVING",
+          duration_millis: leg?.durationMillis ?? null,
+          distance_meters: leg?.distanceMeters ?? null,
+        };
+      }),
+    };
+  }
+
+
+  
 
   // ---------------------------------------------------------
   // 6. 拖拉套件
@@ -372,6 +518,8 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   // distance: 當位移 > 6 像素：系統才會確認：「開始動作」這時才會把元件抓起來變透明，進入拖拉狀態。
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+
+
   // onDragEnd 的角色（決策者）：
   // 這是整段拖拉流程的 「終點站」。當工人（SortableRow）完成搬運後，大腦（onDragEnd）要負責拍板定案：
   function onDragEnd(event: any) {
@@ -388,12 +536,12 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
     // arrayMove: 這是 dnd-kit 提供的工具。原本是 [A, B, C]，把 A 移到 C ，它會幫你算出新的陣列：[B, C, A]。
     const newItems = arrayMove(dayItems, oldIndex, newIndex);  // 原本物件dayItem 裡的東西都還在，只是順序變了
 
-    // 1) 立即更新 UI（更新 react-query cache）
-    qc.setQueryData(["dayItinerary", tripId, activeDay], newItems);
-    // setQueryData (key, data) 是讓你「強行寫入」**資料到快取（Cache）裡。
+    setDraftItemsByDay((prev) => ({
+      ...prev,
+      [activeDay]: newItems,
+    }));
 
-    // 2) call 後端 bulk reorder api
-    // reorderM.mutate(newItems.map((x) => x.item_id));  // 送後端用 item_id 組成的新排序陣列
+    markCurrentDayDirty();
   }
   /**
   整體架構中的運作流程圖
@@ -584,6 +732,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
   }, [dayLegPairs, placeByDestinationId, legRouteMap]);
 
 
+
   return (
     <div style={{ 
       display: "grid",
@@ -639,7 +788,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
 
                       const legKey = next ? makeLegKey(it.item_id, next.item_id) : null;
                       const leg = legKey ? legRouteMap[legKey] : undefined;
-                      const legMode = legKey ? legModeMap[legKey] ?? "DRIVING" : "DRIVING";
+              
 
                       return (
                         <Fragment key={it.item_id}>
@@ -762,7 +911,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        removeItemM.mutate(it.item_id);
+                                        removeItemM.mutate({ dayIndex: activeDay, item_id: it.item_id });
                                       }}
                                       disabled={removeItemM.isPending}
                                       style={{
@@ -847,14 +996,11 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                                   <span style={{ fontSize: 13, opacity: 0.75 }}>交通</span>
 
                                   <select
-                                    value={legMode}
+                                    value={currentDayLegModeMap[legKey] ?? "DRIVING"}
                                     onChange={(e) => {
                                       // 點擊後，以改變後的值去setLegModeMap
                                       const nextMode = e.target.value as TravelMode;
-                                      setLegModeMap((prev) => ({
-                                        ...prev,  // 拷貝一份舊資料
-                                        [legKey]: nextMode,  // 新增[legkey]: nextMode 這一項，如果[legkey]存在，就覆蓋掉原本的TravelMode
-                                      }));
+                                      updateCurrentDayLegMode(legKey, nextMode);
                                     }}
                                     style={{
                                       padding: "6px 8px",
@@ -983,7 +1129,7 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
 
                         ) : (
                           <button
-                            onClick={() => addToDayM.mutate(p.destination_id)}
+                            onClick={() => addToDayM.mutate({ dayIndex: activeDay, destination_id: p.destination_id })}
                             disabled={addToDayM.isPending}
                             style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", cursor: "pointer" }}
                           >
@@ -1043,6 +1189,14 @@ export default function AddPlacesTab({ tripId, days }: { tripId: number, days: n
                 )}
               </div>
             }
+            bottomRight={
+              <PlannerSaveButton
+                dirty={!!dirtyDayMap[activeDay]}
+                saving={saveDayDraftM.isPending}
+                onClick={() => saveDayDraftM.mutate(activeDay)}
+              />
+            }
+
           />
         </div>
       </div>

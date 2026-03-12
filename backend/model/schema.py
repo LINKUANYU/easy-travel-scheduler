@@ -73,6 +73,8 @@ class ItineraryItemOut(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     google_place_id: Optional[str] = None
+    arrival_time: Optional[str] = None
+    departure_time: Optional[str] = None
 
 class ItinerarySummaryRow(BaseModel):
     destination_id: int
@@ -83,6 +85,25 @@ class ItinerarySummaryRow(BaseModel):
 class ItineraryReorderIn(BaseModel):
     ordered_item_ids: List[int]
 
+
+class ItineraryItemTimeIn(BaseModel):
+    item_id: int
+    arrival_time: Optional[str] = None
+    departure_time: Optional[str] = None
+
+
+class ItineraryLegIn(BaseModel):
+    from_item_id: int
+    to_item_id: int
+    travel_mode: str
+    duration_millis: Optional[int] = None
+    distance_meters: Optional[int] = None
+
+
+class ItinerarySaveDayIn(BaseModel):
+    ordered_item_ids: List[int]
+    item_times: List[ItineraryItemTimeIn] = []
+    legs: List[ItineraryLegIn] = []
 
 
 class OkOut(BaseModel):

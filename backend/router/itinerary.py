@@ -43,15 +43,17 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
     cur.execute(
         """
         SELECT
-          ii.id AS item_id,
-          ii.trip_id,
-          ii.day_index,
-          ii.position,
-          d.id AS destination_id,
-          d.place_name,
-          d.lat,
-          d.lng,
-          d.google_place_id
+            ii.id AS item_id,
+            ii.trip_id,
+            ii.day_index,
+            ii.position,
+            ii.arrival_time,
+            ii.departure_time,
+            d.id AS destination_id,
+            d.place_name,
+            d.lat,
+            d.lng,
+            d.google_place_id
         FROM itinerary_items ii
         JOIN destinations d ON d.id = ii.destination_id
         WHERE ii.trip_id=%s AND ii.day_index=%s
@@ -60,6 +62,19 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
         (trip_id, day_index)
     )
     rows = cur.fetchall() or []
+
+    for row in rows:
+        if row.get("arrival_time") is not None:
+            # 取得總秒數，轉換成 HH:MM 格式的字串 (例如 "09:00")
+            seconds = int(row["arrival_time"].total_seconds())
+            h, m = seconds // 3600, (seconds % 3600) // 60
+            row["arrival_time"] = f"{h:02d}:{m:02d}"
+            
+        if row.get("departure_time") is not None:
+            seconds = int(row["departure_time"].total_seconds())
+            h, m = seconds // 3600, (seconds % 3600) // 60
+            row["departure_time"] = f"{h:02d}:{m:02d}"
+
     return rows
 
 # 讀：Trip 行程 summary（用來讓景點池按鈕變成「已加入」）
@@ -131,15 +146,17 @@ def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, 
         cur.execute(
             """
             SELECT
-              ii.id AS item_id,
-              ii.trip_id,
-              ii.day_index,
-              ii.position,
-              d.id AS destination_id,
-              d.place_name,
-              d.lat,
-              d.lng,
-              d.google_place_id
+                ii.id AS item_id,
+                ii.trip_id,
+                ii.day_index,
+                ii.position,
+                ii.arrival_time,
+                ii.departure_time,
+                d.id AS destination_id,
+                d.place_name,
+                d.lat,
+                d.lng,
+                d.google_place_id
             FROM itinerary_items ii
             JOIN destinations d ON d.id = ii.destination_id
             WHERE ii.id=%s
@@ -228,3 +245,110 @@ def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorde
         raise
     except Exception:
         raise
+
+
+
+@router.put(
+    "/api/trips/{trip_id}/days/{day_index}/itinerary/save",
+    response_model=OkOut,
+)
+def save_day_itinerary(
+    trip_id: int,
+    day_index: int,
+    payload: ItinerarySaveDayIn,
+    cur=Depends(get_cur),
+    conn=Depends(get_conn),
+):
+    ordered = payload.ordered_item_ids or []
+    if not ordered:
+        raise HTTPException(status_code=400, detail="ordered_item_ids is required")
+
+    # 1) 鎖住該天 itinerary items
+    conn.begin()
+    cur.execute(
+        """
+        SELECT id
+        FROM itinerary_items
+        WHERE trip_id = %s AND day_index = %s
+        FOR UPDATE
+        """,
+        (trip_id, day_index),
+    )
+    rows = cur.fetchall() or []
+    existing_ids = [r["id"] for r in rows]
+
+    # 2) 驗證 item 集合一致
+    if set(existing_ids) != set(ordered):
+        raise HTTPException(status_code=400, detail="ordered_item_ids mismatch")
+
+    # 3) 更新排序
+    cur.executemany(
+        """
+        UPDATE itinerary_items
+        SET position = %s
+        WHERE id = %s AND trip_id = %s AND day_index = %s
+        """,
+        [(pos, item_id, trip_id, day_index) for pos, item_id in enumerate(ordered)],
+    )
+
+    # 4) 更新 item 時間
+    time_rows = []
+    for row in payload.item_times:
+        time_rows.append((
+            row.arrival_time,
+            row.departure_time,
+            row.item_id,
+            trip_id,
+            day_index,
+        ))
+
+    if time_rows:
+        cur.executemany(
+            """
+            UPDATE itinerary_items
+            SET arrival_time = %s, departure_time = %s
+            WHERE id = %s AND trip_id = %s AND day_index = %s
+            """,
+            time_rows,
+        )
+
+    # 5) 清掉舊 legs
+    cur.execute(
+        """
+        DELETE FROM itinerary_legs
+        WHERE trip_id = %s AND day_index = %s
+        """,
+        (trip_id, day_index),
+    )
+
+    # 6) 重建 legs
+    leg_rows = []
+    for leg in payload.legs:
+        leg_rows.append((
+            trip_id,
+            day_index,
+            leg.from_item_id,
+            leg.to_item_id,
+            leg.travel_mode,
+            leg.duration_millis,
+            leg.distance_meters,
+        ))
+
+    if leg_rows:
+        cur.executemany(
+            """
+            INSERT INTO itinerary_legs (
+                trip_id,
+                day_index,
+                from_item_id,
+                to_item_id,
+                travel_mode,
+                duration_millis,
+                distance_meters
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            leg_rows,
+        )
+
+    return {"ok": True}
