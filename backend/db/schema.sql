@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS `trips` (
   `title` VARCHAR(100) NOT NULL,
   `days` INT NOT NULL,
   `start_date` DATE NULL,
+  `share_token` VARCHAR(100) UNIQUE NULL,
+  `is_public` BOOLEAN NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_trips_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

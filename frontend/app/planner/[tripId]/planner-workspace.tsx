@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/app/lib/api";
+import { apiGet, apiPatch } from "@/app/lib/api";
+import { useRouter } from "next/navigation";
 
 import PlaceAutocompleteInput from "@/app/planner/[tripId]/components/PlaceAutocompleteInput";
 import TripMap from "@/app/planner/[tripId]/components/TripMap";
@@ -20,7 +21,7 @@ function normalizeTripId(x: string) {
 }
 
 export default function PlannerWorkspace({ tripId }: { tripId: string }) {
-
+  const router = useRouter();
   const tid = useMemo(() => normalizeTripId(tripId), [tripId]);
 
   // 1. 抓取 Trip 基本資料 (為了取得 days 天數)
@@ -143,11 +144,42 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
               </div>
             }
             bottomRight={
-              <PlannerSaveButton
-                dirty={!!data.dirtyDayMap[data.activeDay]}
-                saving={data.saveDayDraftM.isPending}
-                onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
-              />
+              <div className="flex gap-[8px] items-center max-[1450px]:flex-col max-[1200px]:mt-[80px]">
+                <PlannerSaveButton
+                  dirty={!!data.dirtyDayMap[data.activeDay]}
+                  saving={data.saveDayDraftM.isPending}
+                  onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
+                />
+
+                {/* 這裡加入你的下一步 / 分享按鈕 */}
+                <button 
+                  onClick={async () => {
+                      try {
+                        // 並且定義回傳的資料格式包含 { share_token: string }
+                        const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);
+                        
+                        // 成功拿到 token 後，跳轉到唯讀頁面
+                        router.push(`/share/${res.share_token}`);
+                        
+                      } catch (err) {
+                        console.error(err);
+                        alert("產生分享連結失敗，請稍後再試！");
+                      }
+                    }}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#7bb9d7",
+                    color: "#fff",
+                    borderRadius: "999px",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                    fontWeight: 700,
+                  }}
+                >
+                  下一步 (分享)
+                </button>
+              </div>
             }
 
           />

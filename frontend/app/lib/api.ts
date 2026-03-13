@@ -95,3 +95,24 @@ export async function apiPut<T>(url: string, body?: any): Promise<T> {
   }
   return payload as T;
 }
+
+export async function apiPatch<T>(url: string, body?: any): Promise<T> {
+  const res = await fetch(url ,{
+    method: "PATCH", 
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  const payload = await parseJsonSafe(res);
+
+  if (!res.ok) {
+    const err: ApiError = new Error(
+      (payload && (payload.detail || payload.message)) || `Request failed: ${res.status}`
+    );
+    err.status = res.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload as T;
+}
