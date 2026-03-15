@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPatch } from "@/app/lib/api";
 import { useRouter } from "next/navigation";
 
-import PlaceAutocompleteInput from "@/app/planner/[tripId]/components/PlaceAutocompleteInput";
-import TripMap from "@/app/planner/[tripId]/components/TripMap";
-import PlannerSaveButton from "@/app/planner/[tripId]/components/PlannerSaveBtn";
-import PlacePoolPanel from "./components/PlacePoolPanel";
-import DailyItineraryPanel from "./components/DailyItineraryPanel";
-import { usePlaceThumbnails } from "./hooks/usePlaceThumbnails";
-import { usePlannerData } from "./hooks/usePlannerData";
+import PlaceAutocompleteInput from "@/app/components/planner/PlaceAutocompleteInput";
+import TripMap from "@/app/components/planner/TripMap";
+import PlannerSaveButton from "@/app/components/planner/PlannerSaveBtn";
+import PlacePoolPanel from "../../components/planner/PlacePoolPanel";
+import DailyItineraryPanel from "../../components/planner/DailyItineraryPanel";
+import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
+import { usePlannerData } from "../../hooks/usePlannerData";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -124,6 +124,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
               data.addPlaceM.mutate(placeId);
             }}
             onClearPreview={() => data.setPreview(null)}
+            onPlaceClick={(placeId) => data.updatePreview(placeId)}
             topLeft={
               <div style={{ display: "grid", gap: 8 }}>
                 <PlaceAutocompleteInput

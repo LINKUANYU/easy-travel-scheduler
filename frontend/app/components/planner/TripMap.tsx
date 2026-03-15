@@ -33,7 +33,10 @@ export default function TripMap({
   isAddingPreview,
   scheduleSummary,
   activeDay,
+  activeDayRoute,
   bottomRight,
+  onPlaceClick, // 用來向外傳遞使用者點擊的 placeId
+  readonly,     // 如果是唯讀模式 (Share頁面)，隱藏「加入 Trip」按鈕
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
@@ -42,8 +45,11 @@ export default function TripMap({
   onClearPreview?: () => void;
   isAddingPreview?: boolean;
   scheduleSummary?: ItinerarySummaryRow[];
-  activeDay?: number
+  activeDay?: number;
+  activeDayRoute?: { lat: number; lng: number }[];
   bottomRight?: React.ReactNode;
+  onPlaceClick?: (placeId: string) => void;
+  readonly?: boolean;
 }) {
   /** Ref特性：不觸發re-render、裡面東西不會消失
   Google Map / Marker 是「外部物件」，不應該放在 React state（state 變動會觸發 re-render，反而干擾）
@@ -61,6 +67,11 @@ export default function TripMap({
   // 因為 InfoWindow 是用「HTML 字串」寫成的，不是真正的 React 元件。為了能在 document.getElementById 準確抓到這個視窗裡的按鈕，你需要一個唯一的 ID。
 
   const hasInitialFit = useRef<boolean>(false); // 查看是否為第一次render的變數
+
+  // 1. 新增一個 Ref 來追蹤線條物件
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
+  // 用來記錄「上一次」的 activeDay，預設為初次載入的天數
+  const prevActiveDayRef = useRef<number | undefined>(activeDay);
 
   // 檢查place送進來的資料，lat/lng 不是 number 的就不要畫 marker，避免地圖 API 報錯
   const valid = useMemo(
@@ -113,6 +124,14 @@ export default function TripMap({
 
       const map = mapRef.current!;
 
+      // 監聽地圖上的原生景點 (POIs) 點擊事件
+      google.maps.event.clearListeners(map, "click");
+      map.addListener("click", (event: any) => {
+        if (event.placeId) {
+          event.stop(); // 阻止 Google 預設的白框彈出
+          onPlaceClick?.(event.placeId); // 呼叫外層的 updatePreview
+        }
+      });
 
       // 2) clear old trip markers，清除所有舊圖釘
       // 在 Google Maps API 中，要讓一個圖釘消失要把它的 map 屬性設為 null
@@ -138,7 +157,7 @@ export default function TripMap({
             background: dayColor,
             glyphColor: "#ffffff",
             borderColor: isActive ? "#FFFFFF" : "rgba(0,0,0,0.3)",
-            scale: isActive ? 1.5 : 1.1,
+            scale: isActive ? 2 : 1.5,
           } as any);
 
           const am = new AdvancedMarkerElement({
@@ -148,6 +167,13 @@ export default function TripMap({
             content: pin,  //  圖釘長什麼樣子？上面做的數字模樣
             zIndex: isActive ? 10 :1
           });
+
+          // 綁定點擊事件
+          if (p.google_place_id) {
+            am.addListener("click", () => {
+              onPlaceClick?.(p.google_place_id as string);
+            });
+          }
 
           markersRef.current.push(am);  // 放到Ref中
           continue;
@@ -159,6 +185,12 @@ export default function TripMap({
           position: { lat: p.lat as number, lng: p.lng as number }, // 放的位置
           title: p.place_name ?? `#${p.destination_id}`,  //
         });
+        // 綁定點擊事件
+        if (p.google_place_id) {
+          am.addListener("click", () => {
+            onPlaceClick?.(p.google_place_id as string);
+          });
+        }
         markersRef.current.push(am);  // 放到Ref中
       }
 
@@ -190,7 +222,9 @@ export default function TripMap({
           )
           .join("");
         
-        const addBtnHtml = isAlreadyInTrip
+        const addBtnHtml = readonly  // 如果是唯獨頁，就拿掉按鈕。如果是編輯頁，顯示按鈕
+        ? ""
+        : (isAlreadyInTrip
           ? `<button id="${addId}" disabled style="
               padding:8px 12px; border-radius:10px; border:1px solid #eee;
               background:#f5f5f5; color:#999; font-weight:700; cursor:not-allowed;
@@ -202,7 +236,7 @@ export default function TripMap({
               background:white; font-weight:700; cursor:pointer;
             ">
               加入 Trip
-            </button>`;
+            </button>`);
 
 
 
@@ -244,7 +278,7 @@ export default function TripMap({
         // 讓 InfoWindow 永遠在最上層
         infoRef.current!.setOptions({ 
           zIndex: 100, 
-          pixelOffset: new google.maps.Size(0, -20) // 視窗位置偏移向上
+          pixelOffset: new google.maps.Size(0, -30) // 視窗位置偏移向上
         });
         // 畫面登場
         infoRef.current!.open({ map, anchor: am as any }); // 設定了 anchor，視窗就會自動對齊圖釘的尖端彈出來。
@@ -323,6 +357,58 @@ export default function TripMap({
           hasInitialFit.current = true;
         }
       }
+      // 5c) 處理 Polyline 路線連線
+      if (!polylineRef.current) {
+        polylineRef.current = new google.maps.Polyline({
+          strokeOpacity: 0.8,
+          strokeWeight: 5, // 線條粗細
+          icons: [
+            { // 加上箭頭讓方向更清楚
+              icon: { 
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                fillOpacity: 1,        // 2. 填滿的不透明度，1 代表完全不透明（實心）
+                scale: 4,
+              },
+              offset: "50%",
+              repeat: "100px",
+            },
+          ],
+        });
+      }
+
+      // 如果當天有超過 2 個景點才畫線
+      if (activeDayRoute && activeDayRoute.length > 1) {
+        polylineRef.current.setPath(activeDayRoute);
+        // 依照當天顏色設定線的顏色，保持視覺一致
+        polylineRef.current.setOptions({ strokeColor: colorForDay(activeDay || 1) });
+        polylineRef.current.setMap(mapRef.current!);
+      } else {
+        // 如果少於 2 個景點，或沒傳資料，就把線隱藏
+        polylineRef.current.setMap(null);
+      }
+      
+      // 5d) 當天數發生「切換」時，將地圖視野縮放到該天行程的範圍
+      if (prevActiveDayRef.current !== activeDay) {
+        // 確保這天有景點座標才做事
+        if (activeDayRoute && activeDayRoute.length > 0) {
+          const bounds = new google.maps.LatLngBounds();
+          activeDayRoute.forEach((p) => bounds.extend(p));
+          
+          if (activeDayRoute.length > 1) {
+            // 有兩個點以上：讓所有景點都進畫面，並留一點邊距
+            map.fitBounds(bounds, { top: 80, bottom: 80, left: 80, right: 80 });
+          } else {
+            // 只有一個點：fitBounds 會縮太近，改成直接置中並給定縮放值
+            map.setCenter(activeDayRoute[0]);
+            map.setZoom(15);
+          }
+        }
+        
+        // ★ 非常重要：無論這天有沒有景點，都要更新 Ref，
+        // 這樣地圖才不會在其他無關的 Re-render (例如 Hover) 時一直亂跳
+        prevActiveDayRef.current = activeDay;
+      }
+
     }
 
     boot();
@@ -336,9 +422,11 @@ export default function TripMap({
       if (previewMarkerRef.current) previewMarkerRef.current.map = null;
       previewMarkerRef.current = null;
 
+      if (polylineRef.current) polylineRef.current.setMap(null);
+
       infoRef.current?.close();
     };
-  }, [valid, schedMap, activeDay, preview?.id, previewValid, isAddingPreview, onAddPreview, onClearPreview]);
+  }, [valid, schedMap, activeDay, activeDayRoute, preview?.id, previewValid, isAddingPreview, onAddPreview, onClearPreview]);
 
   return (
     <div

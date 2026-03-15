@@ -6,7 +6,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import TimePopover from "@/app/planner/[tripId]/components/TimePopover";
+import TimePopover from "@/app/components/planner/TimePopover";
 import { makeLegKey, formatDistance, formatDuration } from "@/app/lib/planner/itinerary-route-leg";
 import type { ItineraryItem, LegRouteState, TravelMode } from "@/app/types/all-types";
 import type { TimeField } from "@/app/lib/planner/itinerary-time";

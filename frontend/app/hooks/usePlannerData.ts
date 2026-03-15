@@ -8,6 +8,7 @@ import { getDraftTimeValue, upsertItemTimeDraft, suggestArrivalTime, type TimeFi
 import { makeLegKey } from "@/app/lib/planner/itinerary-route-leg";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode } from "@/app/types/all-types";
 import { useRouteCalculator } from "./useRouteCalculator";
+import { usePlacePreview } from "./usePlacePreview";
 
 // 輔助函式
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -21,13 +22,9 @@ export function usePlannerData(tripId: number, days: number) {
   const [uiMsg, setUiMsg] = useState<string>("");  // UI 提示訊息 (如: 已加入、失敗等)
   const [activeDay, setActiveDay] = useState(1);
 
-  // 1. 地圖預覽搜尋狀態
-  const [preview, setPreview] = useState<PlacePreview | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewErr, setPreviewErr] = useState<string>("");
-  const pickTokenRef = useRef(0);  // 防止連點造成的 Race Condition (競爭狀態)
+  const { preview, setPreview, previewLoading, previewErr, updatePreview } = usePlacePreview();
 
-  // 2. 本地草稿狀態
+  // 本地草稿狀態
   const [draftItemsByDay, setDraftItemsByDay] = useState<Record<number, ItineraryItem[]>>({});
   const [draftLegModeByDay, setDraftLegModeByDay] = useState<Record<number, Record<string, TravelMode>>>({});
   const [timeDraftByDay, setTimeDraftByDay] = useState<Record<number, Record<number, ItemTimeDraft>>>({});
@@ -204,23 +201,6 @@ export function usePlannerData(tripId: number, days: number) {
     if (dirtyDayMap[activeDay]) await saveDayDraftM.mutateAsync(activeDay);
     setActiveDay(nextDay);
   }
-
-  // Map Preview 視窗
-  const updatePreview = async (placeId: string, displayName?: string) => {
-    if (!placeId) return;
-    setPreviewErr(""); setPreviewLoading(true); setPreview(null);
-    const token = ++pickTokenRef.current;
-    try {
-      const data = await fetchPlacePreview(placeId);
-      if (token !== pickTokenRef.current) return;
-      setPreview({ ...data, name: data.name ?? displayName });
-    } catch (e: any) {
-      if (token !== pickTokenRef.current) return;
-      setPreviewErr(e?.message || String(e));
-    } finally {
-      if (token === pickTokenRef.current) setPreviewLoading(false);
-    }
-  };
 
   function applyItemTime(item: ItineraryItem, field: TimeField, value: string | null) {
     setTimeDraftByDay((prev) => {

@@ -3,12 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/app/lib/api";
 import { useState, useMemo } from "react";
-import TripMap from "@/app/planner/[tripId]/components/TripMap";
-import { usePlaceThumbnails } from "@/app/planner/[tripId]/hooks/usePlaceThumbnails";
+import TripMap from "@/app/components/planner/TripMap";
+import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
 import { formatDuration } from "@/app/lib/planner/itinerary-route-leg";
+import { usePlacePreview } from "@/app/hooks/usePlacePreview";
 
-// 1. 定義對應後端的資料結構
+
+
 interface SharedItineraryItem {
   item_id: number;
   day_index: number;
@@ -36,8 +38,10 @@ interface SharedTripDataOut {
 
 export default function ShareWorkspace({ token }: { token: string }) {
   const router = useRouter();
-  const [activeDay, setActiveDay] = useState<number>(1);
-  
+  const [activeDay, setActiveDay] = useState<number | null>(1);
+
+  const { preview, setPreview, updatePreview } = usePlacePreview();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["shared-trip", token],
     queryFn: () => apiGet<SharedTripDataOut>(`/api/share/${token}`),
@@ -80,6 +84,18 @@ export default function ShareWorkspace({ token }: { token: string }) {
     };
   }, [data]);
 
+  // 把「當天 (activeDay)」有座標的景點抓出來，轉成畫線用的格式
+  const activeDayRoute = useMemo(() => {
+    if (!data || activeDay === null || !data.itinerary[activeDay]) return [];
+    
+    return data.itinerary[activeDay]
+      .filter((item) => item.lat !== undefined && item.lng !== undefined) // 確保有座標
+      .map((item) => ({
+        lat: Number(item.lat),
+        lng: Number(item.lng),
+      }));
+  }, [data, activeDay]);
+
   // 第一個參數是 dayItems，第二個是 sortedPlaces。我們直接把 map 過的 places 當作第二個參數傳進去 (用 as any[] 避開嚴格型別檢查，因為只要有 google_place_id 就能運作)
   const { getThumbUrl } = usePlaceThumbnails([], places as any[]);
 
@@ -90,7 +106,6 @@ export default function ShareWorkspace({ token }: { token: string }) {
   // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列
   const dayNums = Object.keys(itinerary).map(Number).sort((a, b) => a - b);
 
-  
   return (
     // 最外層容器：設定為滿版畫面，並切分為上下兩塊 (flex-col)
     <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#f9fafb", width: "90%", margin: "auto"}}>
@@ -155,7 +170,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
           {dayNums.map((dayNum) => (
             <div 
             key={dayNum} 
-            onClick={() => setActiveDay(dayNum)}
+            onClick={() => setActiveDay((prew) => (prew === dayNum ?  null : dayNum))} // 如果當前的 activeDay 已經是自己，就變成 null (取消選取)，否則就切換成自己
             style={{
               minWidth: "320px", 
               backgroundColor: "#f3f4f6", 
@@ -247,11 +262,14 @@ export default function ShareWorkspace({ token }: { token: string }) {
         <TripMap
           places={places}
           scheduleSummary={scheduleSummary}
-          activeDay={activeDay}
-          preview={null}          // 唯讀模式不需要預覽點
-          isAddingPreview={false} // 唯讀模式不需新增
-          onAddPreview={() => {}} // 給空函式防呆
-          onClearPreview={() => {}}
+          activeDay={activeDay === null ? undefined : activeDay} // 如果是 null 就傳 undefined 給地圖，地圖就會知道現在沒有選中任何一天
+          activeDayRoute={activeDayRoute}
+          preview={preview}
+          onClearPreview={() => setPreview(null)} 
+          onPlaceClick={updatePreview}
+          readonly={true} // ★ 開啟唯讀模式，隱藏「加入 Trip」按鈕
+          isAddingPreview={false} 
+          onAddPreview={() => {}}
           topLeft={null}
           bottomRight={null}
         />
