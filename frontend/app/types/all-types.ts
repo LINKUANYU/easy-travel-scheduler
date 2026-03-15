@@ -59,3 +59,28 @@ export type LegRouteState = {
   error?: string;
 };
 
+export type SharedItineraryItem = {
+  item_id: number;
+  day_index: number;
+  position: number;
+  destination_id: number;
+  place_name: string;
+  lat?: number;
+  lng?: number;
+  google_place_id?: string;
+  arrival_time?: string;
+  departure_time?: string;
+  travel_mode?: string;
+  duration_millis?: number;
+}
+
+
+export type SharedTripDataOut = {
+  trip: {
+    trip_id: number;
+    title: string;
+    days: number;
+    start_date?: string;
+  };
+  itinerary: Record<number, SharedItineraryItem[]>;
+}
