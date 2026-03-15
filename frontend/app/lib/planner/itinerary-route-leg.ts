@@ -38,7 +38,7 @@ export function formatDuration(ms?: number){
   const totalMin = Math.round(ms / 60000);  // 四捨五入
   const h = Math.floor(totalMin / 60);  // 無條件捨去
   const m = totalMin % 60;
-  return h > 0? `${h} 小時 ${m}分` : `${m}分`
+  return h > 0? ` ${h} 小時 ${m} 分` : ` ${m} 分`
 }
 // 轉換距離樣式
 export function formatDistance(meters?: number) {

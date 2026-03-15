@@ -7,6 +7,7 @@ import { fetchPlacePreview, type PlacePreview } from "@/app/lib/planner/placePre
 import { getDraftTimeValue, upsertItemTimeDraft, suggestArrivalTime, type TimeField, type ItemTimeDraft } from "@/app/lib/planner/itinerary-time";
 import { makeLegKey } from "@/app/lib/planner/itinerary-route-leg";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode } from "@/app/types/all-types";
+import { useRouteCalculator } from "./useRouteCalculator";
 
 // 輔助函式
 function normalizeArrayPayload<T>(payload: any): T[] {
@@ -95,6 +96,8 @@ export function usePlannerData(tripId: number, days: number) {
     return m;
   }, [places]);
 
+  const { legRouteMap } = useRouteCalculator(dayItems, currentDayLegModeMap, placeByDestinationId);
+
   // ==========================================
   // Mutations (資料變更)
   // ==========================================
@@ -167,12 +170,13 @@ export function usePlannerData(tripId: number, days: number) {
         legs: (draftItemsByDay[dayIndex] ?? []).slice(0, -1).map((from, idx) => {
           const to = (draftItemsByDay[dayIndex] ?? [])[idx + 1];
           const legKey = makeLegKey(from.item_id, to.item_id);
+          const routeResult = legRouteMap[legKey];
           return {
             from_item_id: from.item_id,
             to_item_id: to.item_id,
             travel_mode: (draftLegModeByDay[dayIndex] ?? {})[legKey] ?? "DRIVING",
-            duration_millis: null, // 在這裡可以依照需求把 legRouteMap 的結果組裝進去
-            distance_meters: null,
+            duration_millis: routeResult.durationMillis ?? null,
+            distance_meters: routeResult.distanceMeters ?? null,
           };
         }),
       };
@@ -271,6 +275,7 @@ export function usePlannerData(tripId: number, days: number) {
     dayItems, currentDayLegModeMap, currentDayTimeDraftMap, dirtyDayMap,
     preview, previewLoading, previewErr, updatePreview, setPreview,
     applyItemTime, clearItemTime, updateCurrentDayLegMode, onDragEnd,
+    legRouteMap,
     getItemTimeValue: (item: ItineraryItem, field: TimeField) => getDraftTimeValue(currentDayTimeDraftMap, item.item_id, field, field === "arrival_time" ? item.arrival_time ?? null : item.departure_time ?? null),
     placesQ, dayItinQ, summaryQ,
     addPlaceM, removePlaceM, addToDayM, removeItemM, saveDayDraftM

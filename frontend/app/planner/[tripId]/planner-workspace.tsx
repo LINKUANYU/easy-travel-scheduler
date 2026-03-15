@@ -11,7 +11,6 @@ import PlannerSaveButton from "@/app/planner/[tripId]/components/PlannerSaveBtn"
 import PlacePoolPanel from "./components/PlacePoolPanel";
 import DailyItineraryPanel from "./components/DailyItineraryPanel";
 import { usePlaceThumbnails } from "./hooks/usePlaceThumbnails";
-import { useRouteCalculator } from "./hooks/useRouteCalculator";
 import { usePlannerData } from "./hooks/usePlannerData";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
@@ -39,9 +38,6 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
 
   // 3. 統籌影像快取資料
   const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
-
-  // 4. 統籌交通計算資料
-  const { legRouteMap } = useRouteCalculator(data.dayItems, data.currentDayLegModeMap, data.placeByDestinationId);
   
   // ==========================================
   // 阻擋畫面渲染 (Loading & Error 處理)
@@ -67,8 +63,8 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
           gridTemplateColumns: "1fr 1fr 2fr", // ✅ 25/25/50
           gap: 12,
           alignItems: "stretch",
-          height: "100%", // ✅ 撐滿父容器
-          minHeight: 0    // ✅ 重要：防止內容撐開 Grid
+          height: "100%", 
+          minHeight: 0
         }}
       >
         {/* =========================
@@ -82,7 +78,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
           isLoading={data.dayItinQ.isLoading}
           error={data.dayItinQ.error as Error | null}
           dayItems={data.dayItems}
-          legRouteMap={legRouteMap}
+          legRouteMap={data.legRouteMap}
           currentDayLegModeMap={data.currentDayLegModeMap}
           onDragEnd={data.onDragEnd}
           getThumbUrl={getThumbUrl}
