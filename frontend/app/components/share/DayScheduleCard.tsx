@@ -54,13 +54,31 @@ export default function DayScheduleCard({ dayNum, items, isActive, onClick, getT
               gap: "12px"
             }}>
               {/* --- 圖片區塊 --- */}
-              <div style={{ width: "60px", height: "60px", borderRadius: "6px", backgroundColor: "#e5e7eb", flexShrink: 0, overflow: "hidden" }}>
+              <div style={{ width: "60px", height: "60px", borderRadius: "6px", backgroundColor: "#e5e7eb", flexShrink: 0, overflow: "hidden", position: "relative" }}>
                 {getThumbUrl(item.google_place_id) ? (
-                  <img src={getThumbUrl(item.google_place_id)} alt={item.place_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={getThumbUrl(item.google_place_id)} alt={item.place_name} style={{ width: "100%", height: "100%", objectFit: "cover"}} />
                 ) : (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "11px", color: "#9ca3af" }}>載入中</div>
                 )}
+                {/* 👈 2. 加入 position 數值標籤 */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "0",
+                    left: "0",
+                    backgroundColor: "rgba(0, 0, 0, 0.6)", // 半透明黑底
+                    color: "#fff", // 白色文字
+                    padding: "2px 6px", // 內邊距
+                    fontSize: "12px", // 字體大小
+                    fontWeight: "bold",
+                    borderRadius: "6px", // 圓角右下角
+                    zIndex: 1, // 確保標籤在圖片上方
+                  }}
+                >
+                  {item.position + 1}
+                </div>
               </div>
+
 
               {/* --- 文字資訊區塊 --- */}
               <div style={{ flex: 1 }}>

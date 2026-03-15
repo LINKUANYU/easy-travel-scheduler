@@ -141,21 +141,64 @@ export default function DailyItineraryPanel({
                                 gap: 12,
                                 alignItems: "center",
                                 background: "white",
+                                position: "relative"
                               }}
                             >
-                              {/* 左：圖片 */}
-                              {thumbUrl ? (
-                                <img
-                                  src={thumbUrl}
-                                  alt={it.place_name ?? "place"}
+                              {/* --- 圖片區塊 --- */}
+                              <div
+                                style={{
+                                  width: "80px",
+                                  height: "80px",
+                                  borderRadius: "10px", // 原本圓角
+                                  backgroundColor: "#e5e7eb",
+                                  flexShrink: 0,
+                                  overflow: "hidden",
+                                  position: "relative", 
+                                }}
+                              >
+                                {/* 加入 position 數值標籤 */}
+                                <div
                                   style={{
-                                    width: 80, height: 80, objectFit: "cover",
-                                    borderRadius: 10, border: "1px solid #eee", display: "block",
+                                    position: "absolute",
+                                    top: "0",
+                                    left: "0",
+                                    backgroundColor: "rgba(0, 0, 0, 0.6)", // 半透明黑底
+                                    color: "#fff", // 白色文字
+                                    padding: "3px 8px", // 內邊距，配合较大圖片
+                                    fontSize: "14px", // 字體大小，配合较大圖片
+                                    fontWeight: "bold",
+                                    borderRadius: "10px", 
+                                    zIndex: 1, // 確保標籤在圖片上方
                                   }}
-                                />
-                              ) : (
-                                <div style={{ width: 72, height: 72, borderRadius: 10, background: "#f3f3f3", border: "1px solid #eee" }} />
-                              )}
+                                >
+                                  {idx + 1}
+                                </div>
+
+                                {thumbUrl ? (
+                                  <img
+                                    src={thumbUrl}
+                                    alt={it.place_name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      height: "100%",
+                                      fontSize: "14px",
+                                      color: "#9ca3af",
+                                    }}
+                                  >
+                                    載入中
+                                  </div>
+                                )}
+                              </div>
 
                               {/* 中：名稱 + 時間 */}
                               <div style={{ minWidth: 0, cursor: "pointer" }} onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}>

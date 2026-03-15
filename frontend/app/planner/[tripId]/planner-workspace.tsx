@@ -38,6 +38,25 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
 
   // 3. 統籌影像快取資料
   const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
+
+  // 4. 將「後端的原始資料」與「你目前拖拉的暫存順序 (data.dayItems)」進行融合，產生一個包含草稿狀態的 draftScheduleSummary，再傳給地圖。
+  const draftScheduleSummary = useMemo(() => {
+  const baseSummary = data.summaryQ.data ?? [];
+  
+  // 過濾掉「當前天數」的舊資料
+  const filteredSummary = baseSummary.filter(s => s.day_index !== data.activeDay);
+  
+  // 將拖拉過後的暫存陣列 (data.dayItems) 轉成新的 summary 格式，並使用當下的 index 作為新 position
+  const newActiveDaySummary = data.dayItems.map((item, index) => ({
+    item_id: item.item_id,
+    day_index: data.activeDay,
+    position: index, // 👈 這裡賦予它拖拉後的新排序
+    destination_id: item.destination_id,
+  }));
+
+  // 將「其他天的舊資料」跟「當天的暫存新資料」合併
+  return [...filteredSummary, ...newActiveDaySummary];
+}, [data.summaryQ.data, data.dayItems, data.activeDay]);
   
   // ==========================================
   // 阻擋畫面渲染 (Loading & Error 處理)
@@ -114,7 +133,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
         <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", height: "100%" }}>
           <TripMap
             places={data.places}
-            scheduleSummary={data.summaryQ.data ?? []}
+            scheduleSummary={draftScheduleSummary}
             activeDay={data.activeDay}
             preview={data.preview}
             isAddingPreview={data.addPlaceM.isPending}

@@ -7,7 +7,7 @@ import TripMap from "@/app/components/planner/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
 import { usePlacePreview } from "@/app/hooks/usePlacePreview";
-import { SharedItineraryItem, SharedTripDataOut } from "@/app/types/all-types";
+import { SharedTripDataOut } from "@/app/types/all-types";
 import DayScheduleCard from "@/app/components/share/DayScheduleCard";
 
 export default function ShareWorkspace({ token }: { token: string }) {
