@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS `destination_photos` (
 CREATE TABLE IF NOT EXISTS `trips` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
   `user_id` INT NULL,
+  `edit_token` VARCHAR(64) NULL,
   `title` VARCHAR(100) NOT NULL,
   `days` INT NOT NULL,
   `start_date` DATE NULL,
@@ -129,9 +130,6 @@ CREATE TABLE IF NOT EXISTS `itinerary_legs` (
     FOREIGN KEY (`to_item_id`) REFERENCES `itinerary_items`(`id`)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
-
 
 
 CREATE TABLE IF NOT EXISTS `users` (

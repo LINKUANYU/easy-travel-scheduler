@@ -81,6 +81,7 @@ export type SharedTripDataOut = {
     title: string;
     days: number;
     start_date?: string;
+    user_id?: number;
   };
   itinerary: Record<number, SharedItineraryItem[]>;
 }

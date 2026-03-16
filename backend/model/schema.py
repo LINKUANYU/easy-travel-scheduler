@@ -34,6 +34,7 @@ class TripCreateIn(BaseModel):
 
 class TripCreateOut(BaseModel):
     trip_id: int
+    edit_token: Optional[str] = None
 
 
 class TripOut(BaseModel):
@@ -115,6 +116,7 @@ class SharedTripInfo(BaseModel):
     title: str
     days: int
     start_date: Optional[str] = None
+    user_id: Optional[int] = None  # 讓前端知道誰是擁有者
 
 class SharedItineraryItem(BaseModel):
     item_id: int

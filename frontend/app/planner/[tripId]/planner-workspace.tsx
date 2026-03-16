@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPatch } from "@/app/lib/api";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import PlacePoolPanel from "../../components/planner/PlacePoolPanel";
 import DailyItineraryPanel from "../../components/planner/DailyItineraryPanel";
 import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
 import { usePlannerData } from "../../hooks/usePlannerData";
+import { useTripDraft } from "@/app/hooks/useTripDraft";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -23,23 +24,41 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
   const router = useRouter();
   const tid = useMemo(() => normalizeTripId(tripId), [tripId]);
 
-  // 1. 抓取 Trip 基本資料 (為了取得 days 天數)
+  // 1. 取得設定 ActiveTrip 的方法
+  const { setActiveTripId } = useTripDraft();
+
+  // 2. 當載入這個元件時，設定當前的 tripId 為活躍狀態
+  useEffect(() => {
+    if (tid !== null) {
+      setActiveTripId(tid);
+    }
+  }, [tid, setActiveTripId]);
+
+  // 3. 抓取 Trip 基本資料 (為了取得 days 天數)
   const tripQ = useQuery({
     queryKey: ["trip", tid],
     enabled: tid !== null,
     queryFn: async () => apiGet<any>(`/api/trips/${tid}`),
   });
+  
+  // 攔截無權限 (403) 或找不到行程 (404) 的狀態，利用 useEffect 安全地執行轉址與提示
+  useEffect(() => {
+    if (tripQ.error) {
+      alert("您沒有權限查看此行程，或者該行程已不存在");
+      router.push('/');
+    }
+  }, [tripQ.error, router]);
 
-  // 2. 統籌所有行程與狀態資料 (等待 tid 和 trip 資料準備好才執行)
+  // 4. 統籌所有行程與狀態資料 (等待 tid 和 trip 資料準備好才執行)
   const days = tripQ.data?.days ?? 1; 
   // 雖然 hook 必須在頂層呼叫，但因為 tid 和 days 在 loading 結束前可能不正確，
   // 我們先傳入預設值，等資料回來 React Query 會自動重新渲染。
   const data = usePlannerData(tid ?? 0, days);
 
-  // 3. 統籌影像快取資料
+  // 5. 統籌影像快取資料
   const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
 
-  // 4. 將「後端的原始資料」與「你目前拖拉的暫存順序 (data.dayItems)」進行融合，產生一個包含草稿狀態的 draftScheduleSummary，再傳給地圖。
+  // 6. 將「後端的原始資料」與「你目前拖拉的暫存順序 (data.dayItems)」進行融合，產生一個包含草稿狀態的 draftScheduleSummary，再傳給地圖。
   const draftScheduleSummary = useMemo(() => {
   const baseSummary = data.summaryQ.data ?? [];
   
@@ -64,6 +83,11 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
   if (tid === null) return <p className="p-4 text-red-500">tripId 不合法</p>;
   if (tripQ.isLoading) return <p className="p-4 text-gray-500">Loading trip…</p>;
   if (tripQ.isError) return <p className="p-4 text-red-500">Load trip failed: {(tripQ.error as Error).message}</p>;
+  
+  // 如果在錯誤狀態，直接回傳 null (畫面空白)，防止下方的 usePlannerData 繼續發送其他 API 導致 403 洗版
+  if (tripQ.error) {
+    return null; 
+  }
 
   return (
     <div style={{ 

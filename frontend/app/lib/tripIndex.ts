@@ -4,6 +4,7 @@ export type TripIndexItem = {
   days: number;
   start_date?: string | null;
   created_at_ms: number;
+  edit_token?: string;
 };
 
 const KEY = "easy_travel_trip_index_v1";
@@ -29,4 +30,12 @@ export function upsertTripIndex(item: Omit<TripIndexItem, "created_at_ms">) {  /
   const merged = [next, ...filtered].sort((a, b) => b.created_at_ms - a.created_at_ms);  // 排序，時間新的在前
 
   window.localStorage.setItem(KEY, JSON.stringify(merged));  // 寫入localstorage
+}
+
+// 輔助函式：用來從 LocalStorage 掏出指定trip的edit_token
+export function getTripEditToken(tripId: number): string | null {
+  if (typeof window === "undefined") return null;
+  const trips = readTripIndex();
+  const target = trips.find(t => t.trip_id === tripId);
+  return target?.edit_token || null;
 }

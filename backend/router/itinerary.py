@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from model.schema import *
 from services.db_service import get_cur, get_conn
 from pymysql import IntegrityError
+from services.helper_auth import assert_trip_owner
 
 router = APIRouter()
 
@@ -35,7 +36,8 @@ def _repack_day_position(cur, trip_id: int, day_index: int):
 # 讀：該份trip的某一天的行程
 @router.get(
     "/api/trips/{trip_id}/days/{day_index}/itinerary",
-    response_model=list[ItineraryItemOut]
+    response_model=list[ItineraryItemOut],
+    dependencies=[Depends(assert_trip_owner)],
 )
 def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
     _ensure_trip_day(cur, trip_id, day_index)
@@ -81,6 +83,7 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
 @router.get(
     "/api/trips/{trip_id}/itinerary/summary",
     response_model=list[ItinerarySummaryRow],
+    dependencies=[Depends(assert_trip_owner)],
 )
 def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
 
@@ -104,6 +107,7 @@ def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
 @router.post(
     "/api/trips/{trip_id}/days/{day_index}/itinerary",
     response_model=ItineraryItemOut,
+    dependencies=[Depends(assert_trip_owner)]
 )
 def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, cur=Depends(get_cur), conn = Depends(get_conn)):
 
@@ -178,6 +182,7 @@ def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, 
 @router.delete(
     "/api/trips/{trip_id}/itinerary/{item_id}",
     response_model=OkOut,
+    dependencies=[Depends(assert_trip_owner)]
 )
 def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur), conn=Depends(get_conn)):
 
@@ -201,6 +206,7 @@ def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur), conn
 @router.put(
     "/api/trips/{trip_id}/days/{day_index}/itinerary/reorder",
     response_model=OkOut,
+    dependencies=[Depends(assert_trip_owner)]
 )
 def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorderIn, cur=Depends(get_cur)):
     # ordered 前端送進來已排序好的item_id
@@ -251,6 +257,7 @@ def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorde
 @router.put(
     "/api/trips/{trip_id}/days/{day_index}/itinerary/save",
     response_model=OkOut,
+    dependencies=[Depends(assert_trip_owner)]
 )
 def save_day_itinerary(
     trip_id: int,

@@ -1,26 +1,26 @@
-from fastapi import APIRouter, Depends, Request, Response, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 import pymysql
-from pymysql.err import IntegrityError
 from services.db_service import *
 from model.schema import *
 from datetime import timedelta
-from services.helper_auth import get_current_user
+from services.helper_auth import get_current_user, assert_trip_owner
+import secrets
 
 router = APIRouter()
 
 @router.post("/api/trips", response_model=TripCreateOut)
 def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
-    # if not payload.places:
-    #     raise HTTPException(status_code=400, detail="place is empty")
-    
     try:
+        # 產生 64 字元的 token
+        edit_token = secrets.token_hex(32)
+
         # 1) 建立 trips
         cur.execute(
             """
-            INSERT INTO trips(user_id, title, days, start_date)
-            VALUES(NULL, %s, %s, %s)
+            INSERT INTO trips(user_id, title, days, start_date, edit_token)
+            VALUES(NULL, %s, %s, %s, %s)
             """
-            , (payload.title, payload.days, payload.start_date)
+            , (payload.title, payload.days, payload.start_date, edit_token)
         )
         trip_id = cur.lastrowid
         
@@ -59,18 +59,15 @@ def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
                 "INSERT IGNORE INTO trip_places (trip_id, destination_id) VALUES (%s, %s)",
                 insert_rows,
             )
-        return {"trip_id": trip_id}
+        return {"trip_id": trip_id, "edit_token": edit_token}
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，trips建立失敗")
 
 
-# ====== 先留一個「擁有權檢查」的鉤子（目前先放行）======
-def assert_trip_owner():
-    # TODO(stage later): 檢查 owner_token cookie 與 DB owner_token_hash
-    return True
-
-
-@router.get("/api/trips/{trip_id}", response_model=TripOut, dependencies=[Depends(assert_trip_owner)])
+@router.get("/api/trips/{trip_id}", 
+    response_model=TripOut, 
+    dependencies=[Depends(assert_trip_owner)],
+)
 def get_trip(trip_id: int, cur=Depends(get_cur)):
     cur.execute(
         """
@@ -237,7 +234,7 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
     return {"ok": True}
 
 
-@router.patch("/api/tuips/{trip_id}/bind")
+@router.patch("/api/trips/{trip_id}/bind")
 async def bind_trip_to_user(
     trip_id: int,
     current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API

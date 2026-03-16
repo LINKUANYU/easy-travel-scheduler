@@ -80,10 +80,7 @@ export default function Home(){
             onAddToDraft={add}
             onRemoveFromDraft={remove}
           />
-          <StartPlanningButton
-            draft={draft}
-            onCreated={clear}
-          />
+          <StartPlanningButton/>
         </>
       )}
 

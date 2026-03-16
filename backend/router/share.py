@@ -5,6 +5,8 @@ from services.db_service import get_cur
 from model.schema import *
 
 router = APIRouter()
+
+# trip 產生唯一 URL as token
 @router.patch("/api/trips/{trip_id}/share")
 async def enable_trip_sharing(trip_id: int, cur: DictCursor = Depends(get_cur)):
     # 1. 查詢資料庫確認行程是否存在，並取得目前的 share_token
@@ -37,12 +39,12 @@ async def enable_trip_sharing(trip_id: int, cur: DictCursor = Depends(get_cur)):
     }
 
 
-
+# 透過token as URL 讀取 trip、itinerary 內容
 @router.get("/api/share/{token}", response_model=SharedTripDataOut)
 async def get_shared_trip_data(token: str, cur: DictCursor = Depends(get_cur)):
     # 1. 透過 token 取得行程基本資訊
     cur.execute("""
-        SELECT id AS trip_id, title, days, DATE_FORMAT(start_date, '%%Y-%%m-%%d') AS start_date
+        SELECT id AS trip_id, user_id, title, days, DATE_FORMAT(start_date, '%%Y-%%m-%%d') AS start_date
         FROM trips 
         WHERE share_token = %s
     """, (token,))

@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 router = APIRouter()
 
 @router.post("/api/signup", response_model=UserOut)
-def register(payload: SignupIn, cur=Depends(get_cur)):
+def register(payload: SignupIn, response: Response, cur=Depends(get_cur)):
     pw_hash = hash_password(payload.password)
 
     try:
@@ -22,6 +22,23 @@ def register(payload: SignupIn, cur=Depends(get_cur)):
             (payload.email, payload.name, pw_hash),
         )
         user_id = cur.lastrowid
+
+        #  註冊成功後直接配發 Session 與 Cookie
+        sid = secrets.token_hex(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=14)
+        expires_at_db = expires_at.replace(tzinfo=None)
+
+        try:
+            cur.execute("""
+                INSERT INTO sessions (session_id, user_id, expires_at)
+                VALUES (%s, %s, %s)
+            """, (sid, user_id, expires_at_db))
+        except pymysql.MySQLError as e:
+            print(f"Database error: {e}，Session寫入DB失敗")
+            raise HTTPException(status_code=500, detail="註冊成功但Session寫入DB失敗")
+        
+        set_session_cookie(response, sid)
+
         return {"id": user_id, "email": payload.email, "name": payload.name}
     except IntegrityError as e:
         # e.args 通常長這樣: (1062, "Duplicate entry 'a@b.com' for key 'uk_users_email'")
