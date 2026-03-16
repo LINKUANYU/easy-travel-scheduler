@@ -4,6 +4,8 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { DraftPlace } from "@/app/hooks/useTripDraft"
 import { upsertTripIndex } from "@/app/lib/tripIndex"
+import { useAuth } from "@/app/context/AuthContext"
+import { apiPost } from "@/app/lib/api"
 
 type Props = {
   draft: DraftPlace[];
@@ -14,6 +16,7 @@ type CreateTripRes = { trip_id: number}
 
 export default function StartPlanningButton({ draft, onCreated }: Props){
   const router = useRouter();
+  const { user } = useAuth(); // 取得當前登入狀態
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -66,19 +69,7 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
         places: placeIds.map((gpid) => ({google_place_id: gpid})) // 如果沒景點，這裡就是空陣列 []
       }
 
-      const res = await fetch("/api/trips", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-
-      const data = (await res.json().catch(() => ({}))) as any; // 如果catch 就丟出空物件{}
-      if (!res.ok){
-        const detail = data?.detail ?? data?.message ?? "建立旅程失敗";
-        throw new Error(typeof detail === "string" ? detail : "建立旅程失敗");
-      }
-
-      const out = data as CreateTripRes;
+      const out = await apiPost<CreateTripRes>("/api/trips", payload);
 
       // ✅ 成功：建立trip、清空 draft、關 modal、跳轉
       upsertTripIndex({
@@ -93,15 +84,13 @@ export default function StartPlanningButton({ draft, onCreated }: Props){
       router.push(`/planner/${out.trip_id}`)
 
     } catch (e:any){
+      // apiPost 拋出的錯誤訊息會直接在這裡被捕捉
       setErrMsg(e?.message ?? "建立旅程失敗")
     } finally {
       setSubmitting(false);
     }
 
   };
-
-  // 沒有 draft 就不顯示按鈕
-  // if (!canOpen) return null;
 
   return (
     <>

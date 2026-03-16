@@ -4,6 +4,7 @@ from pymysql.err import IntegrityError
 from services.db_service import *
 from model.schema import *
 from datetime import timedelta
+from services.helper_auth import get_current_user
 
 router = APIRouter()
 
@@ -234,3 +235,34 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
 
     # 刪不到也回 ok（前端 UX 比較順）
     return {"ok": True}
+
+
+@router.patch("/api/tuips/{trip_id}/bind")
+async def bind_trip_to_user(
+    trip_id: int,
+    current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API
+    cur = Depends(get_cur)
+):
+    # 1. 查詢該行程的當前擁有者
+    cur.execute("SELECT user_id FROM trips WHERE id = %s", (trip_id,))
+    trip = cur.fetchone()
+
+    if not trip:
+        raise HTTPException(status_code=404, detail="找不到行程")
+    
+    # 2. 判斷綁定邏輯
+    if trip["user_id"] is not None:
+        if trip["user_id"] == current_user["id"]:
+            return {"message": "此行程已在您帳號下"}
+        else:
+            raise HTTPException(status_code=403, detail="認領失敗，此行程已被其他帳號綁定")
+
+    # 3. 執行綁定(寫入user_id)
+    try:
+        cur.execute("UPDATE trips SET user_id = %s WHERE id = %s", (current_user["id"], trip_id))
+        
+        return {"message": "行程認領成功", "trip_id": trip_id}
+    except Exception as e:
+        print(f'Database error: {e}')
+        raise HTTPException(status_code=500, detail="資料庫寫入失敗（行程認領）")
+

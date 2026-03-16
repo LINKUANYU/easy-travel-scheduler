@@ -9,9 +9,27 @@ import { useRouter } from "next/navigation";
 import { usePlacePreview } from "@/app/hooks/usePlacePreview";
 import { SharedTripDataOut } from "@/app/types/all-types";
 import DayScheduleCard from "@/app/components/share/DayScheduleCard";
+import { useAuth } from "@/app/context/AuthContext";
 
 export default function ShareWorkspace({ token }: { token: string }) {
   const router = useRouter();
+
+  // 取得全域 Auth 狀態
+  const { user, openAuthModal } = useAuth();
+
+  // 準備攔截函式
+  const handleSaveTrip = () => {
+    if (!user) {
+      // 未登入：跳出註冊 Modal，並可以在此加上 alert 或 toast 提示使用者
+      alert("請先註冊或登入，即可永久保存您的行程！");
+      openAuthModal("register"); 
+      return; // 中斷後續的儲存動作
+    }
+    
+    // 已登入：執行原本的儲存 API 或邏輯
+    console.log("執行儲存邏輯...");
+  };
+
   const [activeDay, setActiveDay] = useState<number | null>(1);
 
   // 建立兩個 Ref，分別綁定給上半部卡片區，以及下半部 Tab 區
@@ -123,26 +141,15 @@ export default function ShareWorkspace({ token }: { token: string }) {
         
         {/* 右側按鈕 */}
         <div style={{ display: "flex", gap: "12px" }}>
-          <button style={{ 
-            padding: "8px 16px", 
-            borderRadius: "8px", 
-            border: "1px solid #d1d5db", 
-            backgroundColor: "#fff", 
-            cursor: "pointer", 
-            fontWeight: "bold",
-            color: "#374151"
-          }}>
+          <button 
+            style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #d1d5db", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold",color: "#374151"}}
+            onClick={handleSaveTrip}
+          >
             儲存行程
           </button>
-          <button style={{ 
-            padding: "8px 16px", 
-            borderRadius: "8px", 
-            border: "none", 
-            backgroundColor: "#2563EB", 
-            color: "#fff", 
-            cursor: "pointer", 
-            fontWeight: "bold" 
-          }}>
+          <button 
+            style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "#2563EB", color: "#fff", cursor: "pointer", fontWeight: "bold" }}
+          >
             分享路徑
           </button>
         </div>
