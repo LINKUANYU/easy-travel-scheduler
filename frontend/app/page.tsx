@@ -11,6 +11,7 @@ import { useMemo } from "react";
 
 // 把 draft 放在 page 當 single source
 import { useTripDraft } from "@/app/hooks/useTripDraft";
+import toast from "react-hot-toast";
 // 之後你要放右下角開始規劃按鈕，就在這裡 render
 // import StartPlanningButton from "@/components/StartPlanningButton";
 
@@ -69,7 +70,7 @@ export default function Home(){
   });
 
   const handleSearch = async (location: string) => {
-    if (!location.trim()) return alert("請輸入地點");
+    if (!location.trim()) return toast.error("請輸入地點");
     mutation.mutate(location)
 
   }

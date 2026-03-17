@@ -5,7 +5,9 @@ import { useAuth } from "@/app/context/AuthContext";
 import Link from "next/link";
 import { useState } from "react";
 import { apiPost, apiPatch } from "@/app/lib/api";
-import { readTripIndex } from "@/app/lib/tripIndex";
+import { readTripIndex, clearTripIndex } from "@/app/lib/tripIndex";
+import { useTripDraft } from "@/app/hooks/useTripDraft";
+import toast from "react-hot-toast";
 
 
 export default function AuthCorner() {
@@ -59,10 +61,9 @@ export default function AuthCorner() {
           );
           
           // 認領成功後，清空 LocalStorage 中的暫存紀錄，因為已經正式存入雲端帳號了
-          // (對應你 tripIndex.ts 裡面設定的 KEY)
-          localStorage.removeItem("easy_travel_trip_index_v1"); 
+          clearTripIndex();
           
-          alert(`成功將 ${localTrips.length} 個行程保存至您的帳號！`); 
+          toast.success(`成功將 ${localTrips.length} 個行程保存至您的帳號！`); 
         } catch (bindErr) {
           console.error("部分或全部行程綁定失敗:", bindErr);
           // 不阻斷流程，因為使用者已經成功登入了
@@ -81,7 +82,23 @@ export default function AuthCorner() {
       setIsSubmitting(false);
     }
   };
-// --- 防止閃爍：載入中不顯示任何按鈕 ---
+
+  const { clear, clearActiveTrip } = useTripDraft();
+  
+  const handleFullLogout = async () => {
+    // 1. 執行原有的 Context logout (清空 Cookie, 重製 user 狀態)
+    await logout(); 
+
+    // 2. 徹底洗淨所有 LocalStorage 狀態
+    clearTripIndex(); // 清除影子帳號憑證 (雙重保險)
+    clear(); // 清除景點草稿 (購物車)
+    if (clearActiveTrip) clearActiveTrip(); // 清除當前編輯狀態
+    
+    // 3. 導向首頁，確保畫面狀態重置
+    window.location.href = "/"; 
+  };
+
+  // --- 防止閃爍：載入中不顯示任何按鈕 ---
   if (isLoading) return <div className="w-20 h-8"></div>;
 
   // --- 已登入狀態 UI ---
@@ -92,13 +109,13 @@ export default function AuthCorner() {
           哈囉，{user.name}
         </span>
         <div className="flex justify-end gap-3">
-          <Link href="/planner">
+          <Link href="/dashboard">
             <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800 transition">
               我的行程
             </button>
           </Link>
           <button 
-            onClick={logout}
+            onClick={handleFullLogout}
             className="rounded-lg bg-gray-100 border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 transition"
           >
             登出

@@ -8,6 +8,8 @@ import secrets
 
 router = APIRouter()
 
+
+# 建立 trip
 @router.post("/api/trips", response_model=TripCreateOut)
 def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
     try:
@@ -63,7 +65,7 @@ def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，trips建立失敗")
 
-
+# 讀取 trip_id 拿 trip 的資訊
 @router.get("/api/trips/{trip_id}", 
     response_model=TripOut, 
     dependencies=[Depends(assert_trip_owner)],
@@ -86,6 +88,7 @@ def get_trip(trip_id: int, cur=Depends(get_cur)):
     # start_date 可能是 None，OK
     return row
 
+# 讀取 trip 內的景點
 @router.get("/api/trips/{trip_id}/places",
     response_model=List[TripPlaceOut],
     dependencies=[Depends(assert_trip_owner)],
@@ -124,7 +127,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
     rows = cur.fetchall()
     return rows
 
-
+# 新增景點到 trip
 @router.post(
     "/api/trips/{trip_id}/places",
     response_model=TripPlaceOut,
@@ -211,7 +214,7 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
 
     return row
 
-
+# 刪除 trip 的景點
 @router.delete(
     "/api/trips/{trip_id}/places/{destination_id}",
     response_model=OkOut,
@@ -233,7 +236,7 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
     # 刪不到也回 ok（前端 UX 比較順）
     return {"ok": True}
 
-
+# trip bind user
 @router.patch("/api/trips/{trip_id}/bind")
 async def bind_trip_to_user(
     trip_id: int,
@@ -262,4 +265,48 @@ async def bind_trip_to_user(
     except Exception as e:
         print(f'Database error: {e}')
         raise HTTPException(status_code=500, detail="資料庫寫入失敗（行程認領）")
+    
 
+# 讀取 user 下所有 trip
+@router.get("/api/trips", response_model=list[TripOut])
+def get_user_trips(
+    current_user: dict = Depends(get_current_user), # 擋下未登入的請求
+    cur = Depends(get_cur)
+):
+    cur.execute("""
+        SELECT id AS trip_id, title, days, start_date, share_token
+        FROM trips 
+        WHERE user_id = %s 
+        ORDER BY id DESC
+    """, (current_user["id"],))
+
+    trips = cur.fetchall()
+    
+    # 資料庫拿出來的 start_date 可能是 datetime.date 型別，
+    # 為了符合 Pydantic 的 str 要求，做個簡單的轉型
+    for trip in trips:
+        if trip["start_date"]:
+            trip["start_date"] = str(trip["start_date"])
+            
+    return trips
+
+# 刪除特定 trip
+@router.delete("/api/trips/{trip_id}", response_model=OkOut, dependencies=[Depends(assert_trip_owner)])
+def delete_trip(
+    trip_id: int, 
+    cur = Depends(get_cur)
+):
+
+    # 💡 重點：因為你在 dependencies 放了 Depends(assert_trip_owner)
+    # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」，
+    # 你完全不需要在這裡再寫 if 判斷是不是擁有者！
+    
+    cur.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
+    
+    # ⚠️ 資料庫架構提醒：
+    # 這裡預設你的 MySQL 在建表時，針對 trip_days, trip_places 等子表
+    # 都有設定 Foreign Key 的 `ON DELETE CASCADE`。
+    # 這樣刪除 trips 的一筆資料時，底下的行程細節才會連帶被資料庫自動清空。
+    # 如果當初沒設定，記得要先 DELETE 子表，最後再 DELETE trips，否則會報錯。
+    
+    return {"ok": True}

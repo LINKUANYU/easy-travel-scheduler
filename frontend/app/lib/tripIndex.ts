@@ -39,3 +39,10 @@ export function getTripEditToken(tripId: number): string | null {
   const target = trips.find(t => t.trip_id === tripId);
   return target?.edit_token || null;
 }
+
+// 輔助函式：徹底清空匿名行程憑證
+export function clearTripIndex() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(KEY);
+  }
+}

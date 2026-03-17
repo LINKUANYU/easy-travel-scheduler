@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { upsertTripIndex } from "@/app/lib/tripIndex"
 import { useAuth } from "@/app/context/AuthContext"
-import { apiPost } from "@/app/lib/api"
+import { apiPost, apiPatch } from "@/app/lib/api"
 import { useTripDraft } from "@/app/hooks/useTripDraft"
 
 
@@ -70,14 +70,23 @@ export default function StartPlanningButton(){
 
       const out = await apiPost<CreateTripRes>("/api/trips", payload);
 
-      // trip 資料寫入localstorage
-      upsertTripIndex({
-        trip_id: out.trip_id,
-        title: payload.title,
-        days: payload.days,
-        start_date: payload.start_date ?? null,
-        edit_token: out.edit_token,
-      });
+      // 如果目前是「已登入」狀態，立刻把這個剛出生的行程認領下來！
+      if (user) {
+        try {
+          await apiPatch(`/api/trips/${out.trip_id}/bind`);
+        } catch (bindErr) {
+          console.error("行程建立成功，但綁定帳號時發生錯誤", bindErr);
+        }
+      } else {
+        // trip 資料寫入localstorage
+        upsertTripIndex({
+          trip_id: out.trip_id,
+          title: payload.title,
+          days: payload.days,
+          start_date: payload.start_date ?? null,
+          edit_token: out.edit_token,
+        });
+      }
 
       // 設定當前活躍的行程 ID，並清空購物車
       setActiveTripId(out.trip_id);

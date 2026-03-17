@@ -13,6 +13,7 @@ import DailyItineraryPanel from "../../components/planner/DailyItineraryPanel";
 import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
 import { usePlannerData } from "../../hooks/usePlannerData";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
+import toast from "react-hot-toast";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -60,22 +61,36 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
 
   // 6. 將「後端的原始資料」與「你目前拖拉的暫存順序 (data.dayItems)」進行融合，產生一個包含草稿狀態的 draftScheduleSummary，再傳給地圖。
   const draftScheduleSummary = useMemo(() => {
-  const baseSummary = data.summaryQ.data ?? [];
-  
-  // 過濾掉「當前天數」的舊資料
-  const filteredSummary = baseSummary.filter(s => s.day_index !== data.activeDay);
-  
-  // 將拖拉過後的暫存陣列 (data.dayItems) 轉成新的 summary 格式，並使用當下的 index 作為新 position
-  const newActiveDaySummary = data.dayItems.map((item, index) => ({
-    item_id: item.item_id,
-    day_index: data.activeDay,
-    position: index, // 👈 這裡賦予它拖拉後的新排序
-    destination_id: item.destination_id,
-  }));
+    const baseSummary = data.summaryQ.data ?? [];
+    
+    // 過濾掉「當前天數」的舊資料
+    const filteredSummary = baseSummary.filter(s => s.day_index !== data.activeDay);
+    
+    // 將拖拉過後的暫存陣列 (data.dayItems) 轉成新的 summary 格式，並使用當下的 index 作為新 position
+    const newActiveDaySummary = data.dayItems.map((item, index) => ({
+      item_id: item.item_id,
+      day_index: data.activeDay,
+      position: index, // 👈 這裡賦予它拖拉後的新排序
+      destination_id: item.destination_id,
+    }));
 
-  // 將「其他天的舊資料」跟「當天的暫存新資料」合併
-  return [...filteredSummary, ...newActiveDaySummary];
-}, [data.summaryQ.data, data.dayItems, data.activeDay]);
+    // 將「其他天的舊資料」跟「當天的暫存新資料」合併
+    return [...filteredSummary, ...newActiveDaySummary];
+  }, [data.summaryQ.data, data.dayItems, data.activeDay]);
+
+ // 監聽 data.uiMsg，只要有文字就跳出 toast
+  useEffect(() => {
+    if (data.uiMsg) {
+      // 判斷訊息內容是否包含負面關鍵字
+      if (data.uiMsg.includes("失敗") || data.uiMsg.includes("錯誤")) {
+        // 呼叫 toast.error (預設會有個紅色叉叉圖示)
+        toast.error(data.uiMsg);
+      } else {
+        // 其他正常的訊息，呼叫 toast.success (綠色勾勾)
+        toast.success(data.uiMsg);
+      }
+    }
+  }, [data.uiMsg]);
   
   // ==========================================
   // 阻擋畫面渲染 (Loading & Error 處理)
@@ -98,7 +113,6 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
       boxSizing: "border-box",
       overflow: "hidden" // 防止最外層出現捲軸
     }}>
-      {data.uiMsg && <div style={{ fontSize: 13, opacity: 0.85 }}>{data.uiMsg}</div>}
 
       <div
         style={{

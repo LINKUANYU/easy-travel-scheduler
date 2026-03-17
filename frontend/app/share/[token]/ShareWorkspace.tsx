@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/app/lib/api";
+import { apiGet, apiPatch } from "@/app/lib/api";
 import { useState, useMemo, useRef } from "react";
 import TripMap from "@/app/components/planner/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
@@ -11,6 +11,7 @@ import { SharedTripDataOut } from "@/app/types/all-types";
 import DayScheduleCard from "@/app/components/share/DayScheduleCard";
 import { useAuth } from "@/app/context/AuthContext";
 import { getTripEditToken } from "@/app/lib/tripIndex";
+import toast from "react-hot-toast";
 
 export default function ShareWorkspace({ token }: { token: string }) {
   const router = useRouter();
@@ -97,16 +98,32 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
   /** 登入狀態邏輯 */
   // 準備攔截函式
-  const handleSaveTrip = () => {
+  const handleSaveTrip = async () => {
+    // 未登入：跳出註冊 Modal
     if (!user) {
-      // 未登入：跳出註冊 Modal，並可以在此加上 alert 或 toast 提示使用者
-      alert("請先註冊或登入，即可永久保存您的行程！");
+      toast.success("請先註冊或登入，即可永久保存您的行程！");
       openAuthModal("register"); 
       return; // 中斷後續的儲存動作
     }
+
+    // 已登入狀態：
+    // 狀況 A：這個行程本來就是他的 (資料庫的 user_id 跟目前登入的 user.id 一致)
+    if (data?.trip?.user_id === user.id) {
+      toast.success("太棒了！您的所有變更都已經自動即時儲存於雲端帳號中囉！");
+      return;
+    }
+
+    // 狀況 B (Edge Case)：他已經登入了，但這個行程是無主的 (可能他在別的視窗剛登入，這邊的資料還沒更新)
+    // 我們再強制幫他打一次 bind API 確保安全
+    try {
+      await apiPatch(`/api/trips/${trip.trip_id}/bind`);
+      toast.success("行程已成功保存至您的專屬帳號！");
+      // 建議這裡可以重整一下畫面，讓 React Query 拿到最新的擁有者狀態
+      window.location.reload(); 
+    } catch (err) {
+      toast.error("儲存失敗，可能該行程已被其他人認領。");
+    }
     
-    // 已登入：執行原本的儲存 API 或邏輯
-    console.log("執行儲存邏輯...");
   };
 
   // 先去 LocalStorage 找找看edit_token
