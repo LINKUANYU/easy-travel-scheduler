@@ -149,7 +149,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
         />
 
         {/* =========================
-            中 25%：景點池（加入行程按鈕）
+            中 25%：景點池
            ========================= */}
         <PlacePoolPanel
           isLoading={data.placesQ.isLoading}
@@ -166,9 +166,9 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
         />
 
         {/* =========================
-            右 50%：地圖（你原本的）
+            右 50%：地圖
            ========================= */}
-        <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", height: "100%" }}>
+        <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", height: "100%", position: "relative" }}>
           <TripMap
             places={data.places}
             scheduleSummary={draftScheduleSummary}
@@ -182,61 +182,79 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
             }}
             onClearPreview={() => data.setPreview(null)}
             onPlaceClick={(placeId) => data.updatePreview(placeId)}
-            topLeft={
-              <div style={{ display: "grid", gap: 8 }}>
-                <PlaceAutocompleteInput
-                  disabled={data.previewLoading}
-                  placeholder="搜尋並選擇地點（Google Places）"
-                  onPick={({placeId, label}) => data.updatePreview(placeId, label)}
-                />
-
-                {(data.previewLoading || data.previewErr) && (
-                  <div style={{ fontSize: 13, opacity: 0.8 }}>
-                    {data.previewLoading ? "載入預覽中…" : `預覽失敗：${data.previewErr}`}
-                  </div>
-                )}
-              </div>
-            }
-            bottomRight={
-              <div className="flex gap-[8px] items-center max-[1450px]:flex-col max-[1200px]:mt-[80px]">
-                <PlannerSaveButton
-                  dirty={!!data.dirtyDayMap[data.activeDay]}
-                  saving={data.saveDayDraftM.isPending}
-                  onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
-                />
-
-                {/* 這裡加入你的下一步 / 分享按鈕 */}
-                <button 
-                  onClick={async () => {
-                      try {
-                        // 並且定義回傳的資料格式包含 { share_token: string }
-                        const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);
-                        
-                        // 成功拿到 token 後，跳轉到唯讀頁面
-                        router.push(`/share/${res.share_token}`);
-                        
-                      } catch (err) {
-                        console.error(err);
-                        alert("產生分享連結失敗，請稍後再試！");
-                      }
-                    }}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#7bb9d7",
-                    color: "#fff",
-                    borderRadius: "999px",
-                    border: "none",
-                    cursor: "pointer",
-                    boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-                    fontWeight: 700,
-                  }}
-                >
-                  下一步 (分享)
-                </button>
-              </div>
-            }
-
           />
+
+          
+          {/* 搜尋 input */}
+          <div className="absolute top-3 left-3 z-10 w-[420px] bg-white p-2.5 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.12)] border border-gray-100">
+            <PlaceAutocompleteInput
+              disabled={data.previewLoading}
+              placeholder="搜尋並選擇地點（Google Places）"
+              onPick={({placeId, label}) => data.updatePreview(placeId, label)}
+            />
+
+            {(data.previewLoading || data.previewErr) && (
+              <div style={{ fontSize: 13, opacity: 0.8 }}>
+                {data.previewLoading ? "載入預覽中…" : `預覽失敗：${data.previewErr}`}
+              </div>
+            )}
+          </div>
+
+          <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
+            {/* 下一步按鈕 */}
+            <button 
+              onClick={() => router.push('/')}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#7bb9d7",
+                color: "#fff",
+                borderRadius: "999px",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                fontWeight: 700,
+              }}
+            >
+              回上一步
+            </button>
+            
+            {/* 儲存按鈕 */}
+            <PlannerSaveButton
+              dirty={!!data.dirtyDayMap[data.activeDay]}
+              saving={data.saveDayDraftM.isPending}
+              onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
+            />
+
+            {/* 下一步按鈕 */}
+            <button 
+              onClick={async () => {
+                  try {
+                    // 並且定義回傳的資料格式包含 { share_token: string }
+                    const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);
+                    
+                    // 成功拿到 token 後，跳轉到唯讀頁面
+                    router.push(`/share/${res.share_token}`);
+                    
+                  } catch (err) {
+                    console.error(err);
+                    alert("產生分享連結失敗，請稍後再試！");
+                  }
+                }}
+              style={{
+                padding: "8px 16px",
+                backgroundColor: "#7bb9d7",
+                color: "#fff",
+                borderRadius: "999px",
+                border: "none",
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+                fontWeight: 700,
+              }}
+            >
+              下一步
+            </button>
+          </div>
+
         </div>
       </div>
     </div>

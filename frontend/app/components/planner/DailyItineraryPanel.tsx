@@ -112,7 +112,7 @@ export default function DailyItineraryPanel({
         ) : error ? (
           <p>Load itinerary failed: {error.message}</p>
         ) : dayItems.length === 0 ? (
-          <p style={{ opacity: 0.7 }}>今天還沒加入行程</p>
+          <p style={{ opacity: 0.7, textAlign: "center" }}>今天還沒加入行程</p>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>

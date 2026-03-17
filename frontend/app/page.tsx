@@ -105,9 +105,11 @@ export default function Home(){
             onAddToDraft={add}
             onRemoveFromDraft={remove}
           />
-          <StartPlanningButton/>
+          
         </>
       )}
+
+      <StartPlanningButton/>
 
     </main>
   );

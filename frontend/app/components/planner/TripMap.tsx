@@ -27,27 +27,23 @@ function colorForDay(dayIndex: number) {
 export default function TripMap({
   places,  // 上層傳進來的景點
   preview,  // 上層傳進來的資料(google input抓到的placeId 再去fetch 完的資料)
-  topLeft,  // 放google input 
   onAddPreview,  // preview 中的「加入trip」，callback 回傳給上層
   onClearPreview,  // preview 中的「關閉預覽、X」，callback 回傳給上層
   isAddingPreview,
   scheduleSummary,
   activeDay,
   activeDayRoute,
-  bottomRight,
   onPlaceClick, // 用來向外傳遞使用者點擊的 placeId
   readonly,     // 如果是唯讀模式 (Share頁面)，隱藏「加入 Trip」按鈕
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
-  topLeft?: React.ReactNode;
   onAddPreview?: (placeId: string) => void;
   onClearPreview?: () => void;
   isAddingPreview?: boolean;
   scheduleSummary?: ItinerarySummaryRow[];
   activeDay?: number;
   activeDayRoute?: { lat: number; lng: number }[];
-  bottomRight?: React.ReactNode;
   onPlaceClick?: (placeId: string) => void;
   readonly?: boolean;
 }) {
@@ -125,8 +121,8 @@ export default function TripMap({
       const map = mapRef.current!;
 
       // 監聽地圖上的原生景點 (POIs) 點擊事件
-      google.maps.event.clearListeners(map, "gmp-click");
-      map.addListener("gmp-click", (event: any) => {
+      google.maps.event.clearListeners(map, "click");
+      map.addListener("click", (event: any) => {
         if (event.placeId) {
           event.stop(); // 阻止 Google 預設的白框彈出
           onPlaceClick?.(event.placeId); // 呼叫外層的 updatePreview
@@ -170,7 +166,7 @@ export default function TripMap({
 
           // 綁定點擊事件
           if (p.google_place_id) {
-            am.addListener("gmp-click", () => {
+            am.addListener("click", () => {
               onPlaceClick?.(p.google_place_id as string);
             });
           }
@@ -187,7 +183,7 @@ export default function TripMap({
         });
         // 綁定點擊事件
         if (p.google_place_id) {
-          am.addListener("gmp-click", () => {
+          am.addListener("click", () => {
             onPlaceClick?.(p.google_place_id as string);
           });
         }
@@ -440,39 +436,6 @@ export default function TripMap({
       }}
     >
       <div ref={divRef} style={{ height: "100%", width: "100%" }} />
-
-      {/* ✅ 地圖左上角放 PlaceAutocompleteInput */}
-      {topLeft && (
-        <div
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 12,
-            width: 420,
-            zIndex: 2,
-            background: "white",
-            borderRadius: 12,
-            border: "1px solid #eee",
-            boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-            padding: 10,
-          }}
-        >
-          {topLeft}
-        </div>
-      )}
-
-      {bottomRight && (
-        <div
-          style={{
-            position: "absolute",
-            right: 30,
-            top: 20,
-            zIndex: 5,
-          }}
-        >
-          {bottomRight}
-        </div>
-      )}
 
     </div>
   );

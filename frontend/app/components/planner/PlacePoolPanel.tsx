@@ -41,7 +41,7 @@ export default function PlacePoolPanel({
       ) : error ? (
         <p>Load places failed: {error.message}</p>
       ) : sortedPlaces.length === 0 ? (
-        <p>尚未加入景點。</p>
+        <p style={{ opacity: 0.7, textAlign: "center" }}>尚未加入景點。</p>
       ) : (
         <div className="custom-scrollbar" style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
           <ul style={{ padding: 0, listStyle: "none", display: "grid", gap: 10 }}>

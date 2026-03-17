@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { upsertTripIndex } from "@/app/lib/tripIndex"
 import { useAuth } from "@/app/context/AuthContext"
@@ -15,6 +15,14 @@ export default function StartPlanningButton(){
   const { user } = useAuth(); // 取得當前登入狀態
 
   const { draft, clear, activeTripId, setActiveTripId, clearActiveTrip } = useTripDraft();
+  
+  // 新增一個狀態來判斷元件是否已經在瀏覽器端載入完成
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 等到 page 跑完才執行，然後state狀態改變，整個元件重跑，按鈕才顯示出來
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -139,11 +147,15 @@ export default function StartPlanningButton(){
   // ==========================================
   // UI 渲染邏輯
   // ==========================================
+
+  // 關鍵防護網：如果還沒確認在瀏覽器端，先回傳一個空的佔位符 (或是 null)，
+  // 這樣就能保證伺服器跟瀏覽器的第一次渲染都是「空的」，完美避開 Hydration 錯誤！
+  if (!isMounted) return null;
   
   // 情境 B：已經有正在編輯的行程
   if (activeTripId) {
     return (
-      <div className="fixed bottom-8 right-8 z-50 flex items-center gap-2">
+      <div className="fixed bottom-20 right-8 z-50 flex items-center gap-2">
         {/* 放棄目前行程，開新行程的小按鈕 */}
         <button
           onClick={() => {
@@ -177,9 +189,9 @@ export default function StartPlanningButton(){
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-8 right-8 z-50 rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg hover:bg-blue-700 transition font-bold"
+        className="fixed bottom-20 right-20 z-50 rounded-full bg-blue-600 px-5 py-3 text-white shadow-lg hover:bg-blue-700 transition font-bold"
       >
-        下一步：開始規劃（已加入{draftCount}個景點）
+        下一步：開始規劃{(draftCount > 0) ? `（已加入${draftCount}個景點）` : ``}
       </button>
 
       {/* 以下 Modal 的 HTML 完全不變，只有按鈕 onClick 改綁定 handleCreateNewTrip */}
