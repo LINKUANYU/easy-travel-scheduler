@@ -15,6 +15,7 @@ type Props = {
   draftIds: Set<string>;
   onAddToDraft: (p: DraftPlace) => void;
   onRemoveFromDraft: (google_place_id: string) => void;
+  scheduledIds: Set<string>;
 };
 
 export default function ResultsSection({
@@ -25,6 +26,7 @@ export default function ResultsSection({
   draftIds,
   onAddToDraft,
   onRemoveFromDraft,
+  scheduledIds,
 }: Props){
   const [otherCity, setOtherCity] = useState("");
 
@@ -67,9 +69,10 @@ export default function ResultsSection({
           {travelList.map((item, index) => {
             const gpid = item.google_place_id;
             const inDraft = gpid ? draftIds.has(gpid) : false;
+            const isScheduled = gpid ? scheduledIds.has(gpid) : false; // 判斷是否已在資料庫行程中
 
             const onToggleDraft = () => {
-              if (!gpid) return;
+              if (!gpid || isScheduled) return;
               if (inDraft) onRemoveFromDraft(gpid);
               else
                 onAddToDraft({
@@ -87,6 +90,7 @@ export default function ResultsSection({
                 index={index}
                 inDraft={inDraft}
                 onToggleDraft={onToggleDraft}
+                isScheduled={isScheduled}
               />
             );
           })}

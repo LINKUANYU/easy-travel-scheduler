@@ -125,8 +125,8 @@ export default function TripMap({
       const map = mapRef.current!;
 
       // 監聽地圖上的原生景點 (POIs) 點擊事件
-      google.maps.event.clearListeners(map, "click");
-      map.addListener("click", (event: any) => {
+      google.maps.event.clearListeners(map, "gmp-click");
+      map.addListener("gmp-click", (event: any) => {
         if (event.placeId) {
           event.stop(); // 阻止 Google 預設的白框彈出
           onPlaceClick?.(event.placeId); // 呼叫外層的 updatePreview
@@ -170,7 +170,7 @@ export default function TripMap({
 
           // 綁定點擊事件
           if (p.google_place_id) {
-            am.addListener("click", () => {
+            am.addListener("gmp-click", () => {
               onPlaceClick?.(p.google_place_id as string);
             });
           }
@@ -187,7 +187,7 @@ export default function TripMap({
         });
         // 綁定點擊事件
         if (p.google_place_id) {
-          am.addListener("click", () => {
+          am.addListener("gmp-click", () => {
             onPlaceClick?.(p.google_place_id as string);
           });
         }

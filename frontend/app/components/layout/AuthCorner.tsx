@@ -87,7 +87,7 @@ export default function AuthCorner() {
   // --- 已登入狀態 UI ---
   if (user) {
     return (
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-end gap-4">
         <span className="text-sm font-medium text-gray-600">
           哈囉，{user.name}
         </span>

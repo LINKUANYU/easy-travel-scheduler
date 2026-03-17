@@ -13,6 +13,7 @@ function getAuthHeaders(url: string) {
   if (match) {
     const tripId = Number(match[1]);
     const token = getTripEditToken(tripId);  // 找看有沒有edit_token
+    
     if (token) {
       // 如果有，就把它塞進 Header (自訂標頭通常以 X- 開頭)
       headers["X-Edit-Token"] = token;
@@ -37,7 +38,7 @@ export async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(url, {
     method: "GET",
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(url),
     cache: "no-store",
   });
 

@@ -9,10 +9,11 @@ type Props = {
   index: number;
   inDraft: boolean;
   onToggleDraft: () => void;
+  isScheduled: boolean
 }
 
 
-export default function AttractionCard({ item, index, inDraft, onToggleDraft }: Props){
+export default function AttractionCard({ item, index, inDraft, onToggleDraft, isScheduled }: Props){
   const images = item.images ?? []; // 確保 images 一定是陣列（沒有就用空陣列）
   const urls = useMemo(
     () => images.map((img) => img?.url).filter(Boolean) as string[], // 裡面先做.map()如果u存在就拿u.url建立新的陣列，然後再filter，最後告訴TS 這是一個字串陣列
@@ -110,11 +111,16 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft }: 
             📍 {item.geo_tags}
           </div>
           <button 
-            className="text-sm text-blue-600 font-bold hover:text-blue-800 transition-colors flex items-center gap-1"
+            className={`text-sm font-bold transition-colors flex items-center gap-1 ${
+              isScheduled
+                ? "text-gray-400 cursor-not-allowed" // 已在行程中：變灰色，禁止手標
+                : "text-blue-600 hover:text-blue-800" // 正常狀態：藍色
+            }`}
             type="button"
-            onClick={onToggleDraft}
+            onClick={isScheduled ? undefined : onToggleDraft} // 已在行程中則不綁定點擊事件
+            disabled={isScheduled} // 停用按鈕
           >
-            {inDraft ? "已加入" : "加入本次規劃"}
+            {isScheduled ? "已在行程中" : inDraft ? "已加入" : "加入本次規劃"}
           </button>
         </div>
       </div>
