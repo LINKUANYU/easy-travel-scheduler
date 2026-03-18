@@ -6,10 +6,12 @@ from services.geo_service import *
 from fastapi.encoders import jsonable_encoder # 🌟 幫忙把複雜物件轉成標準 JSON
 import json
 from services.redis_service import get_redis
+from services.tasks import celery_app, scrape_and_save_destinations_task
+
 
 router = APIRouter()
 
-@router.post("/api/search", response_model=list[Attraction])
+@router.post("/api/search")
 async def search_destinations_api(
     payload: SearchRequest,
     cur = Depends(get_cur)
@@ -18,11 +20,11 @@ async def search_destinations_api(
 
     redis_client = get_redis()
     
-    # 定義這筆搜尋的專屬快取鑰匙 (Cache Key)
+    # 定義這筆搜尋的專屬快取鑰匙 (Cache Key) Key: "search:location:台北"
     cache_key = f"search:location:{location}"
 
     # ==========================================
-    # 🌟 一、 快取攔截 (Cache-Aside: Read)
+    # 一、 快取攔截 (Cache-Aside: Read)
     # ==========================================
     try:
         cached_data = redis_client.get(cache_key)
@@ -36,7 +38,7 @@ async def search_destinations_api(
     
 
     # ==========================================
-    # 二、 原始邏輯 (DB 查詢與爬蟲) - 快取未命中時才會執行到這裡
+    # 二、 查閱資料庫有資料 - 快取未命中
     # ==========================================
 
     # 1.【搜尋】階段：多欄位模糊比對 (向上支援與向下支援的關鍵)
@@ -48,46 +50,49 @@ async def search_destinations_api(
     if len(existing_spots_data) >= 10:
         # 組合資料回給前端
         print(f"資料庫足夠的「{location}」資料")
-        total_display_data = existing_spots_data
-        
+
+        try:
+            # 寫入快取
+            # 使用 jsonable_encoder 確保格式安全，有時候我們從資料庫拿出來的資料，裡面會混雜一些奇怪的格式（例如時間格式 datetime、或是特殊的資料庫物件），這個工具會像濾網一樣，把它們全部「淨化」成最標準、乾淨的 Python 字典和陣列。
+            # json.dumps 把淨化好的乾淨資料，整個打包變成一長串的 JSON 格式字串。這樣 Redis 就能毫無阻礙地把它吞進去存起來了！
+            # setex (Set with Expiration) 的第二個參數是 TTL 秒數，86400 秒 = 24 小時
+            redis_client.setex(cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data)))
+        except Exception:
+            pass
+            
+        return {"status": "completed", "data": existing_spots_data}
+    
+    # ==========================================
+    # 三、 交給Celery (DB 查詢與爬蟲) - 快取未命中
+    # ==========================================
     else:
-        # 3.【資料不足】叫整套搜尋API補完資料
-        new_search_data = run_web_scraping_workflow(location)
+        # 🌟 【資料不足】：發送 Celery 任務！
+        print(f"⚠️ 資料不足，派發 Celery 任務進行爬蟲...")
+        # 使用 .delay() 將任務丟給背景的 Celery Worker
+        task = scrape_and_save_destinations_task.delay(location)
         
-        
-        # --去重處理：先找google place id
-        final_new_data = []
-        exsiting_ids = {s['google_place_id'] for s in existing_spots_data if s.get('google_place_id')}
-        for spot in new_search_data:
-            attraction_name = spot.get('attraction')
-            lat, lng, place_id, address = get_coordinates(attraction_name)
-            # 如果新的景點的id不在原本資料中
-            if place_id and place_id not in exsiting_ids:
-                spot['lat'], spot['lng'], spot['google_place_id'], spot["address"] = lat, lng, place_id, address  # 就新增key, value
-                final_new_data.append(spot) 
-                exsiting_ids.add(place_id) # 每一筆寫完後馬上加入既有組別，避免new_search_data自身資料id相同重複寫入
-
-        # 4. 【寫入景點資料】
-        
-        saved_new_data = save_spot_data(final_new_data, cur)
-        
-        # 5. 【組合新舊資料回給前端】
-        total_display_data = existing_spots_data + saved_new_data
+        # 瞬間回傳號碼牌給前端！
+        return {
+            "status": "processing", 
+            "task_id": task.id,  # 自動產生
+            "message": "任務已交給背景處理，請稍候..."
+        }
 
 
-    # ==========================================
-    # 三、 寫入快取 (Cache-Aside: Write)
-    # ==========================================
-    try:
-        # 使用 jsonable_encoder 確保格式安全，轉成 JSON 字串存入 Redis
-        # setex (Set with Expiration) 的第二個參數是 TTL 秒數，86400 秒 = 24 小時
-        redis_client.setex(
-            cache_key, 
-            86400, 
-            json.dumps(jsonable_encoder(total_display_data))
-        )
-        print(f"💾 已將「{location}」的資料寫入 Redis 快取 (保留 24 小時)")
-    except Exception as e:
-        print(f"⚠️ Redis 寫入失敗: {e}")
 
-    return total_display_data
+# 查詢任務進度 API (叫號碼牌)
+@router.get("/api/search/status/{task_id}")
+def get_task_status(task_id: str):
+    # 透過 celery_app 去 Redis 查詢這個任務的狀態
+    task_result = celery_app.AsyncResult(task_id)
+    
+    # started：celery 正在處理，pending：還沒處理，還在上一單
+    if task_result.state == 'PENDING' or task_result.state == 'STARTED':  
+        return {"status": "processing"}
+    elif task_result.state == 'SUCCESS':
+        return {"status": "completed", "result": task_result.result}
+    elif task_result.state == 'FAILURE':
+        return {"status": "failed", "error": str(task_result.info)}
+    # 一些冷門的狀態（例如 RETRY 正在重試、REVOKED 任務被強制取消）。
+    else:
+        return {"status": task_result.state.lower()}
