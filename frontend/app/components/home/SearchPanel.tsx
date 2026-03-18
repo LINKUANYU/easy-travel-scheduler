@@ -30,12 +30,6 @@ export default function SearchPanel({
           className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
         />
 
-        {destination && (
-          <p className="text-center text-blue-600 font-medium">
-            準備好出發去 {destination} 了嗎？
-          </p>
-        )}
-
         <button
           onClick={onSearch}
           disabled={loading}

@@ -12,8 +12,7 @@ import { useMemo } from "react";
 // 把 draft 放在 page 當 single source
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
-// 之後你要放右下角開始規劃按鈕，就在這裡 render
-// import StartPlanningButton from "@/components/StartPlanningButton";
+import ExploreTripCard from "./components/home/ExploreTripCard";
 
 type SearchResponse = Attraction[];
 
@@ -48,7 +47,14 @@ export default function Home(){
     }
     return set;
   }, [activeTripPlacesQ.data]);
+
   // ==========================================
+  // 抓取首頁下方「探索熱門行程」
+  // ==========================================
+  const exploreTripsQ = useQuery({
+    queryKey: ["exploreTrips"],
+    queryFn: async () => apiGet<any[]>("/api/explore/trips"),
+  });
 
 
   const mutation = useMutation({
@@ -76,8 +82,8 @@ export default function Home(){
   }
 
   return (
-    <main className="relative flex flex-1 w-full flex-col items-center justify-center py-4 bg-gray-100">
-      
+    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-8 pb-2 bg-gray-50">      
+
       {mutation.isPending ? (
         <div className="bg-white p-8 rounded-lg shadow-md">
           <div className="flex flex-col items-center justify-center gap-3">
@@ -86,13 +92,43 @@ export default function Home(){
           </div>
         </div>
       ) : mode === "search" ? (
-        <SearchPanel
-          destination={destinationInput}
-          onDestinationChange={setDestinationInput}
-          onSearch={() => handleSearch(destinationInput)}
-          loading={mutation.isPending}
-          responseMsg={responseMsg}
-        />
+        <div className="w-full max-w-5xl px-4 flex flex-col items-center">
+          
+          <div className="w-full max-w-2xl mb-4">
+            <SearchPanel
+              destination={destinationInput}
+              onDestinationChange={setDestinationInput}
+              onSearch={() => handleSearch(destinationInput)}
+              loading={mutation.isPending}
+              responseMsg={responseMsg}
+            />
+          </div>
+
+          {/* 下方：探索別人的行程 */}
+          <div className="w-full">
+            <div className="flex items-center mb-6">
+              <h2 className="text-2xl font-black text-gray-800 border-l-4 border-blue-500 pl-3">
+                熱門行程推薦
+              </h2>
+            </div>
+            
+            {exploreTripsQ.isLoading ? (
+              <p className="text-gray-500">載入熱門行程中...</p>
+            ) : exploreTripsQ.isError ? (
+              <p className="text-red-500">無法載入熱門行程</p>
+            ) : exploreTripsQ.data?.length === 0 ? (
+              <p className="text-gray-500">目前還沒有公開的行程喔！</p>
+            ) : (
+              // 6 宮格的排版
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                {exploreTripsQ.data?.map((trip) => (
+                  <ExploreTripCard key={trip.trip_id} trip={trip} />
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
       ) : (
         <>
           <ResultsSection

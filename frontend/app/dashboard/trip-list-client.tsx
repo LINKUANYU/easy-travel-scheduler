@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useUserTrips, useDeleteTrip } from "@/app/hooks/useTrips";
 import { useRouter } from "next/navigation";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
+import TripCard from "../components/dashboard/TripCard";
 
 export default function DashboardTripList() {
   const { data: trips, isLoading, isError } = useUserTrips();
@@ -53,50 +53,12 @@ export default function DashboardTripList() {
 
       {/* 渲染既有的行程卡片 */}
       {hasTrips && trips.map((t) => (
-        <li key={t.trip_id} className="border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition bg-white flex flex-col min-h-[200px]">
-          <div className="font-bold text-xl mb-2 truncate">{t.title}</div>
-          <div className="text-sm text-gray-500 mb-6 flex items-center">
-            <span className="bg-gray-100 px-2 py-1 rounded mr-2">{t.days} 天</span>
-            {t.start_date && <span>出發日: {t.start_date}</span>}
-          </div>
-          
-          {/* 按鈕操作區塊 (置底) */}
-          <div className="mt-auto flex gap-2 pt-4 border-t border-gray-100">
-            {/* 編輯 */}
-            <Link 
-              href={`/planner/${t.trip_id}`} 
-              className="flex-1 text-center bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition"
-            >
-              編輯
-            </Link>
-            
-            {/* 查看 (加入你前幾步做的防呆) */}
-            {t.share_token ? (
-              <Link 
-                href={`/share/${t.share_token}`} 
-                className="flex-1 text-center bg-gray-50 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition"
-              >
-                查看
-              </Link>
-            ) : (
-              <button 
-                onClick={() => alert("還沒有儲存的行程")}
-                className="flex-1 text-center bg-gray-50 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 transition"
-              >
-                查看
-              </button>
-            )}
-            
-            {/* 刪除 */}
-            <button 
-              onClick={() => handleDelete(t.trip_id)}
-              disabled={deleteMutation.isPending}
-              className="flex-1 text-center bg-red-50 text-red-600 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition disabled:opacity-50"
-            >
-              {deleteMutation.isPending ? "刪除中..." : "刪除"}
-            </button>
-          </div>
-        </li>
+        <TripCard
+          key={t.trip_id} 
+          trip={t} 
+          onDelete={() => handleDelete(t.trip_id)}
+          isDeleting={deleteMutation.isPending}
+        />
       ))}
     </ul>
   );

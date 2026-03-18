@@ -1,15 +1,17 @@
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
-from pymysql.cursors import DictCursor
-from services.db_service import get_cur
+from services.db_service import get_cur,get_conn
 from model.schema import *
+from fastapi import BackgroundTasks
+from services.fetch_trip_cover import generate_trip_cover_task
 
 router = APIRouter()
 
 # trip 產生唯一 URL as token
 @router.patch("/api/trips/{trip_id}/share")
-async def enable_trip_sharing(trip_id: int, cur: DictCursor = Depends(get_cur)):
+async def enable_trip_sharing(trip_id: int, background_tasks: BackgroundTasks, conn = Depends(get_conn)):
     # 1. 查詢資料庫確認行程是否存在，並取得目前的 share_token
+    cur = conn.cursor()
     cur.execute("SELECT id, share_token FROM trips WHERE id = %s", (trip_id,))
     trip = cur.fetchone()
     
@@ -28,11 +30,21 @@ async def enable_trip_sharing(trip_id: int, cur: DictCursor = Depends(get_cur)):
                 SET share_token = %s 
                 WHERE id = %s
             """, (share_token, trip_id))
+
+            # 🔥 解決死結的關鍵：提前手動 Commit！
+            # 讓資料庫正式寫入 share_token，釋放 Row Lock。
+            # 這樣前端馬上來 GET 才找得到東西，背景任務也能順利 UPDATE。
+            conn.commit()
         except Exception as e:
             print(f"Database error: {e}，分享 Token 寫入失敗")
             raise HTTPException(status_code=500, detail="資料庫寫入失敗")
+        finally:
+            cur.close()
 
-    # 3. 回傳 token 給前端
+    # 3. 將抓封面圖的任務丟到背景排隊！
+    background_tasks.add_task(generate_trip_cover_task, trip_id)
+
+    # 4. 回傳 token 給前端
     return {
         "message": "分享連結已獲取",
         "share_token": share_token
@@ -41,7 +53,7 @@ async def enable_trip_sharing(trip_id: int, cur: DictCursor = Depends(get_cur)):
 
 # 透過token as URL 讀取 trip、itinerary 內容
 @router.get("/api/share/{token}", response_model=SharedTripDataOut)
-async def get_shared_trip_data(token: str, cur: DictCursor = Depends(get_cur)):
+async def get_shared_trip_data(token: str, cur = Depends(get_cur)):
     # 1. 透過 token 取得行程基本資訊
     cur.execute("""
         SELECT id AS trip_id, user_id, title, days, DATE_FORMAT(start_date, '%%Y-%%m-%%d') AS start_date

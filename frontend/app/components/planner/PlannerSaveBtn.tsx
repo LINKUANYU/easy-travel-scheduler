@@ -36,7 +36,7 @@ export default function PlannerSaveButton({
       }}
     >
 
-      {saving ? "儲存中…" : "儲存行程"}
+      {saving ? "儲存中…" : "儲存變更"}
 
       {/* 如果是 dirty 狀態，在右上角渲染紅點點 */}
       {dirty && (

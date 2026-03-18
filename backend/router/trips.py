@@ -6,7 +6,9 @@ from datetime import timedelta
 from services.helper_auth import get_current_user, assert_trip_owner
 import secrets
 
+
 router = APIRouter()
+
 
 
 # 建立 trip
@@ -274,7 +276,7 @@ def get_user_trips(
     cur = Depends(get_cur)
 ):
     cur.execute("""
-        SELECT id AS trip_id, title, days, start_date, share_token
+        SELECT id AS trip_id, title, days, start_date, share_token, cover_url
         FROM trips 
         WHERE user_id = %s 
         ORDER BY id DESC
@@ -310,3 +312,29 @@ def delete_trip(
     # 如果當初沒設定，記得要先 DELETE 子表，最後再 DELETE trips，否則會報錯。
     
     return {"ok": True}
+
+
+# 取得首頁探索的公開行程 (不需要登入驗證 Depends)
+@router.get("/api/explore/trips")
+def get_explore_trips(cur = Depends(get_cur)):
+    try:
+        cur.execute("""
+            SELECT id AS trip_id, title, days, start_date, share_token, cover_url
+            FROM trips 
+            WHERE is_public = 1 
+              AND share_token IS NOT NULL 
+            ORDER BY id DESC 
+            LIMIT 6
+        """)
+        
+        trips = cur.fetchall()
+        
+        # 格式化日期
+        for trip in trips:
+            if trip["start_date"]:
+                trip["start_date"] = str(trip["start_date"])
+                
+        return trips
+    except Exception as e:
+        print(f"撈取探索行程失敗: {e}")
+        raise HTTPException(status_code=500, detail="無法取得探索行程")

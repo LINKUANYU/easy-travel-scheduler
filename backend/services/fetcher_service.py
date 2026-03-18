@@ -17,7 +17,7 @@ def get_travel_blog_urls(location):
     target = f"{location} 旅遊遊記 必去景點"
     print(f"🕵️ 正在向 DuckDuckGo 查詢關鍵字：[{target}]") 
     urls = []
-    excluded_domains = ["googleusercontent.com", "facebook.com", "youtube.com", "591.com", "shopee", "wikipedia"]
+    excluded_domains = ["googleusercontent.com", "facebook.com", "youtube.com", "591.com", "shopee", "wikipedia", "dcard"]
     travel_keywords = ["遊記", "景點", "推薦", "行程", "攻略", "懶人包", "打卡"]
     try:
         with DDGS() as ddgs:
@@ -191,7 +191,7 @@ def fetch_attraction_images(ai_gen_data):
                         
                 except Exception as e:
                     print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
-                    if i < max_retries:
+                    if i < max_retries - 1:
                         # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
                         sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
                         time.sleep(sleep_time)

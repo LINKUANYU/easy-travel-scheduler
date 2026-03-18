@@ -109,7 +109,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
     // 已登入狀態：
     // 狀況 A：這個行程本來就是他的 (資料庫的 user_id 跟目前登入的 user.id 一致)
     if (data?.trip?.user_id === user.id) {
-      toast.success("太棒了！您的所有變更都已經自動即時儲存於雲端帳號中囉！");
+      toast.success("太棒了！您的行程已經儲存於帳號中囉！");
       return;
     }
 
@@ -117,7 +117,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
     // 我們再強制幫他打一次 bind API 確保安全
     try {
       await apiPatch(`/api/trips/${trip.trip_id}/bind`);
-      toast.success("行程已成功保存至您的專屬帳號！");
+      toast.success("行程已成功保存至您的帳號！");
       // 建議這裡可以重整一下畫面，讓 React Query 拿到最新的擁有者狀態
       window.location.reload(); 
     } catch (err) {
@@ -189,12 +189,20 @@ export default function ShareWorkspace({ token }: { token: string }) {
                 style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #d1d5db", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold",color: "#374151"}}
                 onClick={handleSaveTrip}
               >
-                儲存行程
+                保存行程
               </button>
               <button 
+                onClick={() => {
+                  // 呼叫瀏覽器原生 API 複製當下網址
+                  navigator.clipboard.writeText(window.location.href)
+                    .then(() => toast.success("分享連結已複製！"))
+                    .catch(() => toast.error("複製失敗，請手動複製網址"));
+                }}
                 style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "#2563EB", color: "#fff", cursor: "pointer", fontWeight: "bold" }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#1d4ed8"}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#2563EB"}
               >
-                分享路徑
+                分享連結
               </button>
             </div>
           </>
@@ -351,8 +359,6 @@ export default function ShareWorkspace({ token }: { token: string }) {
             readonly={true} 
             isAddingPreview={false} 
             onAddPreview={() => {}}
-            topLeft={null}
-            bottomRight={null}
           />
         </div>
 

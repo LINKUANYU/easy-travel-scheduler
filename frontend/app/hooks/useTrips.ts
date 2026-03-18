@@ -8,6 +8,7 @@ export interface TripData {
   days: number;
   start_date: string | null;
   share_token?: string | null;
+  cover_url?: string | null;
 }
 
 // 1. 撈取會員所有行程

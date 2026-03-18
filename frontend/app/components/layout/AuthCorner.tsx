@@ -63,9 +63,9 @@ export default function AuthCorner() {
           // 認領成功後，清空 LocalStorage 中的暫存紀錄，因為已經正式存入雲端帳號了
           clearTripIndex();
           
-          toast.success(`成功將 ${localTrips.length} 個行程保存至您的帳號！`); 
+          toast.success(`太棒了！您的行程已經儲存於帳號中囉！`); 
         } catch (bindErr) {
-          console.error("部分或全部行程綁定失敗:", bindErr);
+          console.error("行程綁定失敗:", bindErr);
           // 不阻斷流程，因為使用者已經成功登入了
         }
       }
