@@ -31,7 +31,8 @@ async def search_destinations_api(
         if cached_data:
             print(f"🚀 命中 Redis 快取！直接回傳「{location}」的資料")
             # 將字串反序列化為 Python 字典/陣列後回傳
-            return json.loads(cached_data)
+            data = json.loads(cached_data)
+            return {"status": "completed", "data": data}
     except Exception as e:
         # 容錯機制：就算 Redis 掛了，我們也不要中斷程式，繼續往資料庫找
         print(f"⚠️ Redis 讀取失敗: {e}")

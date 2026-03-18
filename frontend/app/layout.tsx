@@ -5,6 +5,7 @@ import Providers from "./providers";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import { AuthProvider } from "./context/AuthContext";
+import { TaskProvider } from "./context/TaskContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +34,13 @@ export default function RootLayout({
       >
         <Providers>
           <AuthProvider>
-            <Header />
-            <div className="flex flex-col flex-1 w-full">
-              {children}
-            </div>
-            <Footer />
+            <TaskProvider>
+              <Header />
+              <div className="flex flex-col flex-1 w-full">
+                {children}
+              </div>
+              <Footer />
+            </TaskProvider>
           </AuthProvider>
         </Providers>
       </body>

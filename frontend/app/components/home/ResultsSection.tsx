@@ -11,7 +11,6 @@ type Props = {
   travelList: Attraction[];
   responseMsg?: string;
   onSearchOther: (location: string) => void;
-  // ✅ 新增：由 page 傳入
   draftIds: Set<string>;
   onAddToDraft: (p: DraftPlace) => void;
   onRemoveFromDraft: (google_place_id: string) => void;
@@ -32,8 +31,6 @@ export default function ResultsSection({
 
   const submitOther = () => {
     onSearchOther(otherCity);
-    // 你要不要清空 input 看喜好
-    // setOtherCity("");
   };
 
   return (
