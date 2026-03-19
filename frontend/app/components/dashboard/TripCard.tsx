@@ -64,7 +64,7 @@ export default function TripCard({
         {/* 按鈕操作區塊 (置底) */}
         <div className="mt-auto flex gap-2 pt-4 border-t border-gray-100">
           <Link 
-            href={`/planner/${trip.trip_id}`} 
+            href={`/edit/${trip.trip_id}`} 
             className="flex-1 text-center bg-blue-50 text-blue-600 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition"
           >
             編輯

@@ -1,15 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 import pymysql
-from services.db_service import *
-from model.schema import *
+from core.database import *
+from core.dependencies import *
+from schemas.schemas import *
 from datetime import timedelta
-from services.helper_auth import get_current_user, assert_trip_owner
 import secrets
 
-
 router = APIRouter()
-
-
 
 # 建立 trip
 @router.post("/api/trips", response_model=TripCreateOut)

@@ -7,7 +7,7 @@ import {
   splitTimeValue,
   joinTimeValue,
   formatTimeLabel,
-} from "@/app/lib/planner/itinerary-time";
+} from "@/app/lib/edit/itinerary-time";
 
 type TimePopoverProps = {
   label: string;

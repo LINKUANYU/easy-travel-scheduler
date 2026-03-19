@@ -1,9 +1,9 @@
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
-from services.db_service import get_cur,get_conn
-from model.schema import *
+from core.database import get_cur,get_conn
+from schemas.share import *
 from fastapi import BackgroundTasks
-from services.fetch_trip_cover import generate_trip_cover_task
+from services.background import generate_trip_cover_task
 
 router = APIRouter()
 

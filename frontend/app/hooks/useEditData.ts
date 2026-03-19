@@ -1,11 +1,10 @@
-// app/planner/[tripId]/hooks/usePlannerData.ts
+// app/edit/[tripId]/hooks/useEditData.ts
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { arrayMove } from "@dnd-kit/sortable";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/app/lib/api";
-import { fetchPlacePreview, type PlacePreview } from "@/app/lib/planner/placePreview";
-import { getDraftTimeValue, upsertItemTimeDraft, suggestArrivalTime, type TimeField, type ItemTimeDraft } from "@/app/lib/planner/itinerary-time";
-import { makeLegKey } from "@/app/lib/planner/itinerary-route-leg";
+import { getDraftTimeValue, upsertItemTimeDraft, type TimeField, type ItemTimeDraft } from "@/app/lib/edit/itinerary-time";
+import { makeLegKey } from "@/app/lib/edit/itinerary-route-leg";
 import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode } from "@/app/types/all-types";
 import { useRouteCalculator } from "./useRouteCalculator";
 import { usePlacePreview } from "./usePlacePreview";
@@ -17,7 +16,7 @@ function normalizeArrayPayload<T>(payload: any): T[] {
   return [];
 }
 
-export function usePlannerData(tripId: number, days: number) {
+export function useEditData(tripId: number, days: number) {
   const qc = useQueryClient();  // React Query 快取管理中心
   const [uiMsg, setUiMsg] = useState<string>("");  // UI 提示訊息 (如: 已加入、失敗等)
   const [activeDay, setActiveDay] = useState(1);

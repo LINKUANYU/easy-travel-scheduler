@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPatch } from "@/app/lib/api";
 import { useRouter } from "next/navigation";
 
-import PlaceAutocompleteInput from "@/app/components/planner/PlaceAutocompleteInput";
-import TripMap from "@/app/components/planner/TripMap";
-import PlannerSaveButton from "@/app/components/planner/PlannerSaveBtn";
-import PlacePoolPanel from "../../components/planner/PlacePoolPanel";
-import DailyItineraryPanel from "../../components/planner/DailyItineraryPanel";
+import PlaceAutocompleteInput from "@/app/components/edit/PlaceAutocompleteInput";
+import TripMap from "@/app/components/edit/TripMap";
+import EditSaveButton from "@/app/components/edit/EditSaveBtn";
+import PlacePoolPanel from "../../components/edit/PlacePoolPanel";
+import DailyItineraryPanel from "../../components/edit/DailyItineraryPanel";
 import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
-import { usePlannerData } from "../../hooks/usePlannerData";
+import { useEditData } from "../../hooks/useEditData";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
 
@@ -21,7 +21,7 @@ function normalizeTripId(x: string) {
   return Number.isFinite(n) ? n : null;
 }
 
-export default function PlannerWorkspace({ tripId }: { tripId: string }) {
+export default function EditWorkspace({ tripId }: { tripId: string }) {
   const router = useRouter();
   const tid = useMemo(() => normalizeTripId(tripId), [tripId]);
 
@@ -54,7 +54,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
   const days = tripQ.data?.days ?? 1; 
   // 雖然 hook 必須在頂層呼叫，但因為 tid 和 days 在 loading 結束前可能不正確，
   // 我們先傳入預設值，等資料回來 React Query 會自動重新渲染。
-  const data = usePlannerData(tid ?? 0, days);
+  const data = useEditData(tid ?? 0, days);
 
   // 5. 統籌影像快取資料
   const { getThumbUrl } = usePlaceThumbnails(data.dayItems, data.sortedPlaces);
@@ -113,7 +113,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
   if (tripQ.isLoading) return <p className="p-4 text-gray-500">Loading trip…</p>;
   if (tripQ.isError) return <p className="p-4 text-red-500">Load trip failed: {(tripQ.error as Error).message}</p>;
   
-  // 如果在錯誤狀態，直接回傳 null (畫面空白)，防止下方的 usePlannerData 繼續發送其他 API 導致 403 洗版
+  // 如果在錯誤狀態，直接回傳 null (畫面空白)，防止下方的 useEditData 繼續發送其他 API 導致 403 洗版
   if (tripQ.error) {
     return null; 
   }
@@ -233,7 +233,7 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
             </button>
             
             {/* 儲存按鈕 */}
-            <PlannerSaveButton
+            <EditSaveButton
               dirty={!!data.dirtyDayMap[data.activeDay]}
               saving={data.saveDayDraftM.isPending}
               onClick={() => data.saveDayDraftM.mutate(data.activeDay)}

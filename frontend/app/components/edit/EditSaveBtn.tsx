@@ -1,7 +1,7 @@
-// components/planner/PlannerSaveBtn.tsx
+// components/edit/EditSaveBtn.tsx
 "use client";
 
-export default function PlannerSaveButton({
+export default function EditSaveButton({
   dirty,
   saving,
   onClick,

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from services.db_service import *
+from core.database import *
 import re
 import json
 import time, random

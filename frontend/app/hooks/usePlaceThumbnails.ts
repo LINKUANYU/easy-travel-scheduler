@@ -1,6 +1,6 @@
-// app/planner/[tripId]/hooks/usePlaceThumbnails.ts
+// app/edit/[tripId]/hooks/usePlaceThumbnails.ts
 import { useState, useEffect, useMemo } from "react";
-import { fetchPlaceThumb, type PlaceThumb } from "@/app/lib/planner/placeThumb";
+import { fetchPlaceThumb, type PlaceThumb } from "@/app/lib/edit/placeThumb";
 import type { TripPlace, ItineraryItem } from "@/app/types/all-types";
 
 export function usePlaceThumbnails(

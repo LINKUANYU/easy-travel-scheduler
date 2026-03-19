@@ -1,6 +1,6 @@
-// app/planner/[tripId]/hooks/useRouteCalculator.ts
+// app/edit/[tripId]/hooks/useRouteCalculator.ts
 import { useState, useEffect, useMemo, useRef } from "react";
-import { hasLatLng, makeLegKey, computeLegRoute } from "@/app/lib/planner/itinerary-route-leg";
+import { hasLatLng, makeLegKey, computeLegRoute } from "@/app/lib/edit/itinerary-route-leg";
 import type { ItineraryItem, TripPlace, TravelMode, LegRouteState } from "@/app/types/all-types";
 
 export function useRouteCalculator(

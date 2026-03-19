@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { loadGoogleMaps } from "@/app/lib/googleMapsLoader";
-import type { PlacePreview } from "@/app/lib/planner/placePreview";
+import type { PlacePreview } from "@/app/lib/edit/placePreview";
 import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
 
 
@@ -166,7 +166,7 @@ export default function TripMap({
 
           // 綁定點擊事件
           if (p.google_place_id) {
-            am.addListener("click", () => {
+            am.addListener("gmp-click", () => {
               onPlaceClick?.(p.google_place_id as string);
             });
           }
@@ -183,7 +183,7 @@ export default function TripMap({
         });
         // 綁定點擊事件
         if (p.google_place_id) {
-          am.addListener("click", () => {
+          am.addListener("gmp-click", () => {
             onPlaceClick?.(p.google_place_id as string);
           });
         }

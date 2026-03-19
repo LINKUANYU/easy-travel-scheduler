@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { fetchPlacePreview, type PlacePreview } from "@/app/lib/planner/placePreview";
+import { fetchPlacePreview, type PlacePreview } from "@/app/lib/edit/placePreview";
 
 export function usePlacePreview() {
   const [preview, setPreview] = useState<PlacePreview | null>(null);

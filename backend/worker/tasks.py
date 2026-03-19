@@ -1,11 +1,12 @@
 # tasks.py
 import os
 from celery import Celery
-from services.db_service import POOL, set_utc
-from services.fetcher_service import run_web_scraping_workflow
+from core.database import POOL, set_utc
+from services.ai_scraper import run_web_scraping_workflow
 from services.geo_service import get_coordinates
-# 這裡假設你的 save_spot_data 是寫在 db_service 裡
-from services.db_service import save_spot_data 
+from repositories.destination_repo import save_spot_data
+
+
 
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -72,3 +73,4 @@ def scrape_and_save_destinations_task(self, location: str):
     finally:
         cur.close()
         conn.close()
+

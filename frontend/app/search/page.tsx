@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiPost, apiGet } from "@/app/lib/api";
-import ResultsSection from "@/app/components/home/ResultsSection";
+import ResultsSection from "@/app/components/search/ResultsSection";
 import StartPlanningButton from "@/app/components/home/StartPlanningButton";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import { useQuery } from "@tanstack/react-query";

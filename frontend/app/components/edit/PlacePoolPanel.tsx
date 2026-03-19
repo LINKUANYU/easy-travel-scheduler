@@ -1,4 +1,4 @@
-// app/planner/[tripId]/components/PlacePoolPanel.tsx
+// app/edit/[tripId]/components/PlacePoolPanel.tsx
 import React from "react";
 import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
 

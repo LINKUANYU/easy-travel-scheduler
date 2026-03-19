@@ -12,8 +12,8 @@ const isLoggedIn = false;
 export default function Header() {
   const pathname = usePathname();
   
-  // 1. 擷取 planner 頁面的 tripId
-  const tripIdMatch = pathname?.match(/\/planner\/(\d+)/);
+  // 1. 擷取 edit 頁面的 tripId
+  const tripIdMatch = pathname?.match(/\/edit\/(\d+)/);
   const tripId = tripIdMatch ? tripIdMatch[1] : null;
 
   // 💡 2. 擷取 share 頁面的 token
@@ -21,7 +21,7 @@ export default function Header() {
   const shareToken = shareTokenMatch ? shareTokenMatch[1] : null;
 
   // 3. 獲取編輯模式的資料
-  const { data: plannerTrip } = useQuery({
+  const { data: editTrip } = useQuery({
     queryKey: ["trip", tripId],
     queryFn: async () => await apiGet<any>(`/api/trips/${tripId}`),
     enabled: !!tripId, 
@@ -35,7 +35,7 @@ export default function Header() {
   });
 
   // 💡 5. 統一取出 trip 資訊（看當下在哪個頁面，就拿哪邊的資料）
-  const trip = plannerTrip || shareData?.trip;
+  const trip = editTrip || shareData?.trip;
 
   return (
     <header

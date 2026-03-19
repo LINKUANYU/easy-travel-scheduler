@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from backend.services.db_service import *
+from backend.core.database import *
 from fastapi import Depends
 import re
 import json

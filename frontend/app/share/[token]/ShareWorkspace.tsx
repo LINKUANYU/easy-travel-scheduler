@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPatch } from "@/app/lib/api";
 import { useState, useMemo, useRef } from "react";
-import TripMap from "@/app/components/planner/TripMap";
+import TripMap from "@/app/components/edit/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
 import { usePlacePreview } from "@/app/hooks/usePlacePreview";
@@ -170,7 +170,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
           <>
             {/* 左側按鈕 */}
             <button
-              onClick={() => router.push(`/planner/${trip.trip_id}`)}
+              onClick={() => router.push(`/edit/${trip.trip_id}`)}
               style={{ 
               padding: "8px 16px", 
               borderRadius: "8px", 

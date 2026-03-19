@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from model.schema import *
-from services.db_service import get_cur, get_conn
+from schemas.itinerary import *
+from schemas.schemas import OkOut
+from core.database import get_cur, get_conn
 from pymysql import IntegrityError
-from services.helper_auth import assert_trip_owner
+from core.dependencies import assert_trip_owner
 
 router = APIRouter()
 

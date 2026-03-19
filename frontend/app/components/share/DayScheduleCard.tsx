@@ -1,5 +1,5 @@
 import { SharedItineraryItem } from "@/app/types/all-types";
-import { formatDuration } from "@/app/lib/planner/itinerary-route-leg";
+import { formatDuration } from "@/app/lib/edit/itinerary-route-leg";
 
 
 

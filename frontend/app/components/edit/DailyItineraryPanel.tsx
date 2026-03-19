@@ -1,4 +1,4 @@
-// app/planner/[tripId]/components/DailyItineraryPanel.tsx
+// app/edit/[tripId]/components/DailyItineraryPanel.tsx
 "use client";
 
 import React, { Fragment } from "react";
@@ -6,10 +6,10 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import TimePopover from "@/app/components/planner/TimePopover";
-import { makeLegKey, formatDistance, formatDuration } from "@/app/lib/planner/itinerary-route-leg";
+import TimePopover from "@/app/components/edit/TimePopover";
+import { makeLegKey, formatDistance, formatDuration } from "@/app/lib/edit/itinerary-route-leg";
 import type { ItineraryItem, LegRouteState, TravelMode } from "@/app/types/all-types";
-import type { TimeField } from "@/app/lib/planner/itinerary-time";
+import type { TimeField } from "@/app/lib/edit/itinerary-time";
 
 // ==========================================
 // 1. 定義拖拉工人 (SortableRow)

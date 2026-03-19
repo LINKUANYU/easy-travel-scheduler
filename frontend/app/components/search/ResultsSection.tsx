@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Attraction } from "@/app/types/all-types";
-import AttractionCard from "@/app/components/home/AttractionCard";
+import AttractionCard from "@/app/components/search/AttractionCard";
 import type { DraftPlace } from "@/app/hooks/useTripDraft";
 
 

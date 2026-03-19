@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
-from model.schema import *
-from services.db_service import *
-from services.helper_auth import *
+from schemas.auth import *
+from core.database import *
+from core.security import *
+from core.dependencies import *
 import pymysql
 from pymysql.err import IntegrityError
 import secrets

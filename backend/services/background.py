@@ -1,4 +1,4 @@
-from services.db_service import POOL, set_utc
+from core.database import POOL, set_utc
 from ddgs import DDGS
 import time, random, json
 

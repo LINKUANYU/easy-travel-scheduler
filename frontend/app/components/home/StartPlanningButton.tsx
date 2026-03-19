@@ -101,7 +101,7 @@ export default function StartPlanningButton(){
       clear(); 
       setOpen(false);
       
-      router.push(`/planner/${out.trip_id}`);
+      router.push(`/edit/${out.trip_id}`);
 
     } catch (e: any) {
       setErrMsg(e?.message ?? "建立旅程失敗");
@@ -119,7 +119,7 @@ export default function StartPlanningButton(){
 
     // 如果購物車沒東西，直接跳回去就好
     if (placeIds.length === 0) {
-      router.push(`/planner/${activeTripId}`);
+      router.push(`/edit/${activeTripId}`);
       return;
     }
 
@@ -135,7 +135,7 @@ export default function StartPlanningButton(){
 
       // 追加成功後，清空購物車，然後跳轉回編輯頁面
       clear();
-      router.push(`/planner/${activeTripId}`);
+      router.push(`/edit/${activeTripId}`);
     } catch (e: any) {
       alert(e?.message ?? "追加景點失敗，請稍後再試");
     } finally {
