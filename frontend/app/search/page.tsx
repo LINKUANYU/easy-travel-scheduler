@@ -57,7 +57,8 @@ export default function SearchResultsPage() {
     
     // 在發送請求前，把地點寫進紀錄本
     fetchedLocationRef.current = location;
-
+    // 給編輯頁使用紀錄之前搜尋過的地點
+    sessionStorage.setItem("lastSearchLocation", location);
 
     const fetchResults = async () => {
       setIsLoading(true);

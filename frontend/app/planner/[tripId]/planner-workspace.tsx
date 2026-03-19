@@ -91,6 +91,20 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
       }
     }
   }, [data.uiMsg]);
+
+// 回上一步
+  const handleGoBack = () => {
+  // 去短期記憶裡面找找看上次搜了哪裡
+  const lastSearch = sessionStorage.getItem("lastSearchLocation");
+  
+  if (lastSearch) {
+    router.push(`/search?location=${lastSearch}`);
+  } else {
+    // 如果沒找到（例如他是直接從 Dashboard 點進來的），回首頁
+    router.push('/');
+  }
+};
+
   
   // ==========================================
   // 阻擋畫面渲染 (Loading & Error 處理)
@@ -201,9 +215,9 @@ export default function PlannerWorkspace({ tripId }: { tripId: string }) {
           </div>
 
           <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
-            {/* 下一步按鈕 */}
+            {/* 上一步按鈕 */}
             <button 
-              onClick={() => router.push('/')}
+              onClick={handleGoBack}
               style={{
                 padding: "8px 16px",
                 backgroundColor: "#7bb9d7",
