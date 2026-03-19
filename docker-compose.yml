@@ -1,44 +1,53 @@
-services:
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: easy_travel_scheduler
-      MYSQL_USER: app
-      MYSQL_PASSWORD: app_password
-      MYSQL_ROOT_PASSWORD: root_password
-    ports:
-      - "3307:3306"   # 避免跟你電腦原本 3306 衝突（你也可改回 3306:3306）
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot_password"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    restart: unless-stopped
 
+services:
+  # 1. 任務佈告欄與快取
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 2. FastAPI 後端
   backend:
-    build:
-      context: ./backend
+    build: ./backend
     ports:
       - "8000:8000"
     env_file:
+      - ./backend/.env  # 讀取後端的環境變數
+    depends_on:
+      - redis
+    restart: always
+
+  # 3. Celery 背景工頭 (使用跟後端一模一樣的 Image，但執行不同的指令)
+  celery_worker:
+    build: ./backend
+    command: celery -A worker.tasks worker --loglevel=info
+    env_file:
       - ./backend/.env
     depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+      - redis
+      - backend
+    restart: always
 
+  # 4. Next.js 前端
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     ports:
       - "3000:3000"
     env_file:
-      - ./frontend/.env.local
+      - ./frontend/.env  # 讀取前端的環境變數
     depends_on:
       - backend
-    restart: unless-stopped
+    restart: always
 
-volumes:
-  mysql_data:
+  # 5. Nginx
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"  # 綁定本機的 80 port (標準 HTTP port) 到容器的 80 port
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf  # 把外面的設定檔掛載進去覆蓋預設值
+    depends_on:
+      - frontend
+      - backend
+    restart: always

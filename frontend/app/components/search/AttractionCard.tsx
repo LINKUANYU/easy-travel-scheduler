@@ -25,7 +25,7 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
 
   const safeIdx = total > 0 ? ((imgIdx % total) + total) % total : 0; // 讓safeIdx 永遠在0~2，避免索引超出範圍
 
-  const fallback = "https://via.placeholder.com/400x250"; // 拿圖失敗的畫面
+  const fallback = "/default-trip-cover.png"; // 拿圖失敗的畫面
   const imageUrl = total > 0 ? urls[safeIdx] : fallback; // 改用 safeIdx 取圖
 
   const hasCarousel = total > 1; // 只有超過 1 張才顯示左右按鈕

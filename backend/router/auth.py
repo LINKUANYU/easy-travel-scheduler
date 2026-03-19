@@ -96,7 +96,7 @@ def login(
     return {"id": user["id"], "email": user["email"], "name": user["name"]}
 
 @router.get("/api/me")
-def me(current_user = Depends(get_current_user)):
+def me(current_user = Depends(get_optional_user)):
     return current_user
 
 @router.post("/api/logout")

@@ -75,3 +75,29 @@ def assert_trip_owner(trip_id: int, request: Request, cur=Depends(get_cur)):
             
     # 驗證通過，放行！
     return True
+
+
+# 非強制的登入檢查（只回傳資料或 None，不拋出 401 錯誤）
+def get_optional_user(
+    request: Request,
+    cur=Depends(get_cur),
+):
+    sid = request.cookies.get(SID_COOKIE_NAME)
+    if not sid:
+        return None  # 沒帶 Cookie，默默回傳 None
+
+    cur.execute(
+        """
+        SELECT u.id, u.email, u.name
+        FROM sessions s
+        JOIN users u ON u.id = s.user_id
+        WHERE s.session_id = %s
+          AND s.revoked_at IS NULL
+          AND s.expires_at > UTC_TIMESTAMP()
+          AND u.is_active = 1
+        LIMIT 1
+        """,
+        (sid,),
+    )
+    row = cur.fetchone()
+    return row  # 有找到回傳資料，沒找到也是回傳 None

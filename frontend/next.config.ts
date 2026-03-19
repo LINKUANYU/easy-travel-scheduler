@@ -7,7 +7,7 @@ async rewrites() {
         // 當你前端呼叫 /api/search 時
         source: "/api/:path*",
         // 轉發到本地後端 8000 Port
-        destination: "http://localhost:8000/api/:path*",
+        destination: "http://backend:8000/api/:path*",
       },
     ];
   },

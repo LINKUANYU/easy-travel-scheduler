@@ -40,7 +40,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
               
               {/* 上半部：文字與打叉按鈕 */}
               <div className="flex items-start justify-between gap-4">
-                <span className="font-bold text-gray-800">🎉「{location}」景點探索完成！</span>
+                <span className="font-bold text-white bg-gray-700 px-2 py-1 rounded-md">
+                  🎉「{location}」景點探索完成！
+                </span>
                 
                 {/* 🌟 關閉 (X) 按鈕 */}
                 <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiPost, apiGet } from "@/app/lib/api";
 import ResultsSection from "@/app/components/search/ResultsSection";
@@ -11,7 +11,7 @@ import type { Attraction } from "@/app/types/all-types";
 import { useTask } from "../context/TaskContext";
 
 
-export default function SearchResultsPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const location = searchParams.get("location"); // 抓取網址上的 ?location= 值
   const router = useRouter();
@@ -153,3 +153,33 @@ return (
     </main>
   );
 }
+
+
+// 在檔案的最下方，新建一個預設輸出的元件，用 Suspense 把上面的 SearchContent 包起來
+export default function SearchResultsPage() {
+  return (
+    // fallback 是在等待網址解析完成前，要先秀什麼畫面 (可以放一個簡單的轉圈圈)
+    <Suspense fallback={
+      <main className="flex flex-1 w-full flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="h-10 w-10 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-4" />
+        <p className="text-lg font-semibold text-gray-800">準備載入中...</p>
+      </main>
+    }>
+      <SearchContent />  {/* 用 React 元件的方式呼叫*/}
+    </Suspense>
+  );
+}
+
+/* 
+1. 衝突的起因：Next.js 的「印刷廠」機制
+Next.js 為了讓網頁載入速度達到最快，在我們執行 npm run build（打包）時，它會試圖把你寫好的程式碼，提前全部「印」成靜態的 HTML 檔案（這稱為 Static Site Generation 或是靜態預渲染）。
+這樣當使用者造訪網站時，伺服器不需要臨時運算，直接把印好的 HTML 丟給瀏覽器就好，速度極快。
+2. 造成當機的罪魁禍首：useSearchParams
+在你的旅遊網站專案中，你使用了 useSearchParams() 去抓取網址列的參數（例如 ?location=東京）。
+這時矛盾就出現了：
+印刷廠（Build 打包的當下）：網頁還在伺服器裡編譯，根本還沒有任何真實的使用者打開瀏覽器，也就絕對不可能有網址。
+3. 解法：<Suspense> 發揮「延遲處理」
+React 的 <Suspense> 元件，顧名思義就是「懸念、暫停」。把它包在會讀取網址的元件外面，等於是在對Next下達一個特別指令：
+強迫把這塊畫面的渲染工作，從「伺服器端（預先打包）」延遲並移交給「客戶端（使用者的瀏覽器）」來執行。
+
+*/

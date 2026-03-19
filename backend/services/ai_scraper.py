@@ -200,8 +200,8 @@ def fetch_attraction_images(ai_gen_data):
 
         total_result.append(attraction_data)
         
-        # # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
-        # time.sleep(0.5)
+        # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
+        time.sleep(0.5)
 
     return total_result
 

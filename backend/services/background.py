@@ -95,12 +95,9 @@ def fetch_city_image_from_ddg(target):
                 print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({target}): {e}")
                 if i < max_retries - 1:
                     # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
-                    sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
+                    sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 2)
                     time.sleep(sleep_time)
                 else:
                     print(f"❌ {target}圖片搜尋錯誤: {e}")
     
-        # # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
-        # time.sleep(0.5)
-
     return total_result
