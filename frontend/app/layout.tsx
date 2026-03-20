@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
+import ButtonConfetti from "./components/effects/ButtonConfetti";
 import { AuthProvider } from "./context/AuthContext";
 import { TaskProvider } from "./context/TaskContext";
 
@@ -35,6 +36,7 @@ export default function RootLayout({
         <Providers>
           <AuthProvider>
             <TaskProvider>
+              <ButtonConfetti />
               <Header />
               <div className="flex flex-col flex-1 w-full">
                 {children}
