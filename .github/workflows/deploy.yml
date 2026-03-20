@@ -26,6 +26,9 @@ jobs:
             
             # 讓 Docker 重新編譯有更改的部分，並在背景重啟
             sudo docker compose up --build -d
+
+            # 強制重啟 Nginx，讓它重新抓取前後端容器的新 IP 🌟 (補上這行！)
+            sudo docker compose restart nginx
             
             # 大掃除：順手清除舊的、沒在用的 Docker Image，避免 EC2 硬碟爆滿
             sudo docker system prune -f
