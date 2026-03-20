@@ -2,18 +2,24 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
 async rewrites() {
+  // 讀取環境變數，如果沒設定，預設就退回到 docker 內部的名稱
+  const apiBaseUrl = process.env.API_BASE_URL || "http://backend:8000";
+
     return [
       {
         // 當你前端呼叫 /api/search 時
         source: "/api/:path*",
         // 轉發到本地後端 8000 Port
-        destination: "http://backend:8000/api/:path*",
+        destination: `${apiBaseUrl}/api/:path*`,
       },
     ];
   },
 };
 
 export default nextConfig;
+
+// 在本機開發時： 因為你沒有開 Nginx，所以由 Next.js 的伺服器兼職當總機，幫你把 /api 轉發給 localhost:8000。
+// 在 EC2 上線時： Nginx 身為真正的總機，站在最前線就把 /api/ 攔截走並送給 FastAPI 了，根本不會輪到 Next.js 來處理轉發。
 
 // 在 EC2 的生產環境中，通常的架構是這樣的：
 // 外界請求： 使用者訪問 https://your-domain.com/api/search。
