@@ -13,7 +13,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env  # 讀取後端的環境變數
+      - ./backend/${ENV_FILE:-.env.prod}  # 讀取後端的環境變數
     depends_on:
       - redis
     restart: always
@@ -23,7 +23,7 @@ services:
     build: ./backend
     command: celery -A worker.tasks worker --loglevel=info
     env_file:
-      - ./backend/.env
+      - ./backend/${ENV_FILE:-.env.prod}
     depends_on:
       - redis
       - backend
@@ -35,7 +35,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ./frontend/.env  # 讀取前端的環境變數
+      - ./frontend/${ENV_FILE:-.env.prod}  # 讀取前端的環境變數
     depends_on:
       - backend
     restart: always
