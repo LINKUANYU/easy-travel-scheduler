@@ -1,11 +1,12 @@
 "use client"; // 告訴 Next.js 這是在瀏覽器執行的元件
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState} from "react";
 import { useQuery } from "@tanstack/react-query";
 import SearchPanel from "@/app/components/home/SearchPanel";
 import { apiGet } from "@/app/lib/api";
 import { useRouter } from "next/navigation";
-import StartPlanningButton from "./components/home/StartPlanningButton";
+import CreateTripModal from "./components/home/CreateTripModal";
+import { useTripDraft } from "./hooks/useTripDraft";
 
 
 import toast from "react-hot-toast";
@@ -15,6 +16,14 @@ export default function Home(){
   const router = useRouter();
 
   const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
+
+  const { draft, clear, activeTripId, clearActiveTrip } = useTripDraft();
+
+  // ==========================================
+  // 控制 Modal 與背景搜尋狀態的 State
+  // ==========================================
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchLoc, setSearchLoc] = useState("");
 
   // ==========================================
   // 抓取首頁下方「探索熱門行程」
@@ -28,9 +37,27 @@ export default function Home(){
   // ==========================================
   // 搜尋按鈕邏輯
   // ==========================================
-  const handleSearch = (location: string) => {
+  const handleSearch = async (location: string) => {
     if (!location.trim()) return toast.error("請輸入地點");
-    router.push(`/search?location=${location}`);
+    setSearchLoc(location);
+    // 1. 沒有trip 彈出建立行程 Modal 讓使用者填寫 (不讓他等！)
+    if (!activeTripId) {
+      setIsModalOpen(true);
+    } else {
+      router.push(`/search?location=${location}`);
+      // 因為非同步，直接使用上面傳入的 location 變數，不要用 searchLoc！
+    }
+
+  };
+
+  // ==========================================
+  // Modal 建立行程成功後的分流邏輯
+  // ==========================================
+  const handleModalSuccess = (tripId: number) => {
+    setIsModalOpen(false); // 關閉 Modal
+
+    // 行程建好後，無腦送去 search 頁面，把剩下的判斷交給 search 處理
+    router.push(`/search?location=${searchLoc}`);
   };
 
   return (
@@ -68,8 +95,14 @@ export default function Home(){
             </div>
           )}
         </div>
+
+        {/* 🌟 掛載獨立出來的 CreateTripModal */}
+        <CreateTripModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={handleModalSuccess}
+        />
         
-        <StartPlanningButton/>
       </div>
     </main>
   );

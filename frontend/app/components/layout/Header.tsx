@@ -6,9 +6,6 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/app/lib/api";
 
-
-// 暫時用一個常數來模擬登入狀態，之後你可以替換成真正的 Auth Context 或 Session
-const isLoggedIn = false; 
 export default function Header() {
   const pathname = usePathname();
   

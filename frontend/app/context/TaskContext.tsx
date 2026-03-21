@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useRef, useCallback } from "react";
+import { createContext, useContext, useRef, useCallback, useEffect } from "react";
 import { apiGet } from "@/app/lib/api";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 // 定義這個「廣播電台」會提供什麼服務。這裡說它會提供一個叫 startBackgroundPolling 的函數。
 // 需要三個參數：任務id(計時器要去打後端)、地點、失敗的時候執行的函數
@@ -21,6 +21,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
+  // 取得目前的網址路徑 (例如: "/search" 或 "/edit")
+  const pathname = usePathname();
+
+  // 用 useRef 隨時抄寫最新的路徑。
+  // 這樣 setInterval 裡面的程式碼才不會因為「閉包陷阱」而一直記到舊的路徑。
+  const currentPathRef = useRef(pathname);
+  
+  useEffect(() => {
+    currentPathRef.current = pathname;
+  }, [pathname]);
   
   // useCallback 運作原理： 當你用 useCallback 把函數包起來後，React 就會把這個函數「護貝」起來存放在記憶體裡。
   // 下次畫面重新整理時，React 會直接拿上次護貝好的那個函數來用，而不會浪費效能再去創造一個新的。
@@ -33,47 +43,65 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         const statusRes = await apiGet<any>(`/api/search/status/${taskId}`);
         if (statusRes.status === "completed") {
           clearInterval(pollingRef.current!);
+          // 任務完成，把「爬蟲中」的記憶擦掉！
+          sessionStorage.removeItem(`crawling_task_${location}`);
 
-          // 任務完成！跳出無限期存在的 Toast，直到使用者點擊
-          toast.success((t) => (
-            <div className="flex flex-col gap-3 min-w-[200px]">
-              
-              {/* 上半部：文字與打叉按鈕 */}
-              <div className="flex items-start justify-between gap-4">
-                <span className="font-bold text-white bg-gray-700 px-2 py-1 rounded-md">
-                  🎉「{location}」景點探索完成！
-                </span>
+          // ==========================================
+          // UX 分流：判斷使用者現在在哪裡？
+          // ==========================================
+
+          if (currentPathRef.current === "/search") {
+            // 狀況 A：使用者在 /search 頁面等待
+            toast.success(`🎉 ${location} 景點探索完成！`, { duration: 3000 });
+            
+            // 自動強制刷新畫面！(帶上時間戳記穿透護城河)
+            router.push(`/search?location=${location}&t=${Date.now()}`);
+            
+          } else {
+            // 狀況 B：使用者跑去 /edit 排行程了 (持久型 Toast)
+            toast.success((t) => (
+              <div className="flex flex-col gap-3 min-w-[200px]">
                 
-                {/* 🌟 關閉 (X) 按鈕 */}
+                {/* 上半部：文字與打叉按鈕 */}
+                <div className="flex items-start justify-between gap-4">
+                  <span className="font-bold text-white bg-black px-2 py-1 rounded-md">
+                    🎉「{location}」景點探索完成！
+                  </span>
+                  
+                  {/* 關閉 (X) 按鈕 */}
+                  <button
+                    onClick={() => toast.dismiss(t.id)}
+                    className="text-gray-400 hover:text-gray-700 transition p-1"
+                    aria-label="關閉"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* 下半部：查看結果按鈕 */}
                 <button
-                  onClick={() => toast.dismiss(t.id)}
-                  className="text-gray-400 hover:text-gray-700 transition p-1"
-                  aria-label="關閉"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    // 加上隨機時間戳記 (&t=...)，這能強迫 /search 頁面認知到「網址變了」，進而重新打 API 拿結果！
+                    router.push(`/search?location=${location}&t=${Date.now()}`);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium transition shadow-sm"
                 >
-                  ✕
+                  點此查看結果
                 </button>
               </div>
-
-              {/* 下半部：查看結果按鈕 */}
-              <button
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  // 使用者點擊後，瞬間帶他回到結果頁
-                  router.push(`/search?location=${location}`);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium transition shadow-sm"
-              >
-                點此查看結果
-              </button>
-            </div>
-          ), 
-          { 
-            duration: Infinity 
-          });
-
+            ), 
+            { 
+              duration: Infinity 
+            });
+          }
         } else if (statusRes.status === "failed") {
           clearInterval(pollingRef.current!);
+          pollingRef.current = null;
+          // 任務失敗，也要把記憶擦掉，讓使用者有機會重試
           toast.error("搜尋失敗，請檢查輸入地點，或稍後再試");
+          sessionStorage.removeItem(`crawling_task_${location}`);
+
           // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
           if (onTaskFailed) {
             onTaskFailed();
@@ -81,6 +109,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (e) {
         clearInterval(pollingRef.current!);
+        pollingRef.current = null;
       }
     }, 3000);
   }, [router]);
