@@ -63,7 +63,7 @@ function SearchContent() {
       // 1. 發現這個城市正在爬蟲！開啟轉圈圈，阻止下方去打 POST 觸發新爬蟲
       setIsLoading(true);
       
-      // 2. 重新啟動背景輪詢 (這招超強：就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來！)
+      // 2. 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
       startBackgroundPolling(existingTaskId, location, () => {
         setError("搜尋失敗，請檢查輸入地點，或稍後再試");
         setIsLoading(false);
