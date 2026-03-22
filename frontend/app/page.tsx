@@ -7,6 +7,7 @@ import { apiGet } from "@/app/lib/api";
 import { useRouter } from "next/navigation";
 import CreateTripModal from "./components/home/CreateTripModal";
 import { useTripDraft } from "./hooks/useTripDraft";
+import AddPlacesToTripBtn from "./components/home/AddPlacesToTripBtn";
 
 
 import toast from "react-hot-toast";
@@ -102,6 +103,10 @@ export default function Home(){
           onClose={() => setIsModalOpen(false)}
           onSuccess={handleModalSuccess}
         />
+
+        {activeTripId && (
+          <AddPlacesToTripBtn />
+        )};
         
       </div>
     </main>
