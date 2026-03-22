@@ -6,15 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from core.database import *
 import re
 import json
-import time, random
+import time
 import urllib.parse
+import requests
 
-# ==========================================
-# 模組 1：嚴格的網址守門員 (DuckDuckGo)
-# ==========================================
+
 def get_high_quality_blog_url(location):
     # 🔍 Debug: 先印出來看看，確定真的有傳對關鍵字進去
     target = f"{location} 旅遊 遊記 必去 景點 懶人包"
@@ -77,68 +75,78 @@ def get_high_quality_blog_url(location):
     
     return None
 
-# ==========================================
-#  模組 2：引擎 A - Gemini 原生 url_context
-# ==========================================
+
+
 def run_gemini_url_context(url, location, client, prompt_template):
     print("   [引擎 A] 啟動 Gemini 原生 url_context 解析...")
     prompt = prompt_template.format(location=location, content=f"請解析此網址：{url}")
     model_id = "gemini-3-flash-preview"
-    tools = [{"url_context": {}},]
 
-    print("--------------------Gemini url_context準備開始跑--------------------------")
-    start_time = time.time()
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-        config=GenerateContentConfig(
-            tools=tools,
+    tools = [
+    {"url_context": {}},
+    ]
+
+    try:
+        print("--------------------Gemini url_context準備開始跑--------------------------")
+        start_time = time.time()
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+            config=GenerateContentConfig(
+                tools=tools,
+            )
         )
-    )
 
 
-    for part in reversed(response.candidates[0].content.parts):
-        # print(part)
-        if not part.text:
-            continue
+        for part in reversed(response.candidates[0].content.parts):
+            # print(part)
+            if not part.text:
+                continue
+            
+            raw_data = part.text
         
-        raw_data = part.text
-    
-        # print(raw_data)
+            # print(raw_data)
 
-        # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
-        match = re.search(r'\[[\s\S]*\]', raw_data)
+            # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
+            match = re.search(r'\[[\s\S]*\]', raw_data)
 
-        if match:
-            json_content = match.group(0)
-            json_content = json_content.replace('```json', '').replace('```', '')
-            data = json.loads(json_content)
-        else:
-            # 如果沒抓到標籤，就嘗試直接解析
-            data = json.loads(raw_data)
+            if match:
+                json_content = match.group(0)
+                json_content = json_content.replace('```json', '').replace('```', '')
+                data = json.loads(json_content)
+            else:
+                # 如果沒抓到標籤，就嘗試直接解析
+                data = json.loads(raw_data)
 
-        if len(data) < 3:
-            print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
-            raise ValueError("url_context 解析失敗或景點數量不足")
+            if len(data) < 3:
+                print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
+                raise ValueError("url_context 解析失敗或景點數量不足")
+                # raise HTTPException(status_code=500, detail="沒有符合要求的地點，請重新輸入")
 
-        elapsed_time = time.time() - start_time
-        print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
-        print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
-        return data
-    
-    raise ValueError("Gemini 未回傳有效內容")
+            elapsed_time = time.time() - start_time
+            print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
+            print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
+            return data
+        
+        return []
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
+        # raise HTTPException(status_code=500, detail=f"JSON 解析失敗，Gemini 回傳格式不正確")
+        return []
+    except Exception as e:
+        print(f"🚨 Gemini發生非預期錯誤: {type(e).__name__}: {e}")
+        # raise HTTPException(status_code=500, detail=f"Gemini發生未預期錯誤，請重試")
+        return []
 
-    
-# ==========================================
-# 模組 3：引擎 B - Jina 備援解析器 (含文本清洗)
-# ==========================================
+
 def clean_and_slice_text(raw_text):
     # 1. 移除圖片與超連結，只保留文字 (你上一版已經有的)
     text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', raw_text)
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
     
-    
-    # 防線一：抹殺「導覽列 (Mega Menu)」雜訊
+    # ==========================================
+    # 🛡️ 防線一：抹殺「導覽列 (Mega Menu)」雜訊
+    # ==========================================
     lines = text.split('\n')
     valid_lines = []
     for line in lines:
@@ -155,7 +163,9 @@ def clean_and_slice_text(raw_text):
     # 壓縮多餘的換行
     text = re.sub(r'\n\s*\n', '\n', text)
     
-    # 防線二：尋找「文章重心」
+    # ==========================================
+    # 🛡️ 防線二：尋找「文章重心」
+    # ==========================================
     # 旅遊部落格的正文，通常會從第一個 H2 (##) 或 H3 (###) 標題開始
     # 我們讓程式自己去找第一個大標題在哪裡，而不是傻傻從第 0 字開始讀
     match = re.search(r'\n##+ ', text)
@@ -172,7 +182,7 @@ def clean_and_slice_text(raw_text):
         
     return final_text
 
-    
+
 
 def run_jina_fallback(url, location, client, prompt_template):
     print("   [引擎 B] 啟動 Jina Reader 備援解析...")
@@ -187,38 +197,45 @@ def run_jina_fallback(url, location, client, prompt_template):
         "X-Return-Format": "markdown" 
     }
     
-    res = requests.get(jina_url, headers=headers, timeout=15)
-    if res.status_code != 200:
-        print(f"❌ Jina 抓取失敗，狀態碼: {res.status_code}")
-        raise ValueError(f"Jina API 錯誤 ({res.status_code})")
-    
-    clean_text = clean_and_slice_text(res.text)
+    try:
+        res = requests.get(jina_url, headers=headers, timeout=15)
+        if res.status_code != 200:
+            print(f"❌ Jina 抓取失敗，狀態碼: {res.status_code}")
+            return []
         
+        clean_text = clean_and_slice_text(res.text)
+        
+    except Exception as e:
+        print(f"❌ 請求錯誤: {e}")
+        return []
+
     start_time = time.time()
     print("🧠 2. 開始將純文字交給 Gemini 分析...")
 
     prompt = prompt_template.format(location=location, content=f"請分析以下文章內容：\n{clean_text}")
 
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-    )
-    
-    raw_data = response.text.strip()
-    
-    if raw_data.startswith('```json'):
-        raw_data = raw_data.replace('```json', '').replace('```', '')
+    try:
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+        )
         
-    data = json.loads(raw_data)
-    elapsed_time = time.time() - start_time
-    print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
-    print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
-    return data
+        raw_data = response.text.strip()
+        
+        if raw_data.startswith('```json'):
+            raw_data = raw_data.replace('```json', '').replace('```', '')
+            
+        data = json.loads(raw_data)
+        elapsed_time = time.time() - start_time
+        print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
+        print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
+        return data
+
+    except Exception as e:
+        print(f"🚨 Gemini發生非預期錯誤: {type(e).__name__}: {e}")
+        return []
 
 
-# ==========================================
-# 模組 4：雙引擎總指揮中心
-# ==========================================
 def master_scraper_workflow(location):
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     prompt_template = """
@@ -259,135 +276,36 @@ def master_scraper_workflow(location):
         # 第一棒：先用原生工具
         result = run_gemini_url_context(url, location, client, prompt_template)
         print("✅ [引擎 A] 成功取得資料！")
+        print_out_data(location, result, "Gemini")
         return result
     
     except Exception as e:
-        # 攔截 429 額度耗盡錯誤
-        error_msg = str(e).lower()
-        if "429" in error_msg or "quota" in error_msg or "exhausted" in error_msg:
-            print("🚨 嚴重錯誤：Gemini API 額度已耗盡！直接終止任務。")
-            # 直接拋出 ValueError，這會跳過下方的備援邏輯，一路傳回 Celery
-            raise ValueError("伺服器 AI 服務目前達到流量限制，請稍後再試。")
-        
-        print(f"⚠️ [引擎 A] 一般性失敗 ({type(e).__name__})，準備切換備援引擎...")
+        print(f"⚠️ [引擎 A] 失敗 ({e})，準備切換備援引擎...")
 
         try:
             # 第二棒：Jina 救援
-            time.sleep(5)
             result = run_jina_fallback(url, location, client, prompt_template)
             print("✅ [引擎 B] 成功取得資料！(備援發揮作用)")
+            print_out_data(location, result, "Jina")
             return result
         except Exception as fallback_e:
-            # 🚨 再次防護：萬一 Jina 執行時才剛好遇到 429
-            fallback_msg = str(fallback_e).lower()
-            if "429" in fallback_msg or "quota" in fallback_msg or "exhausted" in fallback_msg:
-                 raise ValueError("伺服器 AI 服務目前達到流量限制，請稍後再試。")
-            
             print(f"❌ [雙引擎皆失效]: {fallback_e}")
             return []
 
-# ==========================================
-#  模組 5：圖片抓取與資料整合 
-# ==========================================
-def fetch_attraction_images(ai_gen_data):
-    total_result = []
-    attractions = [item.get('attraction')for item in ai_gen_data]
+
+def print_out_data(location, data, method):
     
-    for attraction in attractions:
-        # 初始化結果字典
-        attraction_data = {
-            "name": attraction,
-            "images": [],
-        }
-
-        # 設定retry，避免抓圖失敗
-        max_retries = 3
-        retry_delay = 1
-
-        for i in range(max_retries):
-            
-            # 使用 context manager 自動處理連線
-            with DDGS() as ddgs:
-                # ---------------------------------------------------------
-                # 2. 搜尋圖片 (加入版權過濾)
-                # ---------------------------------------------------------
-                try:
-                    # 加入 license 參數
-                    # license='Public' -> 公眾領域 (最安全，像 CC0)
-                    # license='Share'  -> 允許分享 (通常需要標示出處)
-                    # license='Modify' -> 允許修改
-                    
-                    images_results = list(ddgs.images(
-                        attraction, 
-                        max_results=3, 
-                        safesearch='on',
-                        license='Public'  # <--- 關鍵修改在這裡！
-                    ))
-                    if images_results:
-                        for img in images_results:
-                            attraction_data["images"].append({
-                                "url": img.get("image"),
-                                "source": img.get("url") # 最好保留原始網頁連結，以備不時之需
-                            })
-                        break # 找到圖片，換下一個景點
-                    else:
-                        raise Exception("找不到圖片")
-                        
-                except Exception as e:
-                    print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
-                    if i < max_retries - 1:
-                        # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
-                        sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
-                        time.sleep(sleep_time)
-                    else:
-                        print(f"❌ {attraction}圖片搜尋錯誤: {e}")
-
-        total_result.append(attraction_data)
-        
-        # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
-        time.sleep(0.5)
-
-    return total_result
-
-def integrate_spot_results(location, ai_gen_data, img_data):
-    # 將 img_data 轉換成以名稱為 Key 的字典，方便查找
-    # 格式：{'日清杯麵博物館': [{'url':...}, {...}], ...}
-    img_dict = {item['name']: item['images'] for item in img_data}
-
-    result = []
-
-    for item in ai_gen_data:
-        attraction_name = item.get('attraction')
-        images = img_dict.get(attraction_name, [])
-        
-
-        data = {
-            'input_region': location,
-            'city': item.get('city'),
-            'attraction': item.get('attraction'),
-            'description': item.get('description'),
-            'geo_tags': item.get('geo_tags'),
-            'images': images
-        }
-        result.append(data)
+    if data:
+        filename = f"{location}_{method}.json"
+        with open(filename, 'w', encoding='utf-8') as f:
+            # ensure_ascii=False 可以確保中文正常顯示，不會變成 \uXXXX
+            # indent=4 則會讓 JSON 有漂亮的縮排，方便人類閱讀
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        print(f"✅ 資料已成功儲存至 {filename}")
 
 
-    return result
 
+location = "美國"
 
-# ==========================================
-# 主進入點：Celery Worker 呼叫的工作流
-# ==========================================
-def run_web_scraping_workflow(location):
-    ai_gen_data = master_scraper_workflow(location)
-    
-    # 防呆機制：如果雙引擎都掛了，拋出 ValueError 讓 Celery 標記任務失敗
-    if not ai_gen_data:
-        raise ValueError(f"無法獲取「{location}」的旅遊資料，請更換地點或稍後再試。")
-    
-    img_data = fetch_attraction_images(ai_gen_data)
-    
-    result = integrate_spot_results(location, ai_gen_data, img_data)
-
-    return result
+data = master_scraper_workflow(location)
 

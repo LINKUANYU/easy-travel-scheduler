@@ -23,8 +23,9 @@ def get_existing_destinations(location, cur):
             WHERE d.source = 'ai'
             AND (
                     input_region = %s 
-                OR city_name LIKE %s 
                 OR geo_tags LIKE %s
+                OR city_name LIKE %s 
+                
             )
         """
 

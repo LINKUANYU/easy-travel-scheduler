@@ -4,11 +4,12 @@ import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiPost, apiGet } from "@/app/lib/api";
 import ResultsSection from "@/app/components/search/ResultsSection";
-import StartPlanningButton from "@/app/components/home/StartPlanningButton";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import { useQuery } from "@tanstack/react-query";
 import type { Attraction } from "@/app/types/all-types";
 import { useTask } from "../context/TaskContext";
+import AddPlacesToTripBtn from "@/app/components/home/AddPlacesToTripBtn";
+import toast from "react-hot-toast";
 
 
 function SearchContent() {
@@ -20,10 +21,11 @@ function SearchContent() {
 
   const [travelList, setTravelList] = useState<Attraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false); 
   const [error, setError] = useState("");
 
   const { ids, add, remove, activeTripId } = useTripDraft();
+
+  const refreshKey = searchParams.get("t"); // 🌟 抓取 TaskContext 傳來的時間戳記
 
   // 用來記錄「已經發送過 API 的地點」的紀錄本，為了阻止 React Strict Mode 「掛載 ➔ 卸載 ➔ 重新掛載」的第二次執行
   const fetchedLocationRef = useRef<string | null>(null);
@@ -45,53 +47,92 @@ function SearchContent() {
     return set;
   }, [activeTripPlacesQ.data]);
 
-  // 當 location 改變時，自動發送請求要資料
+  
   useEffect(() => {
     if (!location) {
-      router.push("/"); // 沒帶參數就踢回首頁
+      router.push("/"); 
       return;
     }
 
-    // 如果這個地點已經發過請求了，就直接 return 阻止 Strict Mode 的第二次執行
-    if (fetchedLocationRef.current === location) return;
+    // ==========================================
+    // 防護網：攔截「上一頁」與「F5 重新整理」
+    // ==========================================
+    const existingTaskId = sessionStorage.getItem(`crawling_task_${location}`);
     
-    // 在發送請求前，把地點寫進紀錄本
-    fetchedLocationRef.current = location;
-    // 給編輯頁使用紀錄之前搜尋過的地點
+    if (existingTaskId) {
+      // 1. 發現這個城市正在爬蟲！開啟轉圈圈，阻止下方去打 POST 觸發新爬蟲
+      setIsLoading(true);
+      
+      // 2. 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
+      startBackgroundPolling(existingTaskId, location, () => {
+        setError("搜尋失敗，請檢查輸入地點，或稍後再試");
+        setIsLoading(false);
+      });
+      
+      return; // 提早結束，避開鬼打牆迴圈！
+    }
+
+    // 用來記錄「已經發送過 API 的地點」的紀錄本，為了阻止 React Strict Mode 「掛載 ➔ 卸載 ➔ 重新掛載」的第二次執行
+    // 加上 refreshKey 確保點擊 Toast 的強制刷新能夠穿透這道護城河
+    if (fetchedLocationRef.current === location + refreshKey) return;
+    fetchedLocationRef.current = location + refreshKey;
+    
+    // 在call 爬蟲前將地點寫進sessionstorage，給 edit 回上一頁使用
     sessionStorage.setItem("lastSearchLocation", location);
 
     const fetchResults = async () => {
       setIsLoading(true);
-      setIsProcessing(false); // 重置狀態
+      setError("");
       try {
         const res = await apiPost<any>("/api/search", { location });
         
         if (res.status === "completed") {
-          // 狀況 A：資料庫有現成資料
-          setTravelList(res.data);
+          setTravelList(res.data || []);
+          setIsLoading(false);
 
         } else if (res.status === "processing") {
-          // 狀況 B：進入背景爬蟲，觸發全域輪詢，並切換畫面狀態
-          setIsProcessing(true);
+          setIsLoading(false);
+
+          // ==========================================
+          // 破除無限迴圈防護網
+          // 如果網址上有 refreshKey (t=...)，代表我們是「剛等完爬蟲回來的」。
+          // 如果這時候後端還說 processing，代表上一次爬蟲根本沒抓到東西 (後端又擅自派了新任務)！
+          // 這時候我們必須勇敢斬斷輪迴，不要再被踢回 /edit 去等了。
+          // ==========================================
+          if (refreshKey) {
+            setError("抱歉，我們努力探索過了，但該地點目前沒有足夠的景點資料，請嘗試搜尋其他城市。");
+            return; // 直接中斷，不執行下方的輪詢與跳轉
+          }
+          
+          // 紀錄爬蟲正在進行，用來判斷重新回到此頁要不要跑爬蟲！
+          sessionStorage.setItem(`crawling_task_${location}`, res.task_id);
+          
           startBackgroundPolling(res.task_id, location, () => {
-            setIsProcessing(false);
             setError("搜尋失敗，請檢查輸入地點，或稍後再試");
+            setIsLoading(false);
           });
 
+          if (activeTripId) {
+            toast.success("正在背景為您探索景點，先帶您前往行程編輯頁！", { duration: 8000, icon: '⏳' });
+            router.push(`/edit/${activeTripId}`);
+          } else {
+            // 理論上不會發生
+            toast.error("請先建立一個旅行計畫");
+            router.push('/');
+          }
+
         } else if (res.status === "failed") {
-          // 狀況 C：API 第一時間就判斷為失敗 (防呆)
           setError("搜尋失敗，請檢查輸入地點，或稍後再試");
+          setIsLoading(false);
         }
       } catch (err: any) {
-        // 狀況 D：伺服器 500 錯誤、斷線等非預期的嚴重錯誤會跑來這裡
         setError(err.message || "發生錯誤，請稍後再試");
-      } finally {
         setIsLoading(false);
       }
     };
 
     fetchResults();
-  }, [location, router, startBackgroundPolling]);
+  }, [location, refreshKey, router, startBackgroundPolling, activeTripId]);
 
 
 return (
@@ -101,16 +142,8 @@ return (
       {isLoading ? (
         <div className="flex flex-1 w-full flex-col items-center justify-center">
           <div className="h-10 w-10 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-4" />
-          <p className="text-lg font-semibold text-gray-800">正在為您載入「{location}」的景點...</p>
-        </div>
-      ) : isProcessing ? (
-        <div className="flex flex-1 w-full flex-col items-center justify-center px-4 text-center">
-          <div className="h-12 w-12 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-6" />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">正在為您探索「{location}」的全新景點</h2>
           <p className="text-gray-500 text-lg">您搜尋地點還沒有最新資料，這可能需要幾分鐘的時間，您可以先離開此頁面，完成時我們會通知您！</p>
-          <button onClick={() => router.push("/")} className="mt-8 bg-white border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition">
-            先回首頁逛逛
-          </button>
         </div>
       ) : error ? (
         <div className="flex flex-1 w-full flex-col items-center justify-center px-4">
@@ -149,7 +182,7 @@ return (
         />
       )}
 
-      <StartPlanningButton/>
+      <AddPlacesToTripBtn/>
     </main>
   );
 }

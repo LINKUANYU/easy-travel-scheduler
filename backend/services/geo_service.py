@@ -11,7 +11,7 @@ MAPS_API_KEY = os.getenv("MAPS_API_KEY")
 def get_coordinates(location_name):
     if not MAPS_API_KEY:
         print("❌ 錯誤：找不到 MAPS_API_KEY，請檢查你的 .env 檔案！")
-        return None, None, None
+        return None, None, None, None
     
 
     url = "https://places.googleapis.com/v1/places:searchText"
@@ -28,19 +28,26 @@ def get_coordinates(location_name):
         "textQuery": location_name,
         "languageCode": "zh-TW"
     }
-    
-    response = requests.post(url, headers=headers, json=data)
-    
-    if response.status_code == 200:
-        result = response.json()
-        if "places" in result and len(result["places"]) > 0:
-            place = result["places"][0]
-            lat = place["location"]["latitude"]
-            lng = place["location"]["longitude"]
-            place_id = place["id"]
-            address = place.get("formattedAddress", "查無地址")
-            return lat, lng, place_id, address
-    
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "places" in result and len(result["places"]) > 0:
+                place = result["places"][0]
+                lat = place["location"]["latitude"]
+                lng = place["location"]["longitude"]
+                place_id = place["id"]
+                address = place.get("formattedAddress", "查無地址")
+                return lat, lng, place_id, address
+            else:
+                print(f"⚠️ Google API 找不到景點：「{location_name}」")
+        else:
+            # 🌟 關鍵修改：把 Google 的拒絕原因印出來！
+            print(f"❌ Google Places API 請求失敗 (狀態碼 {response.status_code}")
+    except Exception as e:
+        print(f"❌ 呼叫 Google Places API 時發生異常: {e}")
+
     return None, None, None, None
 
 
