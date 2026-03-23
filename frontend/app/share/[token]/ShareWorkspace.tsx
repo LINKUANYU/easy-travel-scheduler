@@ -328,7 +328,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
             </button>
           </div>
 
-          {/* 行程顯示區 (使用剛才抽出來的 Component) */}
+          {/* 行程顯示區 */}
           <div style={{ flex: 1, padding: "16px", overflowY: "auto", backgroundColor: "#f9fafb" }}>
             {activeDay !== null ? (
               <DayScheduleCard

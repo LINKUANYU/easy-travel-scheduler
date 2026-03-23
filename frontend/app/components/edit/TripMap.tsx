@@ -153,7 +153,7 @@ export default function TripMap({
             background: dayColor,
             glyphColor: "#ffffff",
             borderColor: isActive ? "#FFFFFF" : "rgba(0,0,0,0.3)",
-            scale: isActive ? 2 : 1.5,
+            scale: isActive ? 1.5 : 0,
           } as any);
 
           const am = new AdvancedMarkerElement({
