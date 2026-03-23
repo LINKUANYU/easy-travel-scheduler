@@ -156,6 +156,17 @@ export function useEditData(tripId: number, days: number) {
 
   const saveDayDraftM = useMutation({
     mutationFn: async (dayIndex: number) => {
+      // 1. 如果根本沒有變更 (不是 dirty)，直接 return 假裝成功，不打 API！
+      if (!dirtyDayMap[dayIndex]) {
+        return { is_empty_bypass: true };
+      }
+      const items = draftItemsByDay[dayIndex] ?? [];
+      
+      // 如果都沒有任何行程，直接 return 一個自訂的標記，不打 API
+      if (items.length === 0) {
+        return { is_empty_bypass: true }; 
+      }
+
       const payload = {
         ordered_item_ids: (draftItemsByDay[dayIndex] ?? []).map((x) => x.item_id),
         item_times: (draftItemsByDay[dayIndex] ?? []).map((item) => ({
@@ -178,8 +189,14 @@ export function useEditData(tripId: number, days: number) {
       };
       return apiPut(`/api/trips/${tripId}/days/${dayIndex}/itinerary/save`, payload);
     },
-    onSuccess: async (_, dayIndex) => {
+    onSuccess: async (data: any, dayIndex) => {
+      // 無論有沒有打 API，只要成功就清除該天的 dirty 狀態 (讓儲存按鈕反灰)
       setDirtyDayMap((prev) => ({ ...prev, [dayIndex]: false }));
+      setUiMsg("儲存成功！");
+      window.setTimeout(() => setUiMsg(""), 1500);
+      // 如果是因為沒有行程而被攔截的，就不需要重新向後端 fetch 資料了
+      if (data?.is_empty_bypass) return;
+
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["dayItinerary", tripId, dayIndex] }),
         qc.invalidateQueries({ queryKey: ["itinerarySummary", tripId] }),
