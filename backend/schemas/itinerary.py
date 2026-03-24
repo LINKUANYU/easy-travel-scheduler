@@ -18,6 +18,9 @@ class ItineraryItemOut(BaseModel):
     google_place_id: Optional[str] = None
     arrival_time: Optional[str] = None
     departure_time: Optional[str] = None
+    travel_mode: Optional[str] = None
+    duration_millis: Optional[int] = None
+    distance_meters: Optional[int] = None
 
 class ItinerarySummaryRow(BaseModel):
     destination_id: int
@@ -38,7 +41,7 @@ class ItineraryItemTimeIn(BaseModel):
 class ItineraryLegIn(BaseModel):
     from_item_id: int
     to_item_id: int
-    travel_mode: str
+    travel_mode: Optional[str] = None
     duration_millis: Optional[int] = None
     distance_meters: Optional[int] = None
 

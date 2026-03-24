@@ -37,6 +37,9 @@ export type ItineraryItem = {
   google_place_id: string;
   arrival_time?: string | null
   departure_time?: string | null
+  travel_mode?: string | null;
+  duration_millis?: number | null;
+  distance_meters?: number | null;
 };
 
 export type ItinerarySummaryRow = {

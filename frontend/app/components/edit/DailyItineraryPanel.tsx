@@ -265,16 +265,24 @@ export default function DailyItineraryPanel({
                             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                               <span style={{ fontSize: 13, opacity: 0.75 }}>交通</span>
                               <select
-                                value={currentDayLegModeMap[legKey] ?? "DRIVING"}
+                                value={currentDayLegModeMap[legKey] ?? ""}
                                 onChange={(e) => onUpdateLegMode(legKey, e.target.value as TravelMode)}
                                 style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #ddd", background: "white" }}
                               >
-                                <option value="DRIVING">開車</option>
-                                <option value="WALKING">步行</option>
-                                <option value="TRANSIT">大眾運輸</option>
+                                <option style={{textAlign: "center"}} value="">-- : --</option>
+                                <option style={{textAlign: "center"}} value="DRIVING">開車</option>
+                                <option style={{textAlign: "center"}} value="WALKING">步行</option>
+                                <option style={{textAlign: "center"}} value="TRANSIT">大眾運輸</option>
                               </select>
                               <span style={{ fontSize: 13, opacity: 0.85 }}>
-                                {leg?.loading ? "計算中…" : leg?.error ? `失敗：${leg.error}` : `${formatDuration(leg?.durationMillis)} · ${formatDistance(leg?.distanceMeters)}`}
+                                {/* 判斷：如果沒有選擇交通方式，就顯示 --:-- */}
+                                {!currentDayLegModeMap[legKey] 
+                                  ? "-- : --"
+                                  : leg?.loading 
+                                  ? "計算中…" 
+                                  : leg?.error 
+                                  ? `失敗：${leg.error}` 
+                                  : `${formatDuration(leg?.durationMillis)} · ${formatDistance(leg?.distanceMeters)}`}
                               </span>
                             </div>
                           </div>

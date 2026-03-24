@@ -5,7 +5,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/app/lib/api";
 import { getDraftTimeValue, upsertItemTimeDraft, type TimeField, type ItemTimeDraft } from "@/app/lib/edit/itinerary-time";
 import { makeLegKey } from "@/app/lib/edit/itinerary-route-leg";
-import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode } from "@/app/types/all-types";
+import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode, LegRouteState } from "@/app/types/all-types";
 import { useRouteCalculator } from "./useRouteCalculator";
 import { usePlacePreview } from "./usePlacePreview";
 
@@ -54,12 +54,6 @@ export function useEditData(tripId: number, days: number) {
   const currentDayLegModeMap = draftLegModeByDay[activeDay] ?? {};
   const currentDayTimeDraftMap = timeDraftByDay[activeDay] ?? {};
 
-  // 同步伺服器資料到草稿
-  useEffect(() => {
-    if (!dayItinQ.isSuccess) return;
-    setDraftItemsByDay((prev) => prev[activeDay] ? prev : { ...prev, [activeDay]: serverDayItems });
-  }, [activeDay, dayItinQ.isSuccess, serverDayItems]);
-
   // ==========================================
   // Derived State (衍生資料)
   // ==========================================
@@ -92,7 +86,49 @@ export function useEditData(tripId: number, days: number) {
     return m;
   }, [places]);
 
-  const { legRouteMap } = useRouteCalculator(dayItems, currentDayLegModeMap, placeByDestinationId);
+  const { legRouteMap, setLegRouteMap } = useRouteCalculator(dayItems, currentDayLegModeMap, placeByDestinationId);
+
+
+  // 同步伺服器資料到草稿
+  useEffect(() => {
+    if (!dayItinQ.isSuccess) return;
+    
+    // 1. 同步景點順序
+    setDraftItemsByDay((prev) => prev[activeDay] ? prev : { ...prev, [activeDay]: serverDayItems });
+
+    // 2. 避免重複覆蓋使用者正在編輯的交通方式
+    if (draftLegModeByDay[activeDay]) return;
+
+    const modeMap: Record<string, TravelMode> = {};
+    const initialRouteMap: Record<string, LegRouteState> = {};
+
+    serverDayItems.forEach((item, idx) => {
+      const nextItem = serverDayItems[idx + 1];
+      // 如果這段路徑有存過交通方式 (不為 null 或 空字串)
+      if (nextItem && item.travel_mode) {
+        const legKey = makeLegKey(item.item_id, nextItem.item_id);
+        modeMap[legKey] = item.travel_mode as TravelMode;
+
+        // 🌟 最重要的一步：把資料庫算好的時間距離直接塞進快取！
+        // 這樣 useRouteCalculator 就會因為有 durationMillis 而被 return false 擋下，不打 API！
+        initialRouteMap[legKey] = {
+          mode: item.travel_mode as TravelMode,
+          fromItemId: item.item_id,
+          toItemId: nextItem.item_id,
+          durationMillis: item.duration_millis ?? undefined,
+          distanceMeters: item.distance_meters ?? undefined,
+          loading: false,
+          error: undefined,
+        };
+      }
+    });
+
+    // 寫入本地草稿與路線快取
+    setDraftLegModeByDay((prev) => ({ ...prev, [activeDay]: modeMap }));
+    setLegRouteMap((prev) => ({ ...prev, ...initialRouteMap }));
+
+  }, [activeDay, dayItinQ.isSuccess, serverDayItems, setLegRouteMap, draftLegModeByDay]);
+
 
   // ==========================================
   // Mutations (資料變更)
@@ -181,9 +217,9 @@ export function useEditData(tripId: number, days: number) {
           return {
             from_item_id: from.item_id,
             to_item_id: to.item_id,
-            travel_mode: (draftLegModeByDay[dayIndex] ?? {})[legKey] ?? "DRIVING",
-            duration_millis: routeResult.durationMillis ?? null,
-            distance_meters: routeResult.distanceMeters ?? null,
+            travel_mode: (draftLegModeByDay[dayIndex] ?? {})[legKey] || null,
+            duration_millis: routeResult?.durationMillis ?? null,
+            distance_meters: routeResult?.distanceMeters ?? null,
           };
         }),
       };

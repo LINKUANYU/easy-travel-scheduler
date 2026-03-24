@@ -20,7 +20,6 @@ class SharedItineraryItem(BaseModel):
     google_place_id: Optional[str] = None
     arrival_time: Optional[str] = None
     departure_time: Optional[str] = None
-    # 交通資訊 (從 itinerary_legs 表 LEFT JOIN 過來，最後一個景點會是 None)
     travel_mode: Optional[str] = None
     duration_millis: Optional[int] = None
     distance_meters: Optional[int] = None
