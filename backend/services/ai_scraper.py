@@ -279,8 +279,8 @@ def master_scraper_workflow(location):
     url = get_high_quality_blog_url(location)
 
     if not url:
-        print("❌ 找不到合適的網誌，流程終止。")
-        return []
+        print(f"❌ 找不到合適 {location} 的網誌，流程終止。")
+        raise ValueError(f"找不到「{location}」的相關旅遊資訊，請確認地點名稱是否正確或換個地點試試。")
     
     try:
         # 第一棒：先用原生工具

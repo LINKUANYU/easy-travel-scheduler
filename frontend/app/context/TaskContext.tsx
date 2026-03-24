@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useRef, useCallback, useEffect } from "react";
 import { apiGet } from "@/app/lib/api";
-import toast from "react-hot-toast";
 import { useRouter, usePathname } from "next/navigation";
+import { useState } from "react";
 
 // 定義這個「廣播電台」會提供什麼服務。這裡說它會提供一個叫 startBackgroundPolling 的函數。
 // 需要三個參數：任務id(計時器要去打後端)、地點、失敗的時候執行的函數
@@ -14,12 +14,20 @@ type TaskContextType = {
 // 創造出這個 Context（廣播頻道）。一開始裡面沒有東西（undefined），稍後會在 Provider 裡面把真正的函數放進去。
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
+// 定義任務可能的三種狀態：閒置、處理中、成功、失敗
+type TaskState = "idle" | "polling" | "success" | "error";
+
 // TaskProvider：這是你要包在整個網站最外層的「發射站元件」。{ children } 代表被它包住的所有子網頁。
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   // 為什麼不用 useState 來存計時器？因為 useState 只要一改變，整個畫面就會重新渲染（閃爍）。
   // 我們只是想默默記住 setInterval 的號碼牌，以便隨時可以把它關掉（clearInterval），所以用 useRef
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
+
+  // === 新增：用來控制左下角 UI 的狀態 ===
+  const [taskState, setTaskState] = useState<TaskState>("idle");
+  const [searchLocation, setSearchLocation] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   // 取得目前的網址路徑 (例如: "/search" 或 "/edit")
   const pathname = usePathname();
@@ -38,6 +46,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     // 確保不會有多個計時器同時跑
     if (pollingRef.current) clearInterval(pollingRef.current);
 
+    // 任務啟動，設定狀態為 polling，展開左下角 UI
+    setTaskState("polling");
+    setSearchLocation(location);
+    setErrorMessage("");
+
     pollingRef.current = setInterval(async () => {
       try {
         const statusRes = await apiGet<any>(`/api/search/status/${taskId}`);
@@ -52,64 +65,33 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
           if (currentPathRef.current === "/search") {
             // 狀況 A：使用者在 /search 頁面等待
-            toast.success(`🎉 ${location} 景點探索完成！`, { duration: 3000 });
+            // toast.success(`🎉 ${location} 景點探索完成！`, { duration: 3000 });
             
             // 自動強制刷新畫面！(帶上時間戳記穿透護城河)
             router.push(`/search?location=${location}&t=${Date.now()}`);
-            
+            setTaskState("idle");
           } else {
             // 狀況 B：使用者跑去 /edit 排行程了 (持久型 Toast)
-            toast.success((t) => (
-              <div className="flex flex-col gap-3 min-w-[200px]">
-                
-                {/* 上半部：文字與打叉按鈕 */}
-                <div className="flex items-start justify-between gap-4">
-                  <span className="font-bold text-white bg-black px-2 py-1 rounded-md">
-                    🎉「{location}」景點探索完成！
-                  </span>
-                  
-                  {/* 關閉 (X) 按鈕 */}
-                  <button
-                    onClick={() => toast.dismiss(t.id)}
-                    className="text-gray-400 hover:text-gray-700 transition p-1"
-                    aria-label="關閉"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* 下半部：查看結果按鈕 */}
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    // 加上隨機時間戳記 (&t=...)，這能強迫 /search 頁面認知到「網址變了」，進而重新打 API 拿結果！
-                    router.push(`/search?location=${location}&t=${Date.now()}`);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium transition shadow-sm"
-                >
-                  點此查看結果
-                </button>
-              </div>
-            ), 
-            { 
-              duration: Infinity 
-            });
+            setTaskState("success");
           }
         } else if (statusRes.status === "failed") {
           clearInterval(pollingRef.current!);
           pollingRef.current = null;
           // 任務失敗，也要把記憶擦掉，讓使用者有機會重試
-          toast.error("搜尋失敗，請檢查輸入地點，或稍後再試");
+          setTaskState("error");
+          setErrorMessage(statusRes.error || "伺服器處理異常");
           sessionStorage.removeItem(`crawling_task_${location}`);
 
           // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
-          if (onTaskFailed) {
-            onTaskFailed();
-          }
+          if (onTaskFailed) onTaskFailed();
         }
-      } catch (e) {
+      } catch (e:any) {
         clearInterval(pollingRef.current!);
         pollingRef.current = null;
+        sessionStorage.removeItem(`crawling_task_${location}`);
+        setTaskState("error");
+        setErrorMessage(e.message || "網路連線發生錯誤");
+        if (onTaskFailed) onTaskFailed();
       }
     }, 3000);
   }, [router]);
@@ -131,6 +113,52 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
   return (
     <TaskContext.Provider value={{ startBackgroundPolling }}>
       {children}
+
+      {/* ========================================== */}
+      {/* 🚀 左下角浮動狀態指示器 (Floating Widget) */}
+      {/* ========================================== */}
+      {taskState !== "idle" && (
+        <div className="fixed bottom-6 left-6 z-[9999] flex flex-col gap-2">
+          
+          {/* 狀態：搜尋中 (轉圈圈動畫) */}
+          {taskState === "polling" && (
+            <div className="bg-gray-900 text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium flex items-center gap-2 transition-all opacity-90 cursor-default">
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>正在探索「{searchLocation}」...</span>
+            </div>
+          )}
+
+          {/* 狀態：成功 (點擊跳轉) */}
+          {taskState === "success" && (
+            <button
+              onClick={() => {
+                setTaskState("idle"); // 點擊後隱藏按鈕
+                router.push(`/search?location=${searchLocation}&t=${Date.now()}`);
+              }}
+              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2.5 rounded-full shadow-xl text-sm font-medium flex items-center gap-2 transition-transform hover:scale-105"
+            >
+              <span>✅ 搜尋完成！點擊查看</span>
+            </button>
+          )}
+
+          {/* 狀態：失敗 (點擊回首頁) */}
+          {taskState === "error" && (
+            <button
+              onClick={() => {
+                setTaskState("idle"); // 點擊後隱藏按鈕
+                router.push('/');
+              }}
+              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 rounded-full shadow-xl text-sm font-medium flex items-center gap-2 transition-transform hover:scale-105"
+            >
+              <span>❌ 搜尋失敗，回首頁重試 ({errorMessage})</span>
+            </button>
+          )}
+
+        </div>
+      )}
     </TaskContext.Provider>
   );
 }
