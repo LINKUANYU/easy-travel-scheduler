@@ -32,7 +32,7 @@ export function useRouteCalculator(
         key,
         from,
         to,
-        mode: currentDayLegModeMap[key] ?? "DRIVING",
+        mode: currentDayLegModeMap[key] ?? ("" as TravelMode),
       });
     }
 
@@ -43,6 +43,8 @@ export function useRouteCalculator(
   useEffect(() => {
     // 篩選需要更新的路段，存成物件陣列
     const pending = dayLegPairs.filter(({ key, from, to, mode }) => {
+      // 如果還沒選交通方式，直接 return false，不要打 API！
+      if (!mode) return false;
       const fromPlace = placeByDestinationId.get(from.destination_id);
       const toPlace = placeByDestinationId.get(to.destination_id);
       // 檢查座標，不完整資料就不要
@@ -133,19 +135,9 @@ export function useRouteCalculator(
       }
     }
 
-    // 加入 Debounce 防抖：設定計時器，延遲 1 秒才執行
-    const timeoutId = setTimeout(() => {
-      loadLegs();
-    }, 1000);
-
-    // 清除機制 (Cleanup)：
-    // 如果在這 1 秒內，dayLegPairs 又改變了（代表使用者還在猶豫、繼續拖拉），
-    // React 會先執行這裡把「舊的計時器」取消掉，確保 API 不會被亂打！
-    return () => {
-      clearTimeout(timeoutId);
-    };
-
+    loadLegs();
+    
   }, [dayLegPairs, placeByDestinationId]);
 
-  return { legRouteMap };
+  return { legRouteMap, setLegRouteMap };
 }

@@ -56,9 +56,13 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
             d.place_name,
             d.lat,
             d.lng,
-            d.google_place_id
+            d.google_place_id,
+            leg.travel_mode,
+            leg.duration_millis,
+            leg.distance_meters
         FROM itinerary_items ii
         JOIN destinations d ON d.id = ii.destination_id
+        LEFT JOIN itinerary_legs leg ON leg.from_item_id = ii.id
         WHERE ii.trip_id=%s AND ii.day_index=%s
         ORDER BY ii.position ASC
         """,

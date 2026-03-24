@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS `itinerary_legs` (
   `day_index` INT NOT NULL,
   `from_item_id` INT NOT NULL,
   `to_item_id` INT NOT NULL,
-  `travel_mode` VARCHAR(20) NOT NULL,
+  `travel_mode` VARCHAR(20) NULL,
   `duration_millis` BIGINT NULL,
   `distance_meters` INT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
