@@ -5,6 +5,7 @@ from core.database import POOL, set_utc
 from services.ai_scraper import run_web_scraping_workflow
 from services.geo_service import get_coordinates
 from repositories.destination_repo import save_spot_data
+from core.redis import get_redis
 
 
 
@@ -62,6 +63,10 @@ def scrape_and_save_destinations_task(self, location: str):
             save_spot_data(final_new_data, cur)
             conn.commit()
             print(f"✅ Celery 任務完成！成功寫入 {len(final_new_data)} 筆新景點。")
+            
+        # 紀錄在快取，發放免死金牌：24小時內不要再對這個地點觸發爬蟲
+        redis_client = get_redis()
+        redis_client.setex(f"cooldown:location:{location}", 86400, "1")
             
         # 任務完成，回傳結果 (這個結果會被存回 Redis 的 Backend 中)
         return {"location": location, "status": "success", "added_count": len(final_new_data)}

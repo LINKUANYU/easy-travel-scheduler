@@ -89,21 +89,9 @@ function SearchContent() {
         if (res.status === "completed") {
           setTravelList(res.data || []);
           setIsLoading(false);
+          
 
         } else if (res.status === "processing") {
-          setIsLoading(false);
-
-          // ==========================================
-          // 破除無限迴圈防護網
-          // 如果網址上有 refreshKey (t=...)，代表我們是「剛等完爬蟲回來的」。
-          // 如果這時候後端還說 processing，代表上一次爬蟲根本沒抓到東西 (後端又擅自派了新任務)！
-          // 這時候我們必須勇敢斬斷輪迴，不要再被踢回 /edit 去等了。
-          // ==========================================
-          if (refreshKey) {
-            setError("抱歉，我們努力探索過了，但該地點目前沒有足夠的景點資料，請嘗試搜尋其他城市。");
-            return; // 直接中斷，不執行下方的輪詢與跳轉
-          }
-          
           // 紀錄爬蟲正在進行，用來判斷重新回到此頁要不要跑爬蟲！
           sessionStorage.setItem(`crawling_task_${location}`, res.task_id);
           
