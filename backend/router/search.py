@@ -47,9 +47,12 @@ async def search_destinations_api(
     # 我們同時找：輸入區域、城市名稱、以及標籤內是否包含關鍵字
     
     existing_spots_data = get_existing_destinations(location, cur)
+
+    # 檢查快取是否1天前搜尋過
+    is_cooldown = redis_client.get(f"cooldown:location:{location}")
     
-    # 2. 【門檻檢查】：如果有 10 個以上景點，直接回傳，省下 Gemini 費用
-    if len(existing_spots_data) >= 10:
+    # 2. 【門檻檢查】：如果有 10 個以上景點或是剛剛才搜尋完，直接回傳，省下 Gemini 費用
+    if len(existing_spots_data) >= 10 or (is_cooldown and len(existing_spots_data) > 0):
         # 組合資料回給前端
         print(f"資料庫足夠的「{location}」資料")
 
@@ -64,11 +67,15 @@ async def search_destinations_api(
             
         return {"status": "completed", "data": existing_spots_data}
     
+    # 如果剛爬完，但真的一個景點都沒找到 (極端情況)
+    elif is_cooldown and len(existing_spots_data) == 0:
+        return {"status": "failed", "error": f"找不到關於「{location}」的景點"}
+    
     # ==========================================
     # 三、 交給Celery (DB 查詢與爬蟲) - 快取未命中
     # ==========================================
     else:
-        # 🌟 【資料不足】：發送 Celery 任務！
+        # 🌟 1天前沒搜尋過 &【資料不足】：發送 Celery 任務！
         print(f"⚠️ 資料不足，派發 Celery 任務進行爬蟲...")
         # 使用 .delay() 將任務丟給背景的 Celery Worker
         task = scrape_and_save_destinations_task.delay(location)
