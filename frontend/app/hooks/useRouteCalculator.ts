@@ -134,7 +134,7 @@ export function useRouteCalculator(
     }
 
     loadLegs();
-  }, [dayLegPairs, placeByDestinationId, legRouteMap]);
+  }, [dayLegPairs, placeByDestinationId]);
 
   return { legRouteMap };
 }

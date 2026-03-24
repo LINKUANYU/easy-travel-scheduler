@@ -85,48 +85,62 @@ def run_gemini_url_context(url, location, client, prompt_template):
     prompt = prompt_template.format(location=location, content=f"請解析此網址：{url}")
     model_id = "gemini-3-flash-preview"
     tools = [{"url_context": {}},]
+    max_attempts = 2
 
-    print("--------------------Gemini url_context準備開始跑--------------------------")
-    start_time = time.time()
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-        config=GenerateContentConfig(
-            tools=tools,
-        )
-    )
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print("--------------------Gemini url_context準備開始跑--------------------------")
+            start_time = time.time()
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=GenerateContentConfig(
+                    tools=tools,
+                )
+            )
 
 
-    for part in reversed(response.candidates[0].content.parts):
-        # print(part)
-        if not part.text:
-            continue
+            for part in reversed(response.candidates[0].content.parts):
+                # print(part)
+                if not part.text:
+                    continue
+                
+                raw_data = part.text
+            
+                # print(raw_data)
+
+                # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
+                match = re.search(r'\[[\s\S]*\]', raw_data)
+
+                if match:
+                    json_content = match.group(0)
+                    json_content = json_content.replace('```json', '').replace('```', '')
+                    data = json.loads(json_content)
+                else:
+                    # 如果沒抓到標籤，就嘗試直接解析
+                    data = json.loads(raw_data)
+
+                if len(data) < 3:
+                    print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
+                    raise ValueError("url_context 解析失敗或景點數量不足")
+
+                elapsed_time = time.time() - start_time
+                print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
+                print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
+                return data
+            
+            raise ValueError("Gemini 未回傳有效內容")
         
-        raw_data = part.text
-    
-        # print(raw_data)
+        except Exception as e:
+            print(f"🚨 第 {attempt} 次 Gemini 發生錯誤: {type(e).__name__}: {e}")
 
-        # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
-        match = re.search(r'\[[\s\S]*\]', raw_data)
-
-        if match:
-            json_content = match.group(0)
-            json_content = json_content.replace('```json', '').replace('```', '')
-            data = json.loads(json_content)
-        else:
-            # 如果沒抓到標籤，就嘗試直接解析
-            data = json.loads(raw_data)
-
-        if len(data) < 3:
-            print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
-            raise ValueError("url_context 解析失敗或景點數量不足")
-
-        elapsed_time = time.time() - start_time
-        print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
-        print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
-        return data
-    
-    raise ValueError("Gemini 未回傳有效內容")
+            if attempt < max_attempts:
+                print("⏳ 休息 10 秒後準備進行重試...")
+                time.sleep(10)
+                continue
+            else:
+                print("❌ [引擎 A] 重試次數已達上限，徹底失敗。")
+                raise e
 
     
 # ==========================================
@@ -186,34 +200,47 @@ def run_jina_fallback(url, location, client, prompt_template):
         # Jina 允許你加上這個 header 讓它回傳更乾淨的內容
         "X-Return-Format": "markdown" 
     }
-    
-    res = requests.get(jina_url, headers=headers, timeout=15)
-    if res.status_code != 200:
-        print(f"❌ Jina 抓取失敗，狀態碼: {res.status_code}")
-        raise ValueError(f"Jina API 錯誤 ({res.status_code})")
-    
-    clean_text = clean_and_slice_text(res.text)
+    try:
+        res = requests.get(jina_url, headers=headers, timeout=(5, 60)) # 5秒連線超時，45秒讀取超時
+        if res.status_code != 200:
+            print(f"❌ Jina 抓取失敗，狀態碼: {res.status_code}")
+            raise ValueError(f"Jina API 錯誤 ({res.status_code})")
         
+        clean_text = clean_and_slice_text(res.text)
+
+    except requests.exceptions.Timeout:
+        print("❌ Jina 抓取超時！目標網頁回應過慢 (超過設定時間)。")
+        raise ValueError("Jina Timeout")
+    
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Jina 網路連線錯誤: {e}")
+        raise ValueError(f"Jina Request Error: {e}")
+    
     start_time = time.time()
     print("🧠 2. 開始將純文字交給 Gemini 分析...")
 
     prompt = prompt_template.format(location=location, content=f"請分析以下文章內容：\n{clean_text}")
 
-    response = client.models.generate_content(
-        model=model_id,
-        contents=prompt,
-    )
-    
-    raw_data = response.text.strip()
-    
-    if raw_data.startswith('```json'):
-        raw_data = raw_data.replace('```json', '').replace('```', '')
+    try:
+        response = client.models.generate_content(
+            model=model_id,
+            contents=prompt,
+        )
         
-    data = json.loads(raw_data)
-    elapsed_time = time.time() - start_time
-    print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
-    print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
-    return data
+        raw_data = response.text.strip()
+        
+        if raw_data.startswith('```json'):
+            raw_data = raw_data.replace('```json', '').replace('```', '')
+            
+        data = json.loads(raw_data)
+        elapsed_time = time.time() - start_time
+        print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
+        print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
+        return data
+    except Exception as e:
+        print(f"🚨 備援引擎 Gemini 分析發生錯誤: {type(e).__name__}: {e}")
+        # 將錯誤往上拋，讓總指揮接手處理 (例如判斷是不是 429)
+        raise e
 
 
 # ==========================================
@@ -277,6 +304,7 @@ def master_scraper_workflow(location):
             result = run_jina_fallback(url, location, client, prompt_template)
             print("✅ [引擎 B] 成功取得資料！(備援發揮作用)")
             return result
+            
         except Exception as fallback_e:
             # 🚨 再次防護：萬一 Jina 執行時才剛好遇到 429
             fallback_msg = str(fallback_e).lower()

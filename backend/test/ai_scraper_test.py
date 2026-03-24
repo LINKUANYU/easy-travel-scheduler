@@ -81,62 +81,65 @@ def run_gemini_url_context(url, location, client, prompt_template):
     print("   [引擎 A] 啟動 Gemini 原生 url_context 解析...")
     prompt = prompt_template.format(location=location, content=f"請解析此網址：{url}")
     model_id = "gemini-3-flash-preview"
-
-    tools = [
-    {"url_context": {}},
-    ]
-
-    try:
-        print("--------------------Gemini url_context準備開始跑--------------------------")
-        start_time = time.time()
-        response = client.models.generate_content(
-            model=model_id,
-            contents=prompt,
-            config=GenerateContentConfig(
-                tools=tools,
+    tools = [{"url_context": {}},]
+    max_attempts = 2    
+    
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print("--------------------Gemini url_context準備開始跑--------------------------")
+            start_time = time.time()
+            response = client.models.generate_content(
+                model=model_id,
+                contents=prompt,
+                config=GenerateContentConfig(
+                    tools=tools,
+                )
             )
-        )
 
 
-        for part in reversed(response.candidates[0].content.parts):
-            # print(part)
-            if not part.text:
-                continue
+            for part in reversed(response.candidates[0].content.parts):
+                # print(part)
+                if not part.text:
+                    continue
+                
+                raw_data = part.text
             
-            raw_data = part.text
+                # print(raw_data)
+
+                # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
+                match = re.search(r'\[[\s\S]*\]', raw_data)
+
+                if match:
+                    json_content = match.group(0)
+                    json_content = json_content.replace('```json', '').replace('```', '')
+                    data = json.loads(json_content)
+                else:
+                    # 如果沒抓到標籤，就嘗試直接解析
+                    data = json.loads(raw_data)
+
+                if len(data) < 3:
+                    print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
+                    raise ValueError("url_context 解析失敗或景點數量不足")
+                    # raise HTTPException(status_code=500, detail="沒有符合要求的地點，請重新輸入")
+
+                elapsed_time = time.time() - start_time
+                print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
+                print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
+                return data
+            
+            raise ValueError("url_context 解析失敗或景點數量不足")
         
-            # print(raw_data)
-
-            # [[\s\S]*] 代表從第一個 [ 匹配到最後一個 ]，包含換行
-            match = re.search(r'\[[\s\S]*\]', raw_data)
-
-            if match:
-                json_content = match.group(0)
-                json_content = json_content.replace('```json', '').replace('```', '')
-                data = json.loads(json_content)
+        except Exception as e:
+            print(f"🚨 第 {attempt} 次 Gemini 發生錯誤: {type(e).__name__}: {e}")
+            
+            if attempt < max_attempts:
+                print("⏳ 休息 10 秒後準備進行重試...")
+                time.sleep(10)
+                continue
             else:
-                # 如果沒抓到標籤，就嘗試直接解析
-                data = json.loads(raw_data)
-
-            if len(data) < 3:
-                print("❌ 警告：Gemini搜尋結果小於三筆！請檢查關鍵字是否正確。")
-                raise ValueError("url_context 解析失敗或景點數量不足")
-                # raise HTTPException(status_code=500, detail="沒有符合要求的地點，請重新輸入")
-
-            elapsed_time = time.time() - start_time
-            print(f"✅ 成功！耗時 {elapsed_time:.2f} 秒")
-            print(f"🎉 解析成功！共找到 {len(data)} 個景點。")
-            return data
-        
-        return []
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
-        # raise HTTPException(status_code=500, detail=f"JSON 解析失敗，Gemini 回傳格式不正確")
-        return []
-    except Exception as e:
-        print(f"🚨 Gemini發生非預期錯誤: {type(e).__name__}: {e}")
-        # raise HTTPException(status_code=500, detail=f"Gemini發生未預期錯誤，請重試")
-        return []
+                print("❌ [引擎 A] 重試次數已達上限，徹底失敗。")
+                raise e
+    
 
 
 def clean_and_slice_text(raw_text):
@@ -198,17 +201,23 @@ def run_jina_fallback(url, location, client, prompt_template):
     }
     
     try:
-        res = requests.get(jina_url, headers=headers, timeout=15)
+        res = requests.get(jina_url, headers=headers, timeout=(5, 60)) # 5秒連線超時，45秒讀取超時
         if res.status_code != 200:
             print(f"❌ Jina 抓取失敗，狀態碼: {res.status_code}")
             return []
         
         clean_text = clean_and_slice_text(res.text)
-        
+    except requests.exceptions.Timeout:
+        print("❌ Jina 抓取超時！目標網頁回應過慢 (超過設定時間)。")
+        raise ValueError("Jina Timeout")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Jina 網路連線錯誤: {e}")
+        raise ValueError(f"Jina Request Error: {e}")
     except Exception as e:
         print(f"❌ 請求錯誤: {e}")
         return []
 
+    
     start_time = time.time()
     print("🧠 2. 開始將純文字交給 Gemini 分析...")
 
@@ -268,6 +277,7 @@ def master_scraper_workflow(location):
     print(f"\n================ 開始處理 [{location}] ================")
     url = get_high_quality_blog_url(location)
 
+
     if not url:
         print("❌ 找不到合適的網誌，流程終止。")
         return []
@@ -275,6 +285,10 @@ def master_scraper_workflow(location):
     try:
         # 第一棒：先用原生工具
         result = run_gemini_url_context(url, location, client, prompt_template)
+
+        if not result:
+            raise ValueError("Gemini 回傳了空的景點列表")
+        
         print("✅ [引擎 A] 成功取得資料！")
         print_out_data(location, result, "Gemini")
         return result
@@ -305,7 +319,7 @@ def print_out_data(location, data, method):
 
 
 
-location = "美國"
+location = "台中"
 
 data = master_scraper_workflow(location)
 
