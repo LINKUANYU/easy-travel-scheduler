@@ -51,8 +51,8 @@ async def search_destinations_api(
     # 檢查快取是否1天前搜尋過
     is_cooldown = redis_client.get(f"cooldown:location:{location}")
     
-    # 2. 【門檻檢查】：如果有 10 個以上景點或是剛剛才搜尋完，直接回傳，省下 Gemini 費用
-    if len(existing_spots_data) >= 10 or (is_cooldown and len(existing_spots_data) > 0):
+    # 2. 【門檻檢查】：如果有 15 個以上景點或是剛剛才搜尋完，直接回傳，省下 Gemini 費用
+    if len(existing_spots_data) >= 15 or (is_cooldown and len(existing_spots_data) > 0):
         # 組合資料回給前端
         print(f"資料庫足夠的「{location}」資料")
 

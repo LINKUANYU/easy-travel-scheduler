@@ -133,7 +133,18 @@ export function useRouteCalculator(
       }
     }
 
-    loadLegs();
+    // 加入 Debounce 防抖：設定計時器，延遲 1 秒才執行
+    const timeoutId = setTimeout(() => {
+      loadLegs();
+    }, 1000);
+
+    // 清除機制 (Cleanup)：
+    // 如果在這 1 秒內，dayLegPairs 又改變了（代表使用者還在猶豫、繼續拖拉），
+    // React 會先執行這裡把「舊的計時器」取消掉，確保 API 不會被亂打！
+    return () => {
+      clearTimeout(timeoutId);
+    };
+
   }, [dayLegPairs, placeByDestinationId]);
 
   return { legRouteMap };
