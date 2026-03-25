@@ -9,7 +9,6 @@ import CreateTripModal from "./components/home/CreateTripModal";
 import { useTripDraft } from "./hooks/useTripDraft";
 import AddPlacesToTripBtn from "./components/home/AddPlacesToTripBtn";
 
-
 const BACKGROUND_IMAGES = [
 "/Home-bg/Home-bg-1.jpg",
 "/Home-bg/Home-bg-2.jpg",
@@ -62,6 +61,7 @@ export default function Home(){
   // 搜尋按鈕邏輯
   // ==========================================
   const handleSearch = async (location: string) => {
+
     if (!location.trim()) return toast.error("請輸入地點");
     setSearchLoc(location);
     // 1. 沒有trip 彈出建立行程 Modal 讓使用者填寫 (不讓他等！)

@@ -74,7 +74,7 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 1, delay: index * 0.5 }}
-      className="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-300"
+      className="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-300 flex flex-col h-full"
     >
       <div className="relative">
         <img
@@ -121,7 +121,9 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
             className={`text-sm font-bold transition-colors flex items-center gap-1 ${
               isScheduled
                 ? "text-gray-400 cursor-not-allowed" // 已在行程中：變灰色，禁止手標
-                : "text-blue-600 hover:text-blue-800" // 正常狀態：藍色
+                : inDraft
+                ? "text-emerald-600 hover:text-emerald-800" // 已加入：改成綠色
+                : "text-blue-600 hover:text-blue-800" // 正常狀態：維持藍色
             }`}
             type="button"
             onClick={isScheduled ? undefined : onToggleDraft} // 已在行程中則不綁定點擊事件
