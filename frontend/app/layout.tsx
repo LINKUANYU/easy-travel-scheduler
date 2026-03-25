@@ -36,7 +36,6 @@ export default function RootLayout({
         <Providers>
           <AuthProvider>
             <TaskProvider>
-              <ButtonConfetti />
               <Header />
               <div className="flex flex-col flex-1 w-full">
                 {children}
