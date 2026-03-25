@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f9f9ff; 
   --foreground: #171717;
 }
 
@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
 }
 
 /* 自定義極簡捲軸 */

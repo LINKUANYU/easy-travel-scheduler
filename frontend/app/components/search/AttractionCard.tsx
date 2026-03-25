@@ -81,7 +81,7 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
           src={imageUrl}
           alt={item.attraction}
           referrerPolicy="no-referrer"
-          className="w-full h-48 object-cover"
+          className="w-full h-60 object-cover"
         />
         <button
           type="button"
@@ -102,11 +102,18 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
       </div>
 
 
-      <div className="p-5">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">{item.attraction}</h3>
-        <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
-
-        <div className="flex items-center justify-between pt-4 mt-2">
+      <div className="p-5 flex flex-col flex-1">
+        <h3 className="text-xl font-bold text-gray-800 mb-2 truncate">
+          {item.attraction}
+        </h3>
+        
+        {/* 描述文字：使用 line-clamp 限制行數可讓視覺更整齊 */}
+        <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-4">
+          {item.description}
+        </p>
+        
+        {/* 靠著底部 */}
+        <div className="flex items-center justify-between pt-4 mt-auto border-t border-gray-50">
           <div className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-600 rounded-full">
             📍 {item.geo_tags}
           </div>

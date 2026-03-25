@@ -9,6 +9,7 @@ export default function Footer() {
         color: "#666",
         fontSize: "14px",
         marginTop: "auto", // 如果父層是 flex flex-col min-h-screen，這會把 footer 推到最底
+        zIndex: 5,
       }}
     >
       <p style={{ margin: 0, fontWeight: 500 }}>

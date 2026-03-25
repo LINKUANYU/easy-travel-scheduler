@@ -39,11 +39,12 @@ export default function Header() {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 50, 
-        backgroundColor: "#ffffff",
-        borderBottom: "1px solid #eaeaea",
-        padding: "0 20px",
-        height: "64px",
+        zIndex: 100, // 提高 z-index 確保在輪播圖之上
+        /* 1. 使用 rgba 設定 70% 透明度的白色背景 */
+        backgroundColor: "rgba(255, 255, 255, 0.7)", 
+        borderBottom: "1px solid rgba(234, 234, 234, 0.5)", // 邊框也調淡
+        padding: "0 40px",
+        height: "72px",
         display: "grid",
         gridTemplateColumns: "1fr auto 1fr", 
         alignItems: "center",
