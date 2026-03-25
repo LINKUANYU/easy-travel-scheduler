@@ -14,23 +14,23 @@ export default function SearchPanel({
 
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+    <div className="relative bg-white/40 p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-2xl mx-auto border border-white/20">
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-8 text-center tracking-tight">
         這次想去哪個城市旅遊呢？
       </h1>
 
-      <div className="flex flex-col gap-4">
+      <div className="relative flex items-center">
         <input
           type="text"
           value={destination}
           onChange={(e) => onDestinationChange(e.target.value)}
           placeholder="請輸入國家／城市（東京、巴黎、上海、洛杉磯）"
-          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+          className="w-full pl-6 pr-32 py-5 bg-white/80 border-none rounded-full focus:ring-2 focus:ring-blue-100 transition-all text-slate-700 placeholder:text-slate-400"
         />
 
         <button
           onClick={onSearch}
-          className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
+          className="absolute right-2 bg-slate-900/80 text-white px-8 py-3.5 rounded-full hover:bg-slate-800 transition-all font-bold text-sm"
         >
           出發搜尋
         </button>

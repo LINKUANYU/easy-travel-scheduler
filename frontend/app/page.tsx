@@ -1,6 +1,6 @@
 "use client"; // 告訴 Next.js 這是在瀏覽器執行的元件
 
-import { useState} from "react";
+import { useState, useEffect} from "react";
 import { useQuery } from "@tanstack/react-query";
 import SearchPanel from "@/app/components/home/SearchPanel";
 import { apiGet } from "@/app/lib/api";
@@ -10,21 +10,44 @@ import { useTripDraft } from "./hooks/useTripDraft";
 import AddPlacesToTripBtn from "./components/home/AddPlacesToTripBtn";
 
 
+const BACKGROUND_IMAGES = [
+"/Home-bg/Home-bg-1.jpg",
+"/Home-bg/Home-bg-2.jpg",
+"/Home-bg/Home-bg-3.jpg",
+"/Home-bg/Home-bg-4.jpg",
+"/Home-bg/Home-bg-5.jpg",
+"/Home-bg/Home-bg-6.jpg",
+"/Home-bg/Home-bg-7.jpg",
+"/Home-bg/Home-bg-8.jpg",
+"/Home-bg/Home-bg-9.jpg",
+"/Home-bg/Home-bg-10.jpg",
+"/Home-bg/Home-bg-11.jpg",
+];
+
 import toast from "react-hot-toast";
 import ExploreTripCard from "./components/home/ExploreTripCard";
 
 export default function Home(){
   const router = useRouter();
-
+  const [bgIndex, setBgIndex] = useState(0);
   const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
 
   const { draft, clear, activeTripId, clearActiveTrip } = useTripDraft();
+
 
   // ==========================================
   // 控制 Modal 與背景搜尋狀態的 State
   // ==========================================
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchLoc, setSearchLoc] = useState("");
+
+  // 輪播邏輯：每 3 秒換下一張
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    },5000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ==========================================
   // 抓取首頁下方「探索熱門行程」
@@ -62,40 +85,67 @@ export default function Home(){
   };
 
   return (
-    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-8 pb-2 bg-gray-50">      
-      <div className="w-full max-w-5xl px-4 flex flex-col items-center">
-        
-        {/* 上半部：搜尋框 */}
-        <div className="w-full max-w-2xl mb-16">
-          <SearchPanel
-            destination={destinationInput}
-            onDestinationChange={setDestinationInput}
-            onSearch={() => handleSearch(destinationInput)}
+    <main className="flex flex-col items-center w-full bg-[#f9f9ff]">
+              
+      {/* --- 全螢幕背景圖層 --- */}
+      <div className="fixed inset-0 z-0 w-full h-full bg-[#f9f9ff]">
+        {BACKGROUND_IMAGES.map((src, index) => (
+          <div 
+            key={src}
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-[1500ms] ease-in-out" // 1.5秒平滑淡入淡出
+            style={{ 
+              backgroundImage: `url('${src}')`,
+              // 當前 index 則顯示透明度 1，其餘為 0
+              opacity: index === bgIndex ? 0.8 : 0,
+            }}
           />
-        </div>
+        ))}
+        
+        {/* 弱化版的漸層疊加層 */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#f9f9ff]/60 via-transparent to-[#f9f9ff]/80" />
+      </div>
+
+      {/* --- 主要內容區塊：需設定 z-10 確保在背景上方 --- */}
+      <div className="relative z-10 w-full flex flex-col items-center">
+        
+        {/* Hero 區塊：搜尋框 */}
+        <section className="w-full max-w-5xl px-6 pt-24 pb-32 flex flex-col items-center">
+          <div className="w-full max-w-3xl">
+            <SearchPanel
+              destination={destinationInput}
+              onDestinationChange={setDestinationInput}
+              onSearch={() => handleSearch(destinationInput)}
+            />
+          </div>
+        </section>
 
         {/* 下半部：熱門行程推薦 */}
-        <div className="w-full">
-          <div className="flex items-center mb-6">
-            <h2 className="text-2xl font-black text-gray-800 border-l-4 border-blue-500 pl-3">
-              熱門行程推薦
-            </h2>
-          </div>
-          
-          {exploreTripsQ.isLoading ? (
-            <p className="text-gray-500">載入熱門行程中...</p>
-          ) : exploreTripsQ.isError ? (
-            <p className="text-red-500">無法載入熱門行程</p>
-          ) : exploreTripsQ.data?.length === 0 ? (
-            <p className="text-gray-500">目前還沒有公開的行程喔！</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-              {exploreTripsQ.data?.map((trip) => (
-                <ExploreTripCard key={trip.trip_id} trip={trip} />
-              ))}
+        <section className="w-full max-w-7xl px-8 pb-32">
+            <div className="flex flex-col mb-12">
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                熱門行程推薦
+              </h2>
+              <div className="h-1 w-24 bg-slate-900 mt-4 rounded-full" /> {/* 用小底線取代長側邊線 */}
             </div>
-          )}
-        </div>
+            
+            
+            {exploreTripsQ.isLoading ? (
+              <p className="text-gray-500">載入熱門行程中...</p>
+            ) : exploreTripsQ.isError ? (
+              <p className="text-red-500">無法載入熱門行程</p>
+            ) : exploreTripsQ.data?.length === 0 ? (
+              <p className="text-gray-500">目前還沒有公開的行程喔！</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                {exploreTripsQ.data?.map((trip) => (
+                  <ExploreTripCard key={trip.trip_id} trip={trip} />
+                ))}
+              </div>
+            )}
+          
+        </section>
+
+      </div>
 
         {/* 🌟 掛載獨立出來的 CreateTripModal */}
         <CreateTripModal 
@@ -108,7 +158,6 @@ export default function Home(){
           <AddPlacesToTripBtn />
         )};
         
-      </div>
     </main>
   );
 }
