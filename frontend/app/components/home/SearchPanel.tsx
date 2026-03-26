@@ -1,11 +1,12 @@
 "use client";
 import { burstConfetti } from "@/app/lib/confetti";
 import Button from "../ui/Button";
+import PopularSearches from "./PopularSearches";
 
 type Props = {
   destination: string;
   onDestinationChange: (value: string) => void;
-  onSearch: () => void;
+  onSearch: (overrideDestination?: string) => void;
 };
 
 export default function SearchPanel({
@@ -60,8 +61,12 @@ export default function SearchPanel({
         >
           出發搜尋
         </Button>
-
       </div>
+
+      <PopularSearches onSelect={(city) => {
+        onDestinationChange(city);
+        onSearch(city);
+      }} />
     </div>
   );
 }
