@@ -17,7 +17,7 @@ export default function PopularSearches({ onSelect }: Props) {
       const res = await apiGet<{ status: string; data: string[] }>("/api/popular-searches");
       return res.data;
     },
-    // 設定 staleTime 讓前端也快取這支 API 一小時，避免頻繁切換頁面時重複發 Request
+    // 設定 staleTime 瀏覽器快取，避免頻繁切換頁面時重複發 Request
     staleTime: 1000 * 60 * 60, 
   });
 
