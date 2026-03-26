@@ -14,6 +14,7 @@ import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
 import { useEditData } from "../../hooks/useEditData";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
+import Button from "@/app/components/ui/Button";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -121,67 +122,28 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   return (
     <div style={{ 
       display: "grid",
+      width: "90%",
+      margin: "0 auto",
       gap: 12,
-      padding: "16px", 
+      padding: "16px 0px", 
       height: "calc(100vh - 64px)", // 視窗高度減去 Header 高度 (64px)
       boxSizing: "border-box",
       overflow: "hidden" // 防止最外層出現捲軸
     }}>
 
+
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 2fr", // ✅ 25/25/50
-          gap: 12,
+          gridTemplateColumns: "4fr 6fr",
+          gap: 20,
           alignItems: "stretch",
           height: "100%", 
           minHeight: 0
         }}
       >
-        {/* =========================
-            左 25%：每日行程
-           ========================= */}
-        <DailyItineraryPanel
-          activeDay={data.activeDay}
-          days={days}
-          onPrevDay={data.prevDay}
-          onNextDay={data.nextDay}
-          isLoading={data.dayItinQ.isLoading}
-          error={data.dayItinQ.error as Error | null}
-          dayItems={data.dayItems}
-          legRouteMap={data.legRouteMap}
-          currentDayLegModeMap={data.currentDayLegModeMap}
-          onDragEnd={data.onDragEnd}
-          getThumbUrl={getThumbUrl}
-          onUpdatePreview={data.updatePreview}
-          getItemTimeValue={data.getItemTimeValue}
-          onApplyItemTime={data.applyItemTime}
-          onClearItemTime={data.clearItemTime}
-          onRemoveItem={(dayIndex, item_id) => data.removeItemM.mutate({ dayIndex, item_id })}
-          isRemovingItem={data.removeItemM.isPending}
-          onUpdateLegMode={data.updateCurrentDayLegMode}
-        />
 
-        {/* =========================
-            中 25%：景點池
-           ========================= */}
-        <PlacePoolPanel
-          isLoading={data.placesQ.isLoading}
-          error={data.placesQ.error as Error | null}
-          sortedPlaces={data.sortedPlaces}
-          scheduledMap={data.scheduledMap}
-          activeDay={data.activeDay}
-          getThumbUrl={getThumbUrl}
-          onUpdatePreview={data.updatePreview}
-          onAddToDay={(destination_id) => data.addToDayM.mutate({ dayIndex: data.activeDay, destination_id })}
-          isAdding={data.addToDayM.isPending}
-          onRemovePlace={(destination_id) => data.removePlaceM.mutate(destination_id)}
-          isRemoving={data.removePlaceM.isPending}
-        />
-
-        {/* =========================
-            右 50%：地圖
-           ========================= */}
+        {/* 地圖 */}
         <div style={{ border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", height: "100%", position: "relative" }}>
           <TripMap
             places={data.places}
@@ -200,7 +162,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
 
           
           {/* 搜尋 input */}
-          <div className="absolute top-3 left-3 z-10 w-[420px] bg-white p-2.5 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.12)] border border-gray-100">
+          <div className="absolute top-3 left-3 z-10 w-[360px] bg-white p-2.5 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.12)] border border-gray-100">
             <PlaceAutocompleteInput
               disabled={data.previewLoading}
               placeholder="搜尋並選擇地點（Google Places）"
@@ -214,62 +176,98 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             )}
           </div>
 
-          <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
-            {/* 上一步按鈕 */}
-            <button 
-              onClick={handleGoBack}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#7bb9d7",
-                color: "#fff",
-                borderRadius: "999px",
-                border: "none",
-                cursor: "pointer",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-                fontWeight: 700,
-              }}
-            >
-              回上一步
-            </button>
-            
-            {/* 儲存按鈕 */}
-            <EditSaveButton
-              dirty={!!data.dirtyDayMap[data.activeDay]}
-              saving={data.saveDayDraftM.isPending}
-              onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
-            />
+        </div>
 
-            {/* 下一步按鈕 */}
-            <button 
-              onClick={async () => {
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px", minHeight: 0 }}>
+              
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, padding: "0 8px" }}>
+            
+            {/* 左側標題 (這裡先放 tripQ 抓到的標題，你可以依需求修改) */}
+            <div>
+              <p style={{ fontWeight: 800, fontSize: "28px", color: "#111" }}>
+                {tripQ.data.title}
+                <span style={{ marginLeft: "12px", fontSize: "16px", color: "#666", fontWeight: 500 }}>
+                  {tripQ.data.days} Days {tripQ.data.start_date ? `- ${tripQ.data.start_date}` : ""}
+                </span>
+              </p>
+            </div>
+            
+            {/* 右側按鈕群 */}
+            <div style={{ display: "flex", gap: "12px" }}>
+              <Button 
+                onClick={handleGoBack}
+                variant="secondary"
+                size="sm"
+              >
+                回上一步
+              </Button>
+              
+              <EditSaveButton
+                dirty={!!data.dirtyDayMap[data.activeDay]}
+                saving={data.saveDayDraftM.isPending}
+                onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
+              />
+
+              <Button 
+                onClick={async () => {
                   try {
                     // 並且定義回傳的資料格式包含 { share_token: string }
                     const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);
-                    
                     // 成功拿到 token 後，跳轉到唯讀頁面
                     router.push(`/share/${res.share_token}`);
-                    
                   } catch (err) {
                     console.error(err);
                     alert("產生分享連結失敗，請稍後再試！");
                   }
                 }}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#7bb9d7",
-                color: "#fff",
-                borderRadius: "999px",
-                border: "none",
-                cursor: "pointer",
-                boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
-                fontWeight: 700,
-              }}
-            >
-              下一步
-            </button>
+                variant="primary"
+                size="sm"
+              >
+                下一步
+              </Button>
+            </div>
           </div>
 
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr", gap: 20, flex: 1, minHeight: 0 }}>
+          {/* 景點池 */}
+          <PlacePoolPanel
+            isLoading={data.placesQ.isLoading}
+            error={data.placesQ.error as Error | null}
+            sortedPlaces={data.sortedPlaces}
+            scheduledMap={data.scheduledMap}
+            activeDay={data.activeDay}
+            getThumbUrl={getThumbUrl}
+            onUpdatePreview={data.updatePreview}
+            onAddToDay={(destination_id) => data.addToDayM.mutate({ dayIndex: data.activeDay, destination_id })}
+            isAdding={data.addToDayM.isPending}
+            onRemovePlace={(destination_id) => data.removePlaceM.mutate(destination_id)}
+            isRemoving={data.removePlaceM.isPending}
+          />
+
+          {/* 每日行程 */}
+          <DailyItineraryPanel
+            activeDay={data.activeDay}
+            days={days}
+            onPrevDay={data.prevDay}
+            onNextDay={data.nextDay}
+            isLoading={data.dayItinQ.isLoading}
+            error={data.dayItinQ.error as Error | null}
+            dayItems={data.dayItems}
+            legRouteMap={data.legRouteMap}
+            currentDayLegModeMap={data.currentDayLegModeMap}
+            onDragEnd={data.onDragEnd}
+            getThumbUrl={getThumbUrl}
+            onUpdatePreview={data.updatePreview}
+            getItemTimeValue={data.getItemTimeValue}
+            onApplyItemTime={data.applyItemTime}
+            onClearItemTime={data.clearItemTime}
+            onRemoveItem={(dayIndex, item_id) => data.removeItemM.mutate({ dayIndex, item_id })}
+            isRemovingItem={data.removeItemM.isPending}
+            onUpdateLegMode={data.updateCurrentDayLegMode}
+          />
+          </div>
         </div>
+
       </div>
     </div>
   );

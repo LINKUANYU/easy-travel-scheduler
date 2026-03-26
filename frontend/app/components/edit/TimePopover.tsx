@@ -57,7 +57,7 @@ export default function TimePopover({
   return (
     <div
       ref={rootRef}
-      style={{ position: "relative" }}
+      style={{ position: "relative"}}
       onClick={(e) => e.stopPropagation()}
     >
     <button
@@ -71,7 +71,7 @@ export default function TimePopover({
           padding: 0,
           margin: 0,
           cursor: "pointer",
-          fontSize: 14,
+          fontSize: 12,
           color: "#333",
           minWidth: "auto",
           }

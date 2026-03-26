@@ -4,6 +4,7 @@ import { useUserTrips, useDeleteTrip } from "@/app/hooks/useTrips";
 import { useRouter } from "next/navigation";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import TripCard from "../components/dashboard/TripCard";
+import Button from "../components/ui/Button";
 
 export default function DashboardTripList() {
   const { data: trips, isLoading, isError } = useUserTrips();
@@ -46,9 +47,9 @@ export default function DashboardTripList() {
           {hasTrips ? "準備好下一次的冒險了嗎？" : "目前還沒有儲存的行程喔！"}
         </p>
         {/* 按鈕加上 pointer-events-none 避免阻擋外層 <li> 的點擊事件 */}
-        <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition pointer-events-none">
+        <Button>
           {hasTrips ? "+ 建立新行程" : "開始規劃第一趟旅程"}
-        </button>
+        </Button>
       </li>
 
       {/* 渲染既有的行程卡片 */}

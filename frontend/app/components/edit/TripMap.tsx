@@ -16,8 +16,7 @@ function escapeHtml(s: string) {
 
 
 const DAY_COLORS = [
-  "#1A73E8", "#34A853", "#FBBC05", "#EA4335",
-  "#A142F4", "#00ACC1", "#F06292", "#7CB342",
+  "#1A73E8", "#34A853", "#FBBC05", "#EA4335","#A142F4",
 ];
 
 function colorForDay(dayIndex: number) {

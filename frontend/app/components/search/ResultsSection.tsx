@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Attraction } from "@/app/types/all-types";
 import AttractionCard from "@/app/components/search/AttractionCard";
 import type { DraftPlace } from "@/app/hooks/useTripDraft";
+import Button from "../ui/Button";
 
 
 type Props = {
@@ -55,12 +56,13 @@ export default function ResultsSection({
             placeholder="還想去別的城市嗎？"
             className="flex-1 px-4 py-2 bg-transparent outline-none text-sm text-slate-700 placeholder:text-slate-400"
           />
-          <button
+          <Button
             onClick={submitOther}
-            className="px-6 py-2 rounded-full bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition shadow-md"
+            variant="primary"
+            size="md"
           >
             搜尋
-          </button>
+          </Button>
         </div>
       </div>
 

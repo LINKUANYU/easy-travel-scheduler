@@ -13,7 +13,7 @@ export default function Header() {
   const tripIdMatch = pathname?.match(/\/edit\/(\d+)/);
   const tripId = tripIdMatch ? tripIdMatch[1] : null;
 
-  // 💡 2. 擷取 share 頁面的 token
+  // 2. 擷取 share 頁面的 token
   const shareTokenMatch = pathname?.match(/\/share\/([^/]+)/);
   const shareToken = shareTokenMatch ? shareTokenMatch[1] : null;
 
@@ -24,14 +24,14 @@ export default function Header() {
     enabled: !!tripId, 
   });
 
-  // 💡 4. 獲取分享模式的資料 (這裡的 queryKey 必須跟 ShareWorkspace 一模一樣，就能共用快取)
+  // 4. 獲取分享模式的資料 (這裡的 queryKey 必須跟 ShareWorkspace 一模一樣，就能共用快取)
   const { data: shareData } = useQuery({
     queryKey: ["shared-trip", shareToken],
     queryFn: async () => await apiGet<any>(`/api/share/${shareToken}`),
     enabled: !!shareToken,
   });
 
-  // 💡 5. 統一取出 trip 資訊（看當下在哪個頁面，就拿哪邊的資料）
+  // 5. 統一取出 trip 資訊（看當下在哪個頁面，就拿哪邊的資料）
   const trip = editTrip || shareData?.trip;
 
   return (
@@ -52,7 +52,7 @@ export default function Header() {
     >
       {/* 左側：顯示行程名稱與天數 */}
       <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-        {trip && (
+        {/* {trip && (
           <>
             <span style={{ fontWeight: 800, fontSize: "18px", color: "#111" }}>
               {trip.title}
@@ -61,7 +61,7 @@ export default function Header() {
               共 {trip.days} 天 {trip.start_date ? `· ${trip.start_date}` : ""}
             </span>
           </>
-        )}
+        )} */}
       </div>
 
       {/* 中間：Slogan 絕對置中 */}

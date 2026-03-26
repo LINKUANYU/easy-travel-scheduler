@@ -118,12 +118,12 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
             📍 {item.geo_tags}
           </div>
           <button 
-            className={`text-sm font-bold transition-colors flex items-center gap-1 ${
+            className={`text-xs font-semibold rounded-full px-3 py-1 flex items-center gap-1.5 transition-all duration-200 border ${
               isScheduled
-                ? "text-gray-400 cursor-not-allowed" // 已在行程中：變灰色，禁止手標
+                ? "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed"
                 : inDraft
-                ? "text-emerald-600 hover:text-emerald-800" // 已加入：改成綠色
-                : "text-blue-600 hover:text-blue-800" // 正常狀態：維持藍色
+                ? "bg-white text-blue-600 border-blue-600 hover:bg-blue-50"
+                : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 shadow-md"
             }`}
             type="button"
             onClick={isScheduled ? undefined : onToggleDraft} // 已在行程中則不綁定點擊事件

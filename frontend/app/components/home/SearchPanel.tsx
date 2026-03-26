@@ -1,5 +1,6 @@
 "use client";
 import { burstConfetti } from "@/app/lib/confetti";
+import Button from "../ui/Button";
 
 type Props = {
   destination: string;
@@ -51,12 +52,14 @@ export default function SearchPanel({
           className="w-full pl-6 pr-32 py-5 bg-white/80 border-none rounded-full focus:ring-2 focus:ring-blue-100 transition-all text-slate-700 placeholder:text-slate-400"
         />
 
-        <button
+        <Button
           onClick={handleSearchClick}
-          className="absolute right-2 bg-slate-900/80 text-white px-8 py-3.5 rounded-full hover:bg-slate-800 transition-all font-bold text-sm"
+          className="absolute right-2"
+          variant="primary"
+          size="lg"
         >
           出發搜尋
-        </button>
+        </Button>
 
       </div>
     </div>

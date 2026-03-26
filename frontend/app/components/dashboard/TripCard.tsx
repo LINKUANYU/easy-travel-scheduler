@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Button from "../ui/Button";
 
 // ==========================================
 // 1. 獨立出來的單一卡片元件 (負責自己的圖片容錯與渲染)
