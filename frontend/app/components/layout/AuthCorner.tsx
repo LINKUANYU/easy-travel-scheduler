@@ -8,6 +8,7 @@ import { apiPost, apiPatch } from "@/app/lib/api";
 import { readTripIndex, clearTripIndex } from "@/app/lib/tripIndex";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
+import Button from "../ui/Button";
 
 
 export default function AuthCorner() {
@@ -110,16 +111,17 @@ export default function AuthCorner() {
         </span>
         <div className="flex justify-end gap-3">
           <Link href="/dashboard">
-            <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-800 transition">
+            <Button variant="primary" size="md">
               我的行程
-            </button>
+            </Button>
           </Link>
-          <button 
+          <Button 
             onClick={handleFullLogout}
-            className="rounded-lg bg-gray-100 border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 transition"
+            variant="secondary"
+            size="md"
           >
             登出
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -129,18 +131,18 @@ export default function AuthCorner() {
   return (
     <>
       <div className="flex justify-end gap-3">
-        <button 
+        <Button 
           onClick={() => openAuthModal("login")}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 transition"
+          variant="secondary"
         >
           登入
-        </button>
-        <button 
+        </Button>
+        <Button 
           onClick={() => openAuthModal("register")} 
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 transition"
+          variant="primary"
         >
           註冊
-        </button>
+        </Button>
       </div>
 
       {isModalOpen && (

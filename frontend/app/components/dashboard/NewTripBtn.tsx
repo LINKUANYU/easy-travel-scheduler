@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
+import Button from "../ui/Button";
 
 export default function NewTripButton() {
   const router = useRouter();
@@ -21,11 +22,11 @@ export default function NewTripButton() {
   };
 
   return (
-    <button
+    <Button
       onClick={handleCreateNew}
-      className="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-blue-700 transition shadow-sm"
+      
     >
       ＋ 新增行程
-    </button>
+    </Button>
   );
 }

@@ -114,7 +114,7 @@ export default function Home(){
             <SearchPanel
               destination={destinationInput}
               onDestinationChange={setDestinationInput}
-              onSearch={() => handleSearch(destinationInput)}
+              onSearch={(city) => handleSearch(city || destinationInput)}
             />
           </div>
         </section>

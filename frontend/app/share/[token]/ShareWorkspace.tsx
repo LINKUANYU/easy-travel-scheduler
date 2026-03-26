@@ -12,6 +12,7 @@ import DayScheduleCard from "@/app/components/share/DayScheduleCard";
 import { useAuth } from "@/app/context/AuthContext";
 import { getTripEditToken } from "@/app/lib/tripIndex";
 import toast from "react-hot-toast";
+import Button from "@/app/components/ui/Button";
 
 export default function ShareWorkspace({ token }: { token: string }) {
   const router = useRouter();
@@ -19,9 +20,9 @@ export default function ShareWorkspace({ token }: { token: string }) {
   // 取得全域 Auth 狀態
   const { user, openAuthModal } = useAuth();
 
-  // 建立兩個 Ref，分別綁定給上半部卡片區，以及下半部 Tab 區
+  // 用來綁定橫向行程卡片區塊，以便透過按鈕控制左右滑動
   const topListRef = useRef<HTMLDivElement>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
+  const [isMapVisible, setIsMapVisible] = useState(true); // 用來控制地圖開關
 
   /** 畫面資料顯示邏輯 */
   
@@ -143,211 +144,34 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
     /** CSS 微調邏輯 */
   // 建立一個共用的捲動函數
-  const scroll = (ref: React.RefObject<HTMLDivElement | null>, offset: number) => {
-    if (ref.current) {
-      ref.current.scrollBy({ left: offset, behavior: "smooth" });
+  const scrollCards = (offset: number) => {
+    if (topListRef.current) {
+      topListRef.current.scrollBy({ left: offset, behavior: "smooth" });
     }
   };
 
-
   return (
-    // 最外層容器：設定為滿版畫面，並切分為上下兩塊 (flex-col)
-    <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#f9fafb", width: "90%", margin: "auto"}}>
-      {/* 新增這段 style 來隱藏捲軸，但不影響滑動功能 */}
+    // 最外層容器：滿版高度，隱藏預設捲軸
+    <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#f9fafb", width: "90%", margin: "0 auto", padding:"16px 0px", height: "100vh", overflow: "hidden" }}>
+      
+      {/* 隱藏捲軸的 CSS (保留滑動功能) */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
         .no-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
       
-      {/* 根據 isOwner 決定要顯示什麼按鈕 */}
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "16px 0px", backgroundColor: "#fff", }}>
-        {isOwner ? (
-          <>
-            {/* 左側按鈕 */}
-            <button
-              onClick={() => router.push(`/edit/${trip.trip_id}`)}
-              style={{ 
-              padding: "8px 16px", 
-              borderRadius: "8px", 
-              border: "1px solid #d1d5db", 
-              backgroundColor: "#fff", 
-              cursor: "pointer", 
-              fontWeight: "bold",
-              color: "#374151"
-            }}>
-              回上一步
-            </button>
-            
-            {/* 右側按鈕 */}
-            <div style={{ display: "flex", gap: "12px" }}>
-              <button 
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #d1d5db", backgroundColor: "#fff", cursor: "pointer", fontWeight: "bold",color: "#374151"}}
-                onClick={handleSaveTrip}
-              >
-                保存行程
-              </button>
-              <button 
-                onClick={() => {
-                  // 呼叫瀏覽器原生 API 複製當下網址
-                  navigator.clipboard.writeText(window.location.href)
-                    .then(() => toast.success("分享連結已複製！"))
-                    .catch(() => toast.error("複製失敗，請手動複製網址"));
-                }}
-                style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "#2563EB", color: "#fff", cursor: "pointer", fontWeight: "bold" }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = "#1d4ed8"}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = "#2563EB"}
-              >
-                分享連結
-              </button>
-            </div>
-          </>
-        ) : (
-          <></>
-        )}
-      </div>
       {/* ========================================== */}
-      {/* 上半部：橫向行程列表 (帶有左右按鈕) */}
+      {/* 主內容區：右側 60% 行程卡片 + 左側 40% 地圖 */}
       {/* ========================================== */}
-      <div style={{ height: "80vh", position: "relative", backgroundColor: "#fff", borderBottom: "2px solid #e5e7eb", padding: "16px 0" }}>
+      <div style={{ display: "flex", flex: 1, padding: "", gap: "24px", overflow: "hidden" }}>
         
-        {/* 左滑按鈕 (圓形 + 陰影 + 置中) */}
-        <button 
-          onClick={() => scroll(topListRef, -800)} 
-          style={{ 
-            position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", zIndex: 10, 
-            width: "40px", height: "40px", borderRadius: "50%", border: "1px solid #d1d5db", 
-            backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            display: "flex", justifyContent: "center", alignItems: "center", color: "#4b5563"
-          }}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-
-        {/* 捲動容器 */}
-        <div 
-          ref={topListRef}
-          className="no-scrollbar"
-          style={{ 
-            height: "100%", 
-            boxSizing: "border-box",
-            overflowX: "auto",
-            overflowY: "hidden",
-            padding: "0 60px", // 左右留白避免卡片被按鈕擋住
-            scrollBehavior: "smooth"
-          }}
-        >
-          <div style={{ display: "flex", gap: "24px", height: "100%" }}>
-            {dayNums.map((dayNum) => (
-                <DayScheduleCard
-                  key={dayNum}
-                  dayNum={dayNum}
-                  items={itinerary[dayNum]}
-                  isActive={activeDay === dayNum}
-                  onClick={() => setActiveDay((prev) => (prev === dayNum ? null : dayNum))}
-                  getThumbUrl={getThumbUrl}
-                  isFullWidth={false}
-                />
-              ))}
-          </div>
-        </div>
-
-        {/* 右滑按鈕 (圓形 + 陰影 + 置中) */}
-        <button 
-          onClick={() => scroll(topListRef, 800)} 
-          style={{ 
-            position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", zIndex: 10, 
-            width: "40px", height: "40px", borderRadius: "50%", border: "1px solid #d1d5db", 
-            backgroundColor: "#fff", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            display: "flex", justifyContent: "center", alignItems: "center", color: "#4b5563"
-          }}>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-      </div>
-
-      {/* ========================================== */}
-      {/* 下半部：左側 1/3 每日行程切換 + 右側 2/3 地圖 */}
-      {/* ========================================== */}
-      <div style={{ display: "flex", height: "100vh", borderRadius: 10, gap: 10}}>
-        
-        {/* 左側 1/3：天數按鈕 + 單日行程 */}
-        <div style={{ width: "30%", display: "flex", flexDirection: "column", backgroundColor: "#fff", border: "1px solid #d1d5db", borderRadius: 10,}}>
-          
-          {/* 天數切換按鈕區 (Tab - 帶有左右 SVG 按鈕) */}
-          <div style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #e5e7eb", padding: "0 4px" }}>
-            
-            <button 
-              onClick={() => scroll(tabsRef, -150)} 
-              style={{ border: "none", background: "transparent", cursor: "pointer", padding: "12px 8px", color: "#6b7280", display: "flex", alignItems: "center" }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "18px", height: "18px" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-              </svg>
-            </button>
-
-            <div 
-              ref={tabsRef}
-              className="no-scrollbar"
-              style={{ display: "flex", overflowX: "auto", padding: "12px 0", gap: "8px", flex: 1, scrollBehavior: "smooth" }}
-            >
-              {dayNums.map((num) => (
-                <button
-                  key={`tab-${num}`}
-                  onClick={() => setActiveDay(num)}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: "20px",
-                    border: activeDay === num ? "none" : "1px solid #d1d5db",
-                    backgroundColor: activeDay === num ? "#2563EB" : "#fff",
-                    color: activeDay === num ? "#fff" : "#374151",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  第 {num} 天
-                </button>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => scroll(tabsRef, 150)} 
-              style={{ border: "none", background: "transparent", cursor: "pointer", padding: "12px 8px", color: "#6b7280", display: "flex", alignItems: "center" }}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "18px", height: "18px" }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          </div>
-
-          {/* 行程顯示區 */}
-          <div style={{ flex: 1, padding: "16px", overflowY: "auto", backgroundColor: "#f9fafb" }}>
-            {activeDay !== null ? (
-              <DayScheduleCard
-                dayNum={activeDay}
-                items={itinerary[activeDay]}
-                isActive={false}    // 下半部不需要外框線提示
-                getThumbUrl={getThumbUrl}
-                isFullWidth={true}  // 填滿這個 1/3 的容器
-              />
-            ) : (
-              <div style={{ textAlign: "center", marginTop: "40px", color: "#6b7280" }}>
-                請選擇上方天數以查看詳細行程
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 右側 2/3：地圖區域 */}
-        <div style={{ width: "70%", position: "relative" }}>
+        {/* 左側 40%：地圖區域 */}
+        <div style={{ width: "40%", display: isMapVisible ? "block" : "none", borderRadius: "16px", overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}>
           <TripMap
             places={places}
             scheduleSummary={scheduleSummary}
@@ -362,8 +186,125 @@ export default function ShareWorkspace({ token }: { token: string }) {
           />
         </div>
 
-      </div>
+        {/* 右側 60%：橫向行程列表容器 */}
+        <div style={{ width: isMapVisible ? "60%" : "100%", display: "flex", padding: "0px 10px", flexDirection: "column", gap: "16px", backgroundColor: "#f9fafb" }}>
 
+          {/* 頂部 Header (按鈕區塊) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            
+            <div>
+              <p style={{ fontWeight: 800, fontSize: "28px", color: "#111" }}>
+                {trip.title}
+                <span style={{ marginLeft: "12px", fontSize: "16px", color: "#666", fontWeight: 500 }}>
+                  {trip.days} Days {trip.start_date ? `- ${trip.start_date}` : ""}
+                </span>
+              </p>
+            </div>
+            
+            <div style={{ display: "flex", gap: "12px" }}>
+              <Button 
+                onClick={() => setIsMapVisible(!isMapVisible)}
+                variant="secondary"
+                size="sm"
+              >
+                {isMapVisible ? "收起地圖" : "展開地圖"}
+              </Button>
+
+              {isOwner ? (
+                <>
+                  <Button
+                    onClick={() => router.push(`/edit/${trip.trip_id}`)}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    回上一步
+                  </Button>
+                  <Button 
+                    onClick={handleSaveTrip}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    保存行程
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href)
+                        .then(() => toast.success("分享連結已複製！"))
+                        .catch(() => toast.error("複製失敗，請手動複製網址"));
+                    }}
+                    variant="primary"
+                    size="sm"
+                  >
+                    分享連結
+                  </Button>
+                </>
+              ) : (
+                <></>
+              )}
+            </div>
+          </div>
+          
+          <div style={{ position: "relative", display: "flex", flex: 1, minHeight: 0 }}>
+
+            {/* 左滑按鈕 */}
+            <button 
+              onClick={() => scrollCards(-275)} 
+              style={{ 
+                position: "absolute", left: "-10px", zIndex: 10, width: "40px", height: "40px", 
+                top: "50%", transform: "translateY(-50%)",
+                borderRadius: "50%", border: "1px solid #d1d5db", backgroundColor: "#fff", 
+                cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", display: "flex", 
+                justifyContent: "center", alignItems: "center", color: "#4b5563"
+              }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            {/* 橫向且垂直捲動的卡片區塊 */}
+            <div 
+              ref={topListRef}
+              className="no-scrollbar"
+              style={{ 
+                display: "flex", gap: "20px", height: "100%", width: "100%", 
+                overflowX: "auto", boxSizing: "border-box", scrollBehavior: "smooth",
+                overflowY: "auto", 
+                alignItems: "flex-start",
+                paddingBottom: "40px", // 👈 新增：底部留點白，滑到底才不會太擠
+              }}
+            >
+              {dayNums.map((dayNum) => (
+                <DayScheduleCard
+                  key={dayNum}
+                  dayNum={dayNum}
+                  items={itinerary[dayNum]}
+                  isActive={activeDay === dayNum}
+                  onClick={() => setActiveDay(dayNum)} // 點擊時更新地圖 focus 到這一天
+                  getThumbUrl={getThumbUrl}
+                />
+              ))}
+            </div>
+
+            {/* 右滑按鈕 */}
+            <button 
+              onClick={() => scrollCards(275)}
+              style={{ 
+                position: "absolute", right: "-10px", zIndex: 10, width: "40px", height: "40px", 
+                borderRadius: "50%", border: "1px solid #d1d5db", backgroundColor: "#fff", 
+                cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", display: "flex", 
+                top: "50%", transform: "translateY(-50%)",
+                justifyContent: "center", alignItems: "center", color: "#4b5563"
+              }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+
+
+      </div>
     </div>
   );
 }

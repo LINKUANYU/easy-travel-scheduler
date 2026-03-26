@@ -1,5 +1,6 @@
 // components/edit/EditSaveBtn.tsx
 "use client";
+import Button from "../ui/Button";
 
 export default function EditSaveButton({
   dirty,
@@ -11,27 +12,25 @@ export default function EditSaveButton({
   onClick: () => void;
 }) {
   // 根據 dirty 狀態決定背景顏色 (色號為近似色，可依需求微調)
-  const bgColor = dirty ? "#FFA08B" : "#7bb9d7"; 
+  const bgColor = dirty ? "#FFA08B" : "#fff"; 
 
   return (
     <button
-      type="button"
       onClick={onClick}
-      disabled={saving} // 保留剛剛討論的 UX：只有儲存中才禁用，平時皆可點擊
+      disabled={saving}
       style={{
         position: "relative", // 重要：為了讓紅點可以相對於按鈕定位
         display: "flex",
         alignItems: "center",
-        gap: "6px",
-        padding: "10px 18px",
+        gap: "8px",
+        padding: "0px 12px",
         borderRadius: "999px", // 圓潤的膠囊造型
-        border: "none", // 移除預設邊框
+        border: "1px solid #d1d5db",
         background: bgColor,
-        color: "white",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.12)",
+        color: "black",
         cursor: saving ? "not-allowed" : "pointer",
-        fontWeight: 700,
-        fontSize: "16px",
+        fontWeight: 450,
+        fontSize: "14px",
         transition: "background 0.3s ease", // 加入顏色漸變動畫更平滑
       }}
     >

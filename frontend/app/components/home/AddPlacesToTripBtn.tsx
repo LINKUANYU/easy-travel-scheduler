@@ -4,9 +4,7 @@ import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { apiPost } from "@/app/lib/api"
 import { useTripDraft } from "@/app/hooks/useTripDraft"
-
-
-type CreateTripRes = { trip_id: number, edit_token: string} 
+import Button from "../ui/Button"
 
 export default function AddPlacesToTripBtn(){
   const router = useRouter();
@@ -76,7 +74,7 @@ export default function AddPlacesToTripBtn(){
   return (
     <div className="fixed bottom-10 right-8 z-50 flex items-center gap-4">
       {/* 放棄目前行程，開新行程的小按鈕 */}
-      <button
+      <Button
         onClick={() => {
           if(confirm("確定要放棄目前編輯的行程，建立一個全新的嗎？")) {
             clearActiveTrip();
@@ -84,10 +82,11 @@ export default function AddPlacesToTripBtn(){
             router.push(`/`);
           }
         }}
-        className="rounded-full bg-white px-5 py-3 text-gray-500 shadow-lg border border-gray-200 hover:bg-gray-50 transition text-sm font-bold"
+        variant="danger"
+        size="md"
       >
         ✕ 捨棄目前行程
-      </button>
+      </Button>
 
       {/* 核心動作按鈕群組 (設定 relative 讓小 X 可以絕對定位) */}
       <div className="relative">
@@ -108,10 +107,11 @@ export default function AddPlacesToTripBtn(){
         )}
 
         {/* 核心動作按鈕 */}
-        <button
+        <Button
           onClick={handleAppendToActiveTrip}
           disabled={submitting}
-          className="flex items-center gap-2 rounded-full bg-indigo-600 px-6 py-4 text-white shadow-lg hover:bg-indigo-700 transition font-bold disabled:opacity-60"
+          variant="primary"
+          size="lg"
         >
           {submitting ? (
             "處理中..."
@@ -125,7 +125,7 @@ export default function AddPlacesToTripBtn(){
           ) : (
             "返回目前行程 ➔"
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

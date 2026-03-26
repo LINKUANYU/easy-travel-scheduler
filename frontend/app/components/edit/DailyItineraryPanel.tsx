@@ -94,14 +94,44 @@ export default function DailyItineraryPanel({
   // distance: 當位移 > 6 像素：系統才會確認：「開始動作」這時才會把元件抓起來變透明，進入拖拉狀態。
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  const DAY_COLORS = ["#71b5c8", "#82cda4", "#f8cb42", "#e76f51", "#b97ced"];
+  const themeColor = DAY_COLORS[(activeDay - 1) % DAY_COLORS.length];
+
   return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 12, padding: "0px 6px", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
+    <div style={{ border: `2px solid ${themeColor}`, transition: "border 0.3s ease", borderRadius: 12, padding: "0px 0px", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
       {/* 頂部：天數切換 */}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ flexShrink: 0, height: "40px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <button onClick={onPrevDay} disabled={activeDay === 1} className="text-gray-400 hover:text-black disabled:opacity-30 mr-6">◀</button>
-          <div style={{ fontWeight: 800, fontSize: "16px" }}>Day {activeDay}</div>
-          <button onClick={onNextDay} disabled={activeDay === days} className="text-gray-400 hover:text-black disabled:opacity-30 ml-6">▶</button>
+      <div style={{ flexShrink: 0, paddingBottom: "10px" }}>
+        <div style={{ 
+          height: "44px", 
+          display: "flex", 
+          justifyContent: "center", 
+          alignItems: "center",
+          backgroundColor: themeColor,
+          color: "#fff",
+          borderRadius: "10px 10px 0px 00px",
+          padding: "0 16px",
+          transition: "background-color 0.3s ease"
+        }}>
+          <button 
+            onClick={onPrevDay} 
+            disabled={activeDay === 1} 
+            style={{ border: "none", background: "transparent", color: "#fff", cursor: activeDay === 1 ? "default" : "pointer", opacity: activeDay === 1 ? 0.3 : 1, fontSize: "18px", marginRight: "10px"}}>
+            ◀
+          </button>
+          
+          <div style={{ fontWeight: 800, fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+            Day {activeDay}
+          </div>
+
+          <button 
+            onClick={onNextDay} 
+            disabled={activeDay === days} 
+            style={{ border: "none", background: "transparent", color: "#fff", cursor: activeDay === days ? "default" : "pointer", opacity: activeDay === days ? 0.3 : 1, fontSize: "18px", marginLeft: "10px" }}>
+            ▶
+          </button>
         </div>
       </div>
 
@@ -117,180 +147,160 @@ export default function DailyItineraryPanel({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>
               <div style={{ display: "grid", gap: 10 }}>
-                {dayItems.map((it, idx) => {
-                  const thumbUrl = getThumbUrl(it.google_place_id);
-                  const next = dayItems[idx + 1];
-                  const legKey = next ? makeLegKey(it.item_id, next.item_id) : null;
-                  const leg = legKey ? legRouteMap[legKey] : undefined;
+                <div style={{ position: "relative", display: "flex", flexDirection: "column", padding: "16px" }}>
+                
+                  {/* 1. 背景時間軸垂直線 */}
+                  {dayItems.length > 0 && (
+                    <div style={{
+                      position: "absolute",
+                      left: "27px", // 對齊左側 24px 圖示的中心 (16px padding + 12px - 1px)
+                      top: "20px",
+                      bottom: "30px",
+                      width: "2px",
+                      backgroundColor: "#e5e7eb",
+                      zIndex: 0
+                    }} />
+                  )}
 
-                  return (
-                    <Fragment key={it.item_id}>
-                      <SortableRow id={it.item_id}>
-                        {({ dragAttributes, dragListeners }) => {
-                          const arrivalValue = getItemTimeValue(it, "arrival_time");
-                          const departureValue = getItemTimeValue(it, "departure_time");
+                  {dayItems.map((it, idx) => {
+                    const thumbUrl = getThumbUrl(it.google_place_id);
+                    const next = dayItems[idx + 1];
+                    const legKey = next ? makeLegKey(it.item_id, next.item_id) : null;
+                    const leg = legKey ? legRouteMap[legKey] : undefined;
 
-                          return (
-                            <div
-                              style={{
-                                border: "1px solid #eee",
-                                borderRadius: 12,
-                                padding: 10,
-                                display: "grid",
-                                gridTemplateColumns: "72px minmax(0, 1fr) 28px",
-                                gap: 12,
-                                alignItems: "center",
-                                background: "white",
-                                position: "relative"
-                              }}
-                            >
-                              {/* --- 圖片區塊 --- */}
-                              <div
-                                style={{
-                                  width: "80px",
-                                  height: "80px",
-                                  borderRadius: "10px", // 原本圓角
-                                  backgroundColor: "#e5e7eb",
-                                  flexShrink: 0,
-                                  overflow: "hidden",
-                                  position: "relative", 
-                                }}
-                              >
-                                {/* 加入 position 數值標籤 */}
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: "0",
-                                    left: "0",
-                                    backgroundColor: "rgba(0, 0, 0, 0.6)", // 半透明黑底
-                                    color: "#fff", // 白色文字
-                                    padding: "3px 8px", // 內邊距，配合较大圖片
-                                    fontSize: "14px", // 字體大小，配合较大圖片
-                                    fontWeight: "bold",
-                                    borderRadius: "10px", 
-                                    zIndex: 1, // 確保標籤在圖片上方
-                                  }}
-                                >
+                    return (
+                      <Fragment key={it.item_id}>
+                        <SortableRow id={it.item_id}>
+                          {({ dragAttributes, dragListeners }) => {
+                            const arrivalValue = getItemTimeValue(it, "arrival_time");
+                            const departureValue = getItemTimeValue(it, "departure_time");
+
+                            return (
+                              // 外層改為 Flex，讓數字在左，卡片在右
+                              <div style={{ display: "flex", gap: "16px", position: "relative", zIndex: 100 - idx, paddingBottom: "16px" }}>
+                                
+                                {/* 2. 左側時間軸圓形數字 */}
+                                <div style={{ flexShrink: 0, width: "24px", height: "24px", borderRadius: "50%", backgroundColor: themeColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "bold", }}>
                                   {idx + 1}
                                 </div>
 
-                                {thumbUrl ? (
-                                  <img
-                                    src={thumbUrl}
-                                    alt={it.place_name}
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                    }}
-                                  />
-                                ) : (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      height: "100%",
-                                      fontSize: "14px",
-                                      color: "#9ca3af",
-                                    }}
-                                  >
-                                    載入中
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 中：名稱 + 時間 */}
-                              <div style={{ minWidth: 0, cursor: "pointer" }} onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}>
-                                <div style={{ fontWeight: 700, fontSize: 18, lineHeight: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                  {it.place_name ?? `#${it.destination_id}`}
-                                </div>
-                                <div style={{ marginTop: 8, fontSize: 14, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                  <span>抵達時間：</span>
-                                  <TimePopover
-                                    label=""
-                                    value={arrivalValue}
-                                    onApply={(value) => onApplyItemTime(it, "arrival_time", value)}
-                                    onClear={() => onClearItemTime(it, "arrival_time")}
-                                    compact
-                                  />
-                                </div>
-                                <div style={{ marginTop: 8, fontSize: 14, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                  <span>離開時間：</span>
-                                  <TimePopover
-                                    label=""
-                                    value={departureValue}
-                                    onApply={(value) => onApplyItemTime(it, "departure_time", value)}
-                                    onClear={() => onClearItemTime(it, "departure_time")}
-                                    compact
-                                  />
-                                </div>
-                              </div>
-
-                              {/* 右：X + ⠿ */}
-                              <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRemoveItem(activeDay, it.item_id);
+                                {/* 3. 右側：原本的卡片本體 */}
+                                <div
+                                  style={{
+                                    flex: 1, // 填滿右側空間
+                                    border: "1px solid #eee",
+                                    borderRadius: 12,
+                                    padding: 10,
+                                    display: "grid",
+                                    gridTemplateColumns: "80px minmax(0, 1fr) 28px",
+                                    gap: 12,
+                                    alignItems: "center",
+                                    background: "white",
+                                    boxShadow: "0 2px 4px -1px rgba(0,0,0,0.05)",
                                   }}
-                                  disabled={isRemovingItem}
-                                  className="h-8 w-8 flex items-center justify-center rounded-full text-gray-300 bg-transparent text-2xl leading-none transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  ×
-                                </button>
-                                <span
-                                  {...dragAttributes}
-                                  {...dragListeners}
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{ cursor: "grab", color: "#000", fontSize: 24, lineHeight: 1, userSelect: "none", padding: 5, border: "1px solid #ddd", borderRadius: 10 }}
-                                  title="拖拉排序"
-                                >
-                                  ⠿
-                                </span>
+                                  {/* --- 圖片區塊 --- */}
+                                  <div style={{ width: "80px", height: "80px", borderRadius: "8px", backgroundColor: "#e5e7eb", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+                                    {thumbUrl ? (
+                                      <img src={thumbUrl} alt={it.place_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    ) : (
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "14px", color: "#9ca3af" }}>載入中</div>
+                                    )}
+                                  </div>
+
+                                  {/* 中：名稱 + 時間 */}
+                                  <div style={{ minWidth: 0, padding: "4px 0px" }}>
+                                    <div style={{ fontWeight: 700, fontSize: "1.1rem", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }} onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}>
+                                      {it.place_name ?? `#${it.destination_id}`}
+                                    </div>
+                                    <div style={{ marginTop: 8, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                      <span style={{ color: "#8b8c8d", fontWeight: "bold" }}>抵達時間：</span>
+                                      <TimePopover
+                                        label=""
+                                        value={arrivalValue}
+                                        onApply={(value) => onApplyItemTime(it, "arrival_time", value)}
+                                        onClear={() => onClearItemTime(it, "arrival_time")}
+                                        compact
+                                      />
+                                    </div>
+                                    <div style={{ marginTop: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                      <span style={{ color: "#8b8c8d", fontWeight: "bold" }}>離開時間：</span>
+                                      <TimePopover
+                                        label=""
+                                        value={departureValue}
+                                        onApply={(value) => onApplyItemTime(it, "departure_time", value)}
+                                        onClear={() => onClearItemTime(it, "departure_time")}
+                                        compact
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* 右：X + ⠿  */}
+                                  <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); onRemoveItem(activeDay, it.item_id); }}
+                                      disabled={isRemovingItem}
+                                      className="h-8 w-8 flex items-center justify-center rounded-full text-gray-500 bg-transparent text-2xl leading-none transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      ×
+                                    </button>
+                                    <span
+                                      {...dragAttributes}
+                                      {...dragListeners}
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{ cursor: "grab", color: "#000", fontSize: 24, lineHeight: 1, userSelect: "none", padding: 5, border: "1px solid #ddd", borderRadius: 10 }}
+                                      title="拖拉排序"
+                                    >
+                                      ⠿
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        </SortableRow>
+
+                        {/* 4. 路段交通資訊 (Leg) - 同步修改為左圖標右框的設計 */}
+                        {next && legKey && (
+                          <div style={{ display: "flex", gap: "16px", paddingBottom: "16px", position: "relative", zIndex: 1 }}>
+                            
+                            {/* 交通方式小圖示 (壓在線上) */}
+                            <div style={{ flexShrink: 0, width: "24px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                              <div style={{ backgroundColor: "#fff", padding: "4px 0", fontSize: "16px" }}>
+                                {currentDayLegModeMap[legKey] === "DRIVING" ? "🚘" : currentDayLegModeMap[legKey] === "WALKING" ? "👟" : currentDayLegModeMap[legKey] === "TRANSIT" ? "🚌" : ""}
                               </div>
                             </div>
-                          );
-                        }}
-                      </SortableRow>
-
-                      {/* 路段交通資訊 (Leg) */}
-                      {next && legKey && (
-                        <div style={{ display: "grid", gridTemplateColumns: "24px 1fr", gap: 10, alignItems: "stretch", padding: "2px 0 6px 0" }}>
-                          <div style={{ display: "flex", justifyContent: "center" }}>
-                            <div style={{ width: 6, borderRadius: 999, background: "#cdeff0", minHeight: 56 }} />
-                          </div>
-                          <div style={{ borderRadius: 12, padding: "8px 10px", background: "#fafafa", border: "1px dashed #e5e5e5", display: "grid", gap: 6 }}>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            
+                            {/* 交通時間輸入框 */}
+                            <div style={{ flex: 1, borderRadius: 10, padding: "8px 12px", background: "#f9fafb", border: "1px dashed #d1d5db", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", width: "max-content", alignSelf: "flex-start" }}>
                               <span style={{ fontSize: 13, opacity: 0.75 }}>交通</span>
                               <select
                                 value={currentDayLegModeMap[legKey] ?? ""}
                                 onChange={(e) => onUpdateLegMode(legKey, e.target.value as TravelMode)}
-                                style={{ padding: "6px 8px", borderRadius: 10, border: "1px solid #ddd", background: "white" }}
+                                style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #ddd", background: "white", fontSize: "13px" }}
                               >
                                 <option style={{textAlign: "center"}} value="">-- : --</option>
                                 <option style={{textAlign: "center"}} value="DRIVING">開車</option>
                                 <option style={{textAlign: "center"}} value="WALKING">步行</option>
                                 <option style={{textAlign: "center"}} value="TRANSIT">大眾運輸</option>
                               </select>
-                              <span style={{ fontSize: 13, opacity: 0.85 }}>
-                                {/* 判斷：如果沒有選擇交通方式，就顯示 --:-- */}
+                              <span style={{ fontSize: 13, opacity: 0.85, fontWeight: "bold", color: "#4b5563" }}>
                                 {!currentDayLegModeMap[legKey] 
                                   ? "-- : --"
                                   : leg?.loading 
                                   ? "計算中…" 
                                   : leg?.error 
-                                  ? `失敗：${leg.error}` 
+                                  ? `失敗` 
                                   : `${formatDuration(leg?.durationMillis)} · ${formatDistance(leg?.distanceMeters)}`}
                               </span>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </Fragment>
-                  );
-                })}
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </div>
               </div>
             </SortableContext>
           </DndContext>

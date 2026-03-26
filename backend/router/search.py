@@ -105,3 +105,45 @@ def get_task_status(task_id: str):
     # 一些冷門的狀態（例如 RETRY 正在重試、REVOKED 任務被強制取消）。
     else:
         return {"status": task_result.state.lower()}
+
+@router.get("/api/popular-searches")
+def get_popular_searches(cur = Depends(get_cur)):
+    redis_client = get_redis()
+
+    # 定義這筆搜尋的專屬快取鑰匙 (Cache Key) Key
+    cache_key = "homepage:popular_search"
+
+    try:
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            return {"status": "success", "data": json.loads(cached_data)}
+    except Exception as e:
+        print(f"⚠️ Redis 讀取失敗: {e}")
+
+    query = """
+        SELECT input_region, COUNT(*)
+        FROM destinations 
+        WHERE input_region IS NOT NULL AND input_region != ''
+        GROUP BY input_region 
+        ORDER BY COUNT(*) DESC 
+        LIMIT 6
+    """
+
+    try: 
+        cur.execute(query)
+        rows = cur.fetchall()
+
+        popular_regions = [r["input_region"] for r in rows]
+
+        try:
+            redis_client.setex(cache_key, 86400, json.dumps(popular_regions))
+        except Exception as e:
+            print(f"⚠️ Redis 寫入失敗: {e}")
+
+        return {"status": "success", "data": popular_regions}
+
+    except Exception as e:
+        print(f"❌ 取得熱門搜尋失敗: {e}")
+        # 如果真的出錯，至少給幾個預設值墊檔
+        fallback_data = ["東京", "上海", "巴黎", "沖繩", "紐約", "首爾"]
+        return {"status": "success", "data": fallback_data}
