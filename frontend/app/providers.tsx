@@ -25,7 +25,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 const [client] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 1000 * 60 * 60, // 1 小時內視為新鮮資料，不重複發送 API 請求
         gcTime: 1000 * 60 * 60 * 2, // 2 小時後若未使用，則從記憶體中清除 (Garbage Collection)
         retry: 1, // API 請求失敗時，預設自動重試 1 次
       },
@@ -70,8 +69,15 @@ const [client] = useState(() => new QueryClient({
       client={client}
       persistOptions={{ 
         persister,
-        // 設定快取的最大保存期限為一週
-        maxAge: 1000 * 60 * 60 * 24 * 7,
+        // ⭐️ 2. 新增這段「白名單過濾器」
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) => {
+            // 只有這三個 Google 相關的 Query Key 允許存進 sessionStorage
+            const allowedKeys = ["placeThumb", "placePreview", "routeLeg"];
+            // 檢查 queryKey 的第一個元素是不是在允許的名單內
+            return allowedKeys.includes(query.queryKey[0] as string);
+          },
+        },
       }}
     >
       {children}
