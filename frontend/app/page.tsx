@@ -38,7 +38,7 @@ export default function Home(){
   // 控制 Modal 與背景搜尋狀態的 State
   // ==========================================
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchLoc, setSearchLoc] = useState("");
+  const [searchLoc, setSearchLoc] = useState("");  // 紀錄要搜尋的地點
 
   // 輪播邏輯：每 3 秒換下一張
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function Home(){
   // ==========================================
   // Modal 建立行程成功後的分流邏輯
   // ==========================================
-  const handleModalSuccess = (tripId: number) => {
+  const handleModalSuccess = () => {
     setIsModalOpen(false); // 關閉 Modal
 
     // 行程建好後，無腦送去 search 頁面，把剩下的判斷交給 search 處理
@@ -147,16 +147,16 @@ export default function Home(){
 
       </div>
 
-        {/* 🌟 掛載獨立出來的 CreateTripModal */}
-        <CreateTripModal 
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={handleModalSuccess}
-        />
+      {/* 獨立出來的 CreateTripModal */}
+      <CreateTripModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleModalSuccess}
+      />
 
-        {activeTripId && (
-          <AddPlacesToTripBtn />
-        )};
+      {activeTripId && (
+        <AddPlacesToTripBtn />
+      )};
         
     </main>
   );

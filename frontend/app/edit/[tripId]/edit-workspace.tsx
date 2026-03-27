@@ -111,7 +111,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   // 阻擋畫面渲染 (Loading & Error 處理)
   // ==========================================
   if (tid === null) return <p className="p-4 text-red-500">tripId 不合法</p>;
-  if (tripQ.isLoading) return <p className="p-4 text-gray-500">Loading trip…</p>;
+  if (tripQ.isLoading || !tripQ.data) return <p className="p-4 text-gray-500">Loading trip…</p>;
   if (tripQ.isError) return <p className="p-4 text-red-500">Load trip failed: {(tripQ.error as Error).message}</p>;
   
   // 如果在錯誤狀態，直接回傳 null (畫面空白)，防止下方的 useEditData 繼續發送其他 API 導致 403 洗版
@@ -185,9 +185,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             {/* 左側標題 (這裡先放 tripQ 抓到的標題，你可以依需求修改) */}
             <div>
               <p style={{ fontWeight: 800, fontSize: "28px", color: "#111" }}>
-                {tripQ.data.title}
+                {tripQ?.data.title}
                 <span style={{ marginLeft: "12px", fontSize: "16px", color: "#666", fontWeight: 500 }}>
-                  {tripQ.data.days} Days {tripQ.data.start_date ? `- ${tripQ.data.start_date}` : ""}
+                  {tripQ?.data.days} Days {tripQ?.data.start_date ? `- ${tripQ?.data.start_date}` : ""}
                 </span>
               </p>
             </div>

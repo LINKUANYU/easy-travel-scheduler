@@ -86,7 +86,7 @@ export function useEditData(tripId: number, days: number) {
     return m;
   }, [places]);
 
-  const { legRouteMap, setLegRouteMap } = useRouteCalculator(dayItems, currentDayLegModeMap, placeByDestinationId);
+  const { legRouteMap } = useRouteCalculator(dayItems, currentDayLegModeMap, placeByDestinationId);
 
 
   // 同步伺服器資料到草稿
@@ -96,38 +96,23 @@ export function useEditData(tripId: number, days: number) {
     // 1. 同步景點順序
     setDraftItemsByDay((prev) => prev[activeDay] ? prev : { ...prev, [activeDay]: serverDayItems });
 
-    // 2. 避免重複覆蓋使用者正在編輯的交通方式
+    // 2. 同步交通方式
     if (draftLegModeByDay[activeDay]) return;
 
     const modeMap: Record<string, TravelMode> = {};
-    const initialRouteMap: Record<string, LegRouteState> = {};
-
     serverDayItems.forEach((item, idx) => {
       const nextItem = serverDayItems[idx + 1];
-      // 如果這段路徑有存過交通方式 (不為 null 或 空字串)
       if (nextItem && item.travel_mode) {
         const legKey = makeLegKey(item.item_id, nextItem.item_id);
         modeMap[legKey] = item.travel_mode as TravelMode;
-
-        // 🌟 最重要的一步：把資料庫算好的時間距離直接塞進快取！
-        // 這樣 useRouteCalculator 就會因為有 durationMillis 而被 return false 擋下，不打 API！
-        initialRouteMap[legKey] = {
-          mode: item.travel_mode as TravelMode,
-          fromItemId: item.item_id,
-          toItemId: nextItem.item_id,
-          durationMillis: item.duration_millis ?? undefined,
-          distanceMeters: item.distance_meters ?? undefined,
-          loading: false,
-          error: undefined,
-        };
       }
     });
 
-    // 寫入本地草稿與路線快取
     setDraftLegModeByDay((prev) => ({ ...prev, [activeDay]: modeMap }));
-    setLegRouteMap((prev) => ({ ...prev, ...initialRouteMap }));
+    
 
-  }, [activeDay, dayItinQ.isSuccess, serverDayItems, setLegRouteMap, draftLegModeByDay]);
+  }, [activeDay, dayItinQ.isSuccess, serverDayItems, draftLegModeByDay]);
+  
 
 
   // ==========================================
