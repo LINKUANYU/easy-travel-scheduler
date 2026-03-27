@@ -88,8 +88,8 @@ export default function ShareWorkspace({ token }: { token: string }) {
   // 第一個參數是 dayItems，第二個是 sortedPlaces。我們直接把 map 過的 places 當作第二個參數傳進去 (用 as any[] 避開嚴格型別檢查，因為只要有 google_place_id 就能運作)
   const { getThumbUrl } = usePlaceThumbnails([], places as any[]);
 
-  if (isLoading) return <div style={{ padding: 20 }}>載入行程中...</div>;
-  if (error || !data) return <div style={{ padding: 20 }}>無法載入行程或連結已失效</div>;
+  if (isLoading || !data) return <div style={{ padding: 20 }}>載入行程中...</div>;
+  if (error) return <div style={{ padding: 20 }}>無法載入行程或連結已失效</div>;
 
   const { trip, itinerary } = data;
   // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列
