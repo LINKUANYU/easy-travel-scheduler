@@ -345,7 +345,7 @@ def fetch_attraction_images(ai_gen_data):
             
 
             try:
-                with DDGS(proxies=current_proxy) as ddgs:
+                with DDGS(proxy=current_proxy) as ddgs:
                     # ---------------------------------------------------------
                     # 搜尋圖片 (加入版權過濾)
                     # ---------------------------------------------------------
