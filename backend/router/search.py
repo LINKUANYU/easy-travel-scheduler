@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, HTTPException, Response
 from schemas.schemas import *
 from services.ai_scraper import *
 from core.database import *
@@ -8,6 +8,8 @@ from fastapi.encoders import jsonable_encoder # 🌟 幫忙把複雜物件轉成
 import json
 from core.redis import get_redis
 from worker.tasks import celery_app, scrape_and_save_destinations_task
+import httpx
+import base64
 
 
 router = APIRouter()
@@ -147,3 +149,63 @@ def get_popular_searches(cur = Depends(get_cur)):
         # 如果真的出錯，至少給幾個預設值墊檔
         fallback_data = ["東京", "上海", "巴黎", "沖繩", "紐約", "首爾"]
         return {"status": "success", "data": fallback_data}
+    
+
+# 專屬圖片代理路由：破解防盜鏈並提供獨立 Redis 快取 景點圖片改由後端處理
+@router.get("/api/image-proxy")
+async def image_proxy(url: str = Query(..., description="要代抓的第三方圖片網址")):
+    
+    redis_client = get_redis()
+
+    cache_key = f"image_cache:{url}"
+
+    # 找快取資料
+    try:
+        cached_data = redis_client.get(cache_key)
+        if cached_data:
+            # 命中快取，直接將 Bytes 轉成圖片格式回傳，通常假定為 jpeg，瀏覽器大部分都能聰明地自行解析
+            # 將 Base64 字串解碼還原成二進位圖片
+            image_bytes = base64.b64decode(cached_data)
+            return Response(content=image_bytes, media_type="image/jpeg")
+    except Exception as e:
+        print(f"⚠️ Redis 讀取失敗: {e}")
+    
+    # 快取未命中，去網址抓圖片
+    # 1. 偽造 Header 破解防盜鏈 (Anti-Hotlinking)
+    headers = {
+        # 偽裝成正常的 Google Chrome 瀏覽器
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        # 告訴對方伺服器：「我是從 Google 搜尋點進來的」
+        "Referer": "https://www.google.com/" 
+    }
+
+    # 2. 使用httpx 非同步下載
+    async with httpx.AsyncClient() as client:
+        try:
+            # follow_redirects=True 確保重新導向(302)會繼續往下走
+            resp = await client.get(url, headers=headers, follow_redirects=True, timeout=10.0)
+            resp.raise_for_status() # 只接受 200 如果對方回傳 403/404/500，直接拋出例外
+            
+            image_bytes = resp.content
+            # 嘗試抓取對方原始的 Content-Type，抓不到就預設 jpeg
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+
+            # ==========================================
+            # 抓取成功：寫入 Redis (設定 24 小時過期)
+            # ==========================================
+            try:
+                # 將圖片 Bytes 編碼成 Base64 字串，這樣 Redis 就不會報 utf-8 錯誤了
+                encoded_string = base64.b64encode(image_bytes).decode('utf-8')
+                redis_client.setex(cache_key, 86400, encoded_string)
+            except Exception as e:
+                print(f"⚠️ Redis 圖片寫入失敗: {e}")
+
+            return Response(content=image_bytes, media_type=content_type)
+            # content=image_bytes：這裡裝的確實是原始的二進位資料（Binary Data）。沒錯，如果單純把它印出來看，就是一堆電腦才看得懂的亂碼（例如 b'\xff\xd8\xff\xe0\x00\x10JFIF...'）。
+            # media_type=content_type：這是魔法發生的關鍵！ 這是在告訴接收方（前端瀏覽器）：「嘿！雖然我傳給你一堆二進位亂碼，但請你把它當作 image/jpeg（或是 png、gif）來解析喔！」
+
+        except Exception as e:
+            print(f"❌ 圖片代理抓取失敗 ({url}): {e}")
+            # 如果真的抓不到（對方圖床掛了或刪除了），回傳 404
+            # 這樣前端的 <img onError={...}> 就能捕捉到錯誤，並換成預設風景圖
+            raise HTTPException(status_code=404, detail="圖片下載失敗")

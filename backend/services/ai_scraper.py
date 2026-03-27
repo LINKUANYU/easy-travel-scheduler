@@ -321,6 +321,8 @@ def fetch_attraction_images(ai_gen_data):
     total_result = []
     attractions = [item.get('attraction')for item in ai_gen_data]
     
+    proxy_url = os.getenv("WEBSHARE_PROXY")
+
     for attraction in attractions:
         # 初始化結果字典
         attraction_data = {
@@ -333,13 +335,20 @@ def fetch_attraction_images(ai_gen_data):
         retry_delay = 1
 
         for i in range(max_retries):
+            # 判斷目前是第幾次嘗試，前兩次不掛，最後一次掛Proxy
+            current_proxy = None
+            if i > 1 and proxy_url:
+                print(f"   🔄 第 3 次嘗試：啟動 Webshare Proxy 備援...")
+                current_proxy = proxy_url
+            else:
+                print(f"   🌐 第 {i + 1} 次嘗試：使用原生 EC2 IP 直連...")
             
-            # 使用 context manager 自動處理連線
-            with DDGS() as ddgs:
-                # ---------------------------------------------------------
-                # 2. 搜尋圖片 (加入版權過濾)
-                # ---------------------------------------------------------
-                try:
+
+            try:
+                with DDGS(proxies=current_proxy) as ddgs:
+                    # ---------------------------------------------------------
+                    # 搜尋圖片 (加入版權過濾)
+                    # ---------------------------------------------------------
                     # 加入 license 參數
                     # license='Public' -> 公眾領域 (最安全，像 CC0)
                     # license='Share'  -> 允許分享 (通常需要標示出處)
@@ -349,7 +358,7 @@ def fetch_attraction_images(ai_gen_data):
                         attraction, 
                         max_results=3, 
                         safesearch='on',
-                        license='Public'  # <--- 關鍵修改在這裡！
+                        license='Public'
                     ))
                     if images_results:
                         for img in images_results:
@@ -361,19 +370,19 @@ def fetch_attraction_images(ai_gen_data):
                     else:
                         raise Exception("找不到圖片")
                         
-                except Exception as e:
-                    print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
-                    if i < max_retries - 1:
-                        # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
-                        sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
-                        time.sleep(sleep_time)
-                    else:
-                        print(f"❌ {attraction}圖片搜尋錯誤: {e}")
+            except Exception as e:
+                print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
+                if i < max_retries - 1:
+                    # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
+                    sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
+                    time.sleep(sleep_time)
+                else:
+                    print(f"❌ {attraction}圖片搜尋錯誤: {e}")
 
         total_result.append(attraction_data)
         
-        # 景點之間稍微停頓，避免被封鎖，之後有需要再開啟
-        time.sleep(0.5)
+        # 景點之間稍微停頓，避免被封鎖
+        time.sleep(1)
 
     return total_result
 

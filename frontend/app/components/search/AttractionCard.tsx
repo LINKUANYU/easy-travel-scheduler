@@ -15,58 +15,59 @@ type Props = {
 
 export default function AttractionCard({ item, index, inDraft, onToggleDraft, isScheduled }: Props){
   const images = item.images ?? []; // 確保 images 一定是陣列（沒有就用空陣列）
+
+  // 將原始網址轉換為 Proxy API 網址，並加上 encodeURIComponent 確保網址格式安全
   const urls = useMemo(
-    () => images.map((img) => img?.url).filter(Boolean) as string[], // 裡面先做.map()如果u存在就拿u.url建立新的陣列，然後再filter，最後告訴TS 這是一個字串陣列
+    () => images
+      .map((img) => img?.url)
+      .filter(Boolean)
+      .map((url) => `/api/image-proxy?url=${encodeURIComponent(url as string)}`), 
     [images]
-  ); // useMemo(..., [images]) 只有在[images]改變時才重新執行
+  );
   
   const total = urls.length;
-  const [imgIdx, setImgIdx] = useState(0); // 0 是 初始值（第一次 render 時，imgIdx 從 0 開始）
+  const [imgIdx, setImgIdx] = useState(0);
+
+  const [imgError, setImgError] = useState(false);
 
   const safeIdx = total > 0 ? ((imgIdx % total) + total) % total : 0; // 讓safeIdx 永遠在0~2，避免索引超出範圍
 
   const fallback = "/default-trip-cover.png"; // 拿圖失敗的畫面
-  const imageUrl = total > 0 ? urls[safeIdx] : fallback; // 改用 safeIdx 取圖
+  
+
+  // 決定最終要顯示哪張圖。如果 imgError 是 true，就強制顯示 fallback
+  const currentUrl = total > 0 ? urls[safeIdx] : fallback;
+  const finalImageUrl = imgError ? fallback : currentUrl;
 
   const hasCarousel = total > 1; // 只有超過 1 張才顯示左右按鈕
+  // 預載圖片 function 
+  const preloadNextImage = () => {
+    if (!hasCarousel || typeof window === "undefined") return;
 
-  // 圖片預載功能
-  useEffect(() => {  // useEffect 代表：React render 完成、DOM 更新後才會執行這段副作用程式碼。
-    if (typeof window === "undefined") return; // 如果目前不是在瀏覽器（而是在伺服器）就不要跑預載，避免 SSR 報錯。
-    if (!hasCarousel) return;
-
-    const preload = (u?:string) => { // u?:string 可選參數代表 u 只能是字串或是undefined 
-      if (!u) return; // 避免 url 是 undefined/null 時出錯。
-      const img = new Image(); // 瀏覽器原生 API：建立一個「看不見的圖片物件」。
-      img.decoding = "async"; // 只是告訴瀏覽器：圖片解碼盡量不要卡住主執行緒（有幫助但不是核心）。
-      img.src = u
-    };
-    // 一旦你指定 src，瀏覽器就會開始下載圖片。
-    // 下載完成後，圖片通常會進入瀏覽器的 HTTP cache。
-    // 之後你 <img src="同一個url">，就能直接用 cache 快速顯示。
-
-    // 算出前後張
-    const nextIdx = (safeIdx + 1) % total;
-    const prevIdx = (safeIdx - 1 + total) % total;
-    
-    // 執行預載
-    preload(urls[nextIdx]);
-    preload(urls[prevIdx]);
-
-  }, [safeIdx, total, hasCarousel, urls]) // dependencies 陣列：當這些值其中任何一個改變時，這段 effect 會再跑一次。
-  // 切換圖片時safeIdx 變動，跑一次預載
+    const preloadCount = 2
+    for (let i = 1; i <= preloadCount; i++){
+      const nextIdx = (safeIdx + i) % total;
+      const img = new Image();  // 創造出一個 <img /> 標籤物件
+      img.decoding = "async";  // 解析這張圖片的工作，請你用『非同步（async）』的方式在背景慢慢做就好。
+      img.src = urls[nextIdx]; // 偷偷呼叫 Proxy API，讓後端去抓圖並塞入 Redis
+    }
+  };
 
   // 切換圖片function
   const prev = () => {
     if (!hasCarousel) return;
     setImgIdx((i) => (i - 1 + total) % total); // () => 表達式 會自動回傳
+    setImgError(false); // 切換圖片時，重置破圖狀態，給新圖片一次機會
   };
+
   // i 代表「目前的 imgIdx 值」。
   // 因為你用的是 setImgIdx((i) => ...) 這種寫法，React 會把「更新前的 state」丟進來給你，這個參數我們通常命名成 i。
   // (i - 1 + total) % total ：先加１確保一定落在 0 ~ total-1
+
   const next = () => {
     if (!hasCarousel) return;
     setImgIdx((i) => (i + 1 + total) % total);
+    setImgError(false); // 切換圖片時，重置破圖狀態，給新圖片一次機會
   }
 
   return (
@@ -74,31 +75,38 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 1, delay: index * 0.5 }}
+      onMouseEnter={preloadNextImage}  // 滑鼠移入卡片範圍時，觸發預載
       className="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-300 flex flex-col h-full"
     >
-      <div className="relative">
+      <div className="relative bg-gray-100">
         <img
-          src={imageUrl}
+          src={finalImageUrl}
           alt={item.attraction}
           referrerPolicy="no-referrer"
+          loading="lazy"  // 原生延遲載入，螢幕滑到才請求圖片
+          onError={() => setImgError(true)}
           className="w-full h-60 object-cover"
         />
-        <button
-          type="button"
-          onClick={prev}
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
-          aria-label="上一張"
-          >
-          ‹
-        </button>
-        <button
-          type="button"
-          onClick={next}
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
-          aria-label="下一張"
-          >
-          ›
-        </button>
+        {hasCarousel && (
+          <>
+            <button
+              type="button"
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
+              aria-label="上一張"
+              >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
+              aria-label="下一張"
+              >
+              ›
+            </button>
+          </>
+        )}
       </div>
 
 
