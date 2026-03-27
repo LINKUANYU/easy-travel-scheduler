@@ -58,7 +58,7 @@ export function useRouteCalculator(
           mode: mode,
         }),
         enabled: isReady,
-        staleTime: 1000 * 60 * 60, // 1 小時內同路段免扣錢
+        staleTime: 1000 * 60 * 60 * 1, // 1 天內
         // 🌟 神來一筆：如果後端已經有資料，直接餵給快取，完全不用發出任何網路請求！
         initialData: hasServerData ? {
           durationMillis: from.duration_millis,

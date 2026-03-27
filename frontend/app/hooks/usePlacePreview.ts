@@ -18,8 +18,9 @@ export function usePlacePreview() {
     queryFn: () => fetchPlacePreview(activePlaceId!),
     // enabled 確保：只有當 activePlaceId 有值時，才真的發送請求
     enabled: !!activePlaceId,
-    // staleTime：1 小時內點擊同一個景點，直接從 sessionStorage 拿資料，一毛錢都不用花！
-    staleTime: 1000 * 60 * 60,
+    // staleTime：1 週內點擊同一個景點，直接從 sessionStorage 拿資料，一毛錢都不用花！
+    staleTime: 1000 * 60 * 60 * 24 * 7,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
   });
 
   // 3. 組合最終要給 UI 顯示的資料

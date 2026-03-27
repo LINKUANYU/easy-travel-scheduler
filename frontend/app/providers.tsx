@@ -1,8 +1,7 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 // QueryClient：這是 React Query 的核心，負責管理所有資料的「快取（Cache）」和「發送請求」
-// QueryClientProvider：這是一個容器（元件），負責把這個「大腦」的功能分享給全專案。
 
 import { useState } from "react";
 // 白話解釋：拿出一塊「記憶空間」。
@@ -71,8 +70,8 @@ const [client] = useState(() => new QueryClient({
       client={client}
       persistOptions={{ 
         persister,
-        // 設定快取的最大保存期限為 24 小時
-        maxAge: 1000 * 60 * 60 * 24, 
+        // 設定快取的最大保存期限為一週
+        maxAge: 1000 * 60 * 60 * 24 * 7,
       }}
     >
       {children}
