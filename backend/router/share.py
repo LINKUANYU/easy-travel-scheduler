@@ -35,16 +35,18 @@ async def enable_trip_sharing(trip_id: int, background_tasks: BackgroundTasks, c
             # 讓資料庫正式寫入 share_token，釋放 Row Lock。
             # 這樣前端馬上來 GET 才找得到東西，背景任務也能順利 UPDATE。
             conn.commit()
+
+            # 將抓封面圖的任務丟到背景排隊！
+            background_tasks.add_task(generate_trip_cover_task, trip_id)
         except Exception as e:
             print(f"Database error: {e}，分享 Token 寫入失敗")
             raise HTTPException(status_code=500, detail="資料庫寫入失敗")
         finally:
             cur.close()
 
-    # 3. 將抓封面圖的任務丟到背景排隊！
-    background_tasks.add_task(generate_trip_cover_task, trip_id)
 
-    # 4. 回傳 token 給前端
+
+    # 3. 回傳 token 給前端
     return {
         "message": "分享連結已獲取",
         "share_token": share_token
