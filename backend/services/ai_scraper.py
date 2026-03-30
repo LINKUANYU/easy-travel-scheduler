@@ -255,9 +255,10 @@ def master_scraper_workflow(location):
         1. 提取所有關於「{location}」的旅遊景點。
         2. **去重處理**：相同景點僅保留一個。
         3. **描述生成**：參考網頁中的介紹，為每個景點撰寫一段 40 字左右、生動且具吸引力的描述。
+        4. **實體過濾 (極度重要)**：只提取具有「專有名詞」的明確地標、島嶼、飯店或建築。絕對不要提取通用的水上活動、模糊地點或形容詞（例如：浮潛點、海龜天堂、看夕陽的沙灘、花火節）。
         
         # 請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
-        - "city": 景點所在的具體行政城市/縣名稱 (字串，請從網頁內容分析得出)
+        - "city": 景點所在的具體行政城市/縣名稱 (字串)
         - "attraction": 景點名稱 (字串)
         - "description": 景點描述 (字串)
         - "geo_tags": 從大到小的地理標籤字串，用逗號隔開 (例如：國家,州/省,城市)
@@ -317,9 +318,8 @@ def master_scraper_workflow(location):
 # ==========================================
 #  模組 5：圖片抓取與資料整合 
 # ==========================================
-def fetch_attraction_images(ai_gen_data):
+def fetch_attraction_images(spots, base_location):
     total_result = []
-    attractions = [item.get('attraction')for item in ai_gen_data]
     
     WEBSHARE_PROXIES = [
     "http://tivlorll:wpmx9pvx2qu6@31.59.20.176:6754",
@@ -329,10 +329,14 @@ def fetch_attraction_images(ai_gen_data):
     "http://tivlorll:wpmx9pvx2qu6@31.58.9.4:6077",
 ]
 
-    for attraction in attractions:
+    for item in spots:
+        # google_id 查到的官方名稱
+        official_name = item.get("attraction")
+        target = f"{base_location} {official_name}"
+        
         # 初始化結果字典
         attraction_data = {
-            "name": attraction,
+            "name": official_name,
             "images": [],
         }
 
@@ -341,16 +345,14 @@ def fetch_attraction_images(ai_gen_data):
         retry_delay = 1
 
         for i in range(max_retries):
-            # 判斷目前是第幾次嘗試，前兩次不掛，最後一次掛Proxy
+            # 判斷目前是第幾次嘗試，前三次不掛，後三次掛Proxy
             current_proxy = None
+            # 第三次開始掛Proxy
             if i > 2:
-                print(f"   🔄 第 {i + 1} 次嘗試：啟動 Webshare Proxy 備援...")
                 current_proxy = random.choice(WEBSHARE_PROXIES)
-            else:
-                print(f"   🌐 第 {i + 1} 次嘗試：使用原生 EC2 IP 直連...")
-            
 
             try:
+                print(f"搜尋名稱是：{target}")
                 with DDGS(proxy=current_proxy) as ddgs:
                     # ---------------------------------------------------------
                     # 搜尋圖片 (加入版權過濾)
@@ -361,7 +363,7 @@ def fetch_attraction_images(ai_gen_data):
                     # license='Modify' -> 允許修改
                     
                     images_results = list(ddgs.images(
-                        attraction, 
+                        target, 
                         max_results=3, 
                         safesearch='on',
                         license='Public'
@@ -377,13 +379,13 @@ def fetch_attraction_images(ai_gen_data):
                         raise Exception("找不到圖片")
                         
             except Exception as e:
-                print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({attraction}): {e}")
+                print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({target}): {e}")
                 if i < max_retries - 1:
                     # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
                     sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
                     time.sleep(sleep_time)
                 else:
-                    print(f"❌ {attraction}圖片搜尋錯誤: {e}")
+                    print(f"❌ {target}圖片搜尋錯誤: {e}")
 
         total_result.append(attraction_data)
         
@@ -392,14 +394,14 @@ def fetch_attraction_images(ai_gen_data):
 
     return total_result
 
-def integrate_spot_results(location, ai_gen_data, img_data):
+def integrate_spot_results(location, valid_spots, img_data):
     # 將 img_data 轉換成以名稱為 Key 的字典，方便查找
     # 格式：{'日清杯麵博物館': [{'url':...}, {...}], ...}
     img_dict = {item['name']: item['images'] for item in img_data}
 
     result = []
 
-    for item in ai_gen_data:
+    for item in valid_spots:
         attraction_name = item.get('attraction')
         images = img_dict.get(attraction_name, [])
         
@@ -410,7 +412,11 @@ def integrate_spot_results(location, ai_gen_data, img_data):
             'attraction': item.get('attraction'),
             'description': item.get('description'),
             'geo_tags': item.get('geo_tags'),
-            'images': images
+            'images': images,
+            'lat': item.get('lat'),
+            'lng': item.get('lng'),
+            'google_place_id': item.get('google_place_id'),
+            'address': item.get('address')
         }
         result.append(data)
 
@@ -428,9 +434,33 @@ def run_web_scraping_workflow(location):
     if not ai_gen_data:
         raise ValueError(f"無法獲取「{location}」的旅遊資料，請更換地點或稍後再試。")
     
-    img_data = fetch_attraction_images(ai_gen_data)
+    # 提早呼叫 Google API 進行資料清洗、正名與跨區驗證
+    valid_spots = []
+    print(f"\n🔍 開始進行 Google Places API 驗證與正名...")
+
+    for item in ai_gen_data:
+        original_name = item.get('attraction')
+
+        lat, lng, place_id, address, official_name = get_coordinates(original_name, base_location=location)
+
+        if place_id:
+            print(f"{original_name} -> 正名為 {official_name}")
+            item["attraction"] = official_name
+            item["lat"] = lat
+            item["lng"] = lng
+            item["address"] = address
+            item["google_place_id"] = place_id
+            valid_spots.append(item)
+        else:
+            print(f"捨棄無效或跨區地點 {original_name}")
     
-    result = integrate_spot_results(location, ai_gen_data, img_data)
+    if not valid_spots:
+        raise ValueError(f"「{location}」的景點經過 Google 驗證後皆無效，可能為過於空泛的詞彙，請換個地點再試。")
+
+    print(f"\n📸 開始為 {len(valid_spots)} 個有效景點抓取圖片...")
+    img_data = fetch_attraction_images(valid_spots, location)
+    
+    result = integrate_spot_results(location, valid_spots, img_data)
 
     return result
 

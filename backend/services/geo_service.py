@@ -8,10 +8,10 @@ from fastapi import HTTPException
 
 MAPS_API_KEY = os.getenv("MAPS_API_KEY")
 
-def get_coordinates(location_name):
+def get_coordinates(location_name, base_location=""):
     if not MAPS_API_KEY:
         print("❌ 錯誤：找不到 MAPS_API_KEY，請檢查你的 .env 檔案！")
-        return None, None, None, None
+        return None, None, None, None, None
     
 
     url = "https://places.googleapis.com/v1/places:searchText"
@@ -23,9 +23,12 @@ def get_coordinates(location_name):
         "X-Goog-FieldMask": "places.location,places.id,places.displayName,places.formattedAddress" 
     }
     
+    # 優化地點準確度：強制綁定大區域去搜尋 (例如："美國 時代廣場")
+    search_query = f"{base_location} {location_name}".strip()
+
     # 請求主體
     data = {
-        "textQuery": location_name,
+        "textQuery": search_query,
         "languageCode": "zh-TW"
     }
     try:
@@ -35,20 +38,23 @@ def get_coordinates(location_name):
             result = response.json()
             if "places" in result and len(result["places"]) > 0:
                 place = result["places"][0]
+                address = place.get("formattedAddress", "查無地址")
                 lat = place["location"]["latitude"]
                 lng = place["location"]["longitude"]
                 place_id = place["id"]
-                address = place.get("formattedAddress", "查無地址")
-                return lat, lng, place_id, address
+
+                official_name = place.get("displayName", {}).get("text", location_name)
+                
+                return lat, lng, place_id, address, official_name
             else:
                 print(f"⚠️ Google API 找不到景點：「{location_name}」")
         else:
-            # 🌟 關鍵修改：把 Google 的拒絕原因印出來！
+            # 把 Google 的拒絕原因印出來！
             print(f"❌ Google Places API 請求失敗 (狀態碼 {response.status_code}")
     except Exception as e:
         print(f"❌ 呼叫 Google Places API 時發生異常: {e}")
 
-    return None, None, None, None
+    return None, None, None, None, None
 
 
 # AddressComponent 結構：longText/shortText/types/languageCode :contentReference[oaicite:2]{index=2}
