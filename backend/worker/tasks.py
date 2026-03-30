@@ -40,25 +40,33 @@ def scrape_and_save_destinations_task(self, location: str):
     try:
         # 1. 執行最耗時的爬蟲
         new_search_data = run_web_scraping_workflow(location)
-        
-        # 2. 為了去重，先抓出資料庫目前已經有的 google_place_id
-        cur.execute("SELECT google_place_id FROM destinations WHERE city_name = %s", (location,))
-        existing_ids = {row['google_place_id'] for row in cur.fetchall() if row['google_place_id']}
-        
+        # 2. 提取這批新資料所有的 google_place_id
+        new_place_ids = [spot.get("google_place_id") for spot in new_search_data]
+
+        existing_ids = set()
+        if new_place_ids:
+            # 3. 用 WHERE IN 語法，精準找出資料庫已經存在的 ID
+            # 產生對應數量的 %s (例如 '%s, %s, %s')
+            format_strings = ','.join(['%s'] * len(new_place_ids))
+            query = f"SELECT google_place_id FROM destinations WHERE google_place_id IN ({format_strings})"
+            
+            cur.execute(query, tuple(new_place_ids))
+            # 將資料庫已存在的 ID 存進 Set 裡面，查詢速度最快 O(1)
+            existing_ids = {row['google_place_id'] for row in cur.fetchall()}
+            
+        # 4. 進行去重篩選
         final_new_data = []
         for spot in new_search_data:
-            attraction_name = spot.get('attraction')
-            lat, lng, place_id, address = get_coordinates(attraction_name)
+            place_id = spot.get('google_place_id')
             
+            # 如果這個 ID 存在，且不在資料庫已有的名單內
             if place_id and place_id not in existing_ids:
-                spot['lat'] = lat
-                spot['lng'] = lng
-                spot['google_place_id'] = place_id
-                spot["address"] = address
-                final_new_data.append(spot) 
+                final_new_data.append(spot)
+                # 🌟 重要：加進去後要立刻更新 existing_ids 集合！
+                # 這是為了防止這一次爬蟲結果「自己內部」就有重複的景點
                 existing_ids.add(place_id)
         
-        # 3. 寫入資料庫
+        # 5. 寫入資料庫
         if final_new_data:
             save_spot_data(final_new_data, cur)
             conn.commit()
