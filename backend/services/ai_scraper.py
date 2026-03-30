@@ -321,7 +321,13 @@ def fetch_attraction_images(ai_gen_data):
     total_result = []
     attractions = [item.get('attraction')for item in ai_gen_data]
     
-    proxy_url = os.getenv("WEBSHARE_PROXY")
+    WEBSHARE_PROXIES = [
+    "http://tivlorll:wpmx9pvx2qu6@31.59.20.176:6754",
+    "http://tivlorll:wpmx9pvx2qu6@23.95.150.145:6114",
+    "http://tivlorll:wpmx9pvx2qu6@198.23.239.134:6540",
+    "http://tivlorll:wpmx9pvx2qu6@142.111.67.146:5611",
+    "http://tivlorll:wpmx9pvx2qu6@31.58.9.4:6077",
+]
 
     for attraction in attractions:
         # 初始化結果字典
@@ -331,15 +337,15 @@ def fetch_attraction_images(ai_gen_data):
         }
 
         # 設定retry，避免抓圖失敗
-        max_retries = 3
+        max_retries = 6
         retry_delay = 1
 
         for i in range(max_retries):
             # 判斷目前是第幾次嘗試，前兩次不掛，最後一次掛Proxy
             current_proxy = None
-            if i > 1 and proxy_url:
-                print(f"   🔄 第 3 次嘗試：啟動 Webshare Proxy 備援...")
-                current_proxy = proxy_url
+            if i > 2:
+                print(f"   🔄 第 {i + 1} 次嘗試：啟動 Webshare Proxy 備援...")
+                current_proxy = random.choice(WEBSHARE_PROXIES)
             else:
                 print(f"   🌐 第 {i + 1} 次嘗試：使用原生 EC2 IP 直連...")
             
