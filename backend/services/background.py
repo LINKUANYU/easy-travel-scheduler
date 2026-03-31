@@ -59,20 +59,33 @@ def generate_trip_cover_task(trip_id: int):
 
 
 
+WEBSHARE_PROXIES = [
+    "http://tivlorll:wpmx9pvx2qu6@31.59.20.176:6754",
+    "http://tivlorll:wpmx9pvx2qu6@23.95.150.145:6114",
+    "http://tivlorll:wpmx9pvx2qu6@198.23.239.134:6540",
+    "http://tivlorll:wpmx9pvx2qu6@142.111.67.146:5611",
+    "http://tivlorll:wpmx9pvx2qu6@31.58.9.4:6077",
+]
+
 def fetch_city_image_from_ddg(target):
     total_result = []
     # 設定retry，避免抓圖失敗
-    max_retries = 3
+    max_retries = 6
     retry_delay = 1
 
     for i in range(max_retries):
-        
+        # 判斷目前是第幾次嘗試，前三次不掛，後三次掛Proxy
+        current_proxy = None
+        # 第三次開始掛Proxy
+        if i > 2:
+            current_proxy = random.choice(WEBSHARE_PROXIES)
+        try:
         # 使用 context manager 自動處理連線
-        with DDGS() as ddgs:
-            # ---------------------------------------------------------
-            # 2. 搜尋圖片 (加入版權過濾)
-            # ---------------------------------------------------------
-            try:
+            with DDGS(proxy=current_proxy) as ddgs:
+                # ---------------------------------------------------------
+                # 2. 搜尋圖片 (加入版權過濾)
+                # ---------------------------------------------------------
+                
                 # 加入 license 參數
                 # license='Public' -> 公眾領域 (最安全，像 CC0)
                 # license='Share'  -> 允許分享 (通常需要標示出處)
@@ -82,7 +95,7 @@ def fetch_city_image_from_ddg(target):
                     target, 
                     max_results=3, 
                     safesearch='on',
-                    license='Public'  # <--- 關鍵修改在這裡！
+                    license='Public'
                 ))
                 if images_results:
                     for img in images_results:
@@ -90,14 +103,14 @@ def fetch_city_image_from_ddg(target):
                     break # 找到圖片，換下一個景點
                 else:
                     raise Exception("找不到圖片")
-                    
-            except Exception as e:
-                print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({target}): {e}")
-                if i < max_retries - 1:
-                    # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
-                    sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 2)
-                    time.sleep(sleep_time)
-                else:
-                    print(f"❌ {target}圖片搜尋錯誤: {e}")
+                        
+        except Exception as e:
+            print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({target}): {e}")
+            if i < max_retries - 1:
+                # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
+                sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 2)
+                time.sleep(sleep_time)
+            else:
+                print(f"❌ {target}圖片搜尋錯誤: {e}")
     
     return total_result
