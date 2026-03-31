@@ -100,7 +100,7 @@ export default function TripMap({
 
       // 1) init map once，mapRef.current 一旦有值，就不會再 new Map。
       if (!mapRef.current) {
-        const defaultCenter ={ lat: 35.681236, lng: 139.767125 };
+        const defaultCenter ={ lat: 25.0330, lng: 121.5654 };
 
         // 召喚地圖物件
         const mapInstance = new Map(divRef.current!, {

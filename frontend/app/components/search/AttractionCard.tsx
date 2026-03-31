@@ -3,6 +3,8 @@
 import { motion } from "framer-motion";
 import type { Attraction } from "@/app/types/all-types";
 import { useState, useMemo, useEffect } from "react"; // 要在卡片內記住目前第幾張圖
+import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
+import { useQuery } from "@tanstack/react-query";
 
 type Props = {
   item: Attraction;
@@ -14,99 +16,45 @@ type Props = {
 
 
 export default function AttractionCard({ item, index, inDraft, onToggleDraft, isScheduled }: Props){
-  const images = item.images ?? []; // 確保 images 一定是陣列（沒有就用空陣列）
-
-  // 將原始網址轉換為 Proxy API 網址，並加上 encodeURIComponent 確保網址格式安全
-  const urls = useMemo(
-    () => images
-      .map((img) => img?.url)
-      .filter(Boolean)
-      .map((url) => `/api/image-proxy?url=${encodeURIComponent(url as string)}`), 
-    [images]
-  );
-  
-  const total = urls.length;
-  const [imgIdx, setImgIdx] = useState(0);
-
   const [imgError, setImgError] = useState(false);
-
-  const safeIdx = total > 0 ? ((imgIdx % total) + total) % total : 0; // 讓safeIdx 永遠在0~2，避免索引超出範圍
-
   const fallback = "/default-trip-cover.png"; // 拿圖失敗的畫面
-  
 
-  // 決定最終要顯示哪張圖。如果 imgError 是 true，就強制顯示 fallback
-  const currentUrl = total > 0 ? urls[safeIdx] : fallback;
+  // queryKey 設為 ["placeThumb", placeId]，這樣就能跟 Edit 頁面完美共用快取！
+  const { data: thumbData, isLoading } = useQuery({
+    queryKey: ["placeThumb", item.google_place_id],
+    queryFn: () => fetchPlaceThumb(item.google_place_id),
+    staleTime: 1000 * 60 * 60 * 24 * 7, // 快取一週
+    enabled: !!item.google_place_id,
+  });
+
+
+  // 決定最終圖片 URL：如果還在載入中或沒有圖片，就先用 fallback
+  const currentUrl = thumbData?.url || fallback;
   const finalImageUrl = imgError ? fallback : currentUrl;
-
-  const hasCarousel = total > 1; // 只有超過 1 張才顯示左右按鈕
-  // 預載圖片 function 
-  const preloadNextImage = () => {
-    if (!hasCarousel || typeof window === "undefined") return;
-
-    const preloadCount = 2
-    for (let i = 1; i <= preloadCount; i++){
-      const nextIdx = (safeIdx + i) % total;
-      const img = new Image();  // 創造出一個 <img /> 標籤物件
-      img.decoding = "async";  // 解析這張圖片的工作，請你用『非同步（async）』的方式在背景慢慢做就好。
-      img.src = urls[nextIdx]; // 偷偷呼叫 Proxy API，讓後端去抓圖並塞入 Redis
-    }
-  };
-
-  // 切換圖片function
-  const prev = () => {
-    if (!hasCarousel) return;
-    setImgIdx((i) => (i - 1 + total) % total); // () => 表達式 會自動回傳
-    setImgError(false); // 切換圖片時，重置破圖狀態，給新圖片一次機會
-  };
-
-  // i 代表「目前的 imgIdx 值」。
-  // 因為你用的是 setImgIdx((i) => ...) 這種寫法，React 會把「更新前的 state」丟進來給你，這個參數我們通常命名成 i。
-  // (i - 1 + total) % total ：先加１確保一定落在 0 ~ total-1
-
-  const next = () => {
-    if (!hasCarousel) return;
-    setImgIdx((i) => (i + 1 + total) % total);
-    setImgError(false); // 切換圖片時，重置破圖狀態，給新圖片一次機會
-  }
+  
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 1, delay: index * 0.5 }}
-      onMouseEnter={preloadNextImage}  // 滑鼠移入卡片範圍時，觸發預載
       className="bg-white rounded-xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-300 flex flex-col h-full"
     >
       <div className="relative bg-gray-100">
+        {/* 如果正在載入圖片，可以加一個簡單的骨架屏效果 (選用) */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+            <span className="text-gray-400 text-sm">載入圖片中...</span>
+          </div>
+        )}
         <img
           src={finalImageUrl}
           alt={item.attraction}
           referrerPolicy="no-referrer"
-          loading="lazy"  // 原生延遲載入，螢幕滑到才請求圖片
+          loading="lazy"
           onError={() => setImgError(true)}
-          className="w-full h-60 object-cover"
+          className={`w-full h-60 object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
         />
-        {hasCarousel && (
-          <>
-            <button
-              type="button"
-              onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
-              aria-label="上一張"
-              >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center"
-              aria-label="下一張"
-              >
-              ›
-            </button>
-          </>
-        )}
       </div>
 
 

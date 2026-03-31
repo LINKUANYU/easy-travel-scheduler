@@ -22,7 +22,6 @@ export type TripPlace = {
   google_place_id: string;
   lat?: number | null;
   lng?: number | null;
-  // 你後端如果有 photos/cover 也可加上來
 };
 
 export type ItineraryItem = {

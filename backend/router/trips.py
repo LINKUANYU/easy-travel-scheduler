@@ -99,7 +99,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
     if not exists:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    # 取景點池 + destination 基本資料 + 第一張圖片當 cover（可選）
+    # 取景點池 + destination 基本資料
     cur.execute(
         """
         SELECT
@@ -108,14 +108,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
           d.city_name,
           d.google_place_id,
           d.lat,
-          d.lng,
-          (
-            SELECT dp.photo_url
-            FROM destination_photos dp
-            WHERE dp.destination_id = d.id
-            ORDER BY dp.id ASC
-            LIMIT 1
-          ) AS cover_url
+          d.lng
         FROM trip_places tp
         JOIN destinations d ON d.id = tp.destination_id
         WHERE tp.trip_id = %s
@@ -196,14 +189,7 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
           d.city_name,
           d.google_place_id,
           d.lat,
-          d.lng,
-          (
-            SELECT dp.photo_url
-            FROM destination_photos dp
-            WHERE dp.destination_id = d.id
-            ORDER BY dp.id ASC
-            LIMIT 1
-          ) AS cover_url
+          d.lng
         FROM destinations d
         WHERE d.id=%s
         """,

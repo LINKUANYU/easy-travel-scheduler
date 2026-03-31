@@ -22,7 +22,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
   // 用來綁定橫向行程卡片區塊，以便透過按鈕控制左右滑動
   const topListRef = useRef<HTMLDivElement>(null);
-  const [isMapVisible, setIsMapVisible] = useState(true); // 用來控制地圖開關
+  const [isMapVisible, setIsMapVisible] = useState(false); // 用來控制地圖開關
 
   /** 畫面資料顯示邏輯 */
   
@@ -154,7 +154,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
     // 最外層容器：滿版高度，隱藏預設捲軸
     <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#f9fafb", width: "90%", margin: "0 auto", padding:"16px 0px", height: "100vh", overflow: "hidden" }}>
       
-      {/* 隱藏捲軸的 CSS (保留滑動功能) */}
+      {/* 隱藏捲軸與按鈕特效的 CSS */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
@@ -162,6 +162,42 @@ export default function ShareWorkspace({ token }: { token: string }) {
         .no-scrollbar {
           -ms-overflow-style: none;
           scrollbar-width: none;
+        }
+        
+        /* 跳一下、停一秒的特效 */
+        @keyframes jump-and-pause {
+          0% { 
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+          }
+          15% { 
+            transform: translateY(-6px); /* 跳到最高點 */
+            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.6);
+          }
+          30% { 
+            transform: translateY(0); /* 回到原點，完成一次跳動 */
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+          }
+          100% { 
+            /* 從 30% 到 100% 的時間都會停留在這裡，形成靜止狀態 */
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+          }
+        }
+        
+        .map-btn-pop {
+          /* 總時間設定為 2 秒 */
+          animation: jump-and-pause 2s infinite ease-in-out;
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+          color: white !important;
+          border: none !important;
+          transition: all 0.3s ease;
+        }
+        
+        .map-btn-pop:hover {
+          transform: scale(1.05) translateY(-2px);
+          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+          animation-play-state: paused; /* 游標放上去時停止跳動 */
         }
       `}</style>
       
@@ -204,9 +240,26 @@ export default function ShareWorkspace({ token }: { token: string }) {
             <div style={{ display: "flex", gap: "12px" }}>
               <Button 
                 onClick={() => setIsMapVisible(!isMapVisible)}
-                variant="secondary"
+                className="map-btn-pop" /* 👈 加入剛剛寫好的特效 class */
                 size="sm"
               >
+                {/* 加入一個簡單的 SVG 地圖 Icon */}
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  strokeWidth={2} 
+                  stroke="currentColor" 
+                  style={{ width: "16px", height: "16px", marginRight: "6px" }}
+                >
+                  {isMapVisible ? (
+                    // 收起地圖的 Icon (眼睛閉上或是地圖折疊)
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                  ) : (
+                    // 展開地圖的 Icon (地圖標記)
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                  )}
+                </svg>
                 {isMapVisible ? "收起地圖" : "展開地圖"}
               </Button>
 

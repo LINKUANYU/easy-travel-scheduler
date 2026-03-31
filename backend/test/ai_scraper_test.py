@@ -194,6 +194,13 @@ def run_jina_fallback(url, location, client, prompt_template):
     
     jina_url = f"https://r.jina.ai/{url}"
     
+#     headers = {
+#     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+#     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+#     "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+#     "X-Return-Format": "markdown" 
+# }
+    
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         # Jina 允許你加上這個 header 讓它回傳更乾淨的內容
@@ -254,17 +261,18 @@ def master_scraper_workflow(location):
         1. 提取所有關於「{location}」的旅遊景點。
         2. **去重處理**：相同景點僅保留一個。
         3. **描述生成**：參考網頁中的介紹，為每個景點撰寫一段 40 字左右、生動且具吸引力的描述。
+        4. **實體過濾 (極度重要)**：只提取具有「專有名詞」的明確地標、島嶼、建築。絕對不要提取通用的活動、模糊地點或形容詞（例如：浮潛點、海龜天堂、看夕陽的沙灘、花火節）。
         
         # 請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
-        - "city": 景點所在的具體行政城市/縣名稱 (字串，請從網頁內容分析得出)
+        - "city": 景點所在的州/省 (字串)
         - "attraction": 景點名稱 (字串)
         - "description": 景點描述 (字串)
         - "geo_tags": 從大到小的地理標籤字串，用逗號隔開 (例如：國家,州/省,城市)
 
         範例 (僅供格式參考，請根據實際搜尋內容調整)：
         [
-            {{"city": "具體城市A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,州/省,具體城市A"}},
-            {{"city": "具體城市B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,州/省,具體城市B"}}
+            {{"city": "州/省A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,州/省,具體城市A"}},
+            {{"city": "州/省B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,州/省,具體城市B"}}
         ]
 
         # 規則
@@ -291,20 +299,22 @@ def master_scraper_workflow(location):
         
         print("✅ [引擎 A] 成功取得資料！")
         print_out_data(location, result, "Gemini")
-        return result
+
     
     except Exception as e:
         print(f"⚠️ [引擎 A] 失敗 ({e})，準備切換備援引擎...")
 
-        try:
-            # 第二棒：Jina 救援
-            result = run_jina_fallback(url, location, client, prompt_template)
-            print("✅ [引擎 B] 成功取得資料！(備援發揮作用)")
-            print_out_data(location, result, "Jina")
-            return result
-        except Exception as fallback_e:
-            print(f"❌ [雙引擎皆失效]: {fallback_e}")
-            return []
+    try:
+        # 第二棒：Jina 救援
+        result = run_jina_fallback(url, location, client, prompt_template)
+        print("✅ [引擎 B] 成功取得資料！(備援發揮作用)")
+        print_out_data(location, result, "Jina")
+
+    except Exception as fallback_e:
+        print(f"❌ [雙引擎皆失效]: {fallback_e}")
+        return []
+    
+    return
 
 
 def print_out_data(location, data, method):
@@ -319,7 +329,7 @@ def print_out_data(location, data, method):
 
 
 
-location = "台中"
+location = "澳洲"
 
 data = master_scraper_workflow(location)
 
