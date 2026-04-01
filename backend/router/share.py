@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from core.database import get_cur,get_conn
 from schemas.share import *
 from fastapi import BackgroundTasks
-from services.background import generate_trip_cover_task
 
 router = APIRouter()
 
@@ -36,8 +35,6 @@ async def enable_trip_sharing(trip_id: int, background_tasks: BackgroundTasks, c
             # 這樣前端馬上來 GET 才找得到東西，背景任務也能順利 UPDATE。
             conn.commit()
 
-            # 將抓封面圖的任務丟到背景排隊！
-            background_tasks.add_task(generate_trip_cover_task, trip_id)
         except Exception as e:
             print(f"Database error: {e}，分享 Token 寫入失敗")
             raise HTTPException(status_code=500, detail="資料庫寫入失敗")

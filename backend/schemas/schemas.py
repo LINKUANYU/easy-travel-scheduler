@@ -43,6 +43,8 @@ class TripOut(BaseModel):
     days: int
     start_date: Optional[str] = None  # 先用 str，避免 datetime/序列化麻煩
     share_token: Optional[str] = None
+    cover_url: Optional[str] = None  # 保留未來擴充
+    first_place_id: Optional[str] = None
 
 class TripPlaceOut(BaseModel):
     destination_id: int

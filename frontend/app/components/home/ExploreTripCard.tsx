@@ -2,23 +2,37 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 
 export default function ExploreTripCard({ trip }: { trip: any }) {
-  // 1. 解析圖片 JSON (與 Dashboard 寫的邏輯一樣)
+  // 1. 嘗試解析舊有的/自訂的 cover_url(保留未來新增給上傳封面功能)
   const urls = useMemo<string[]>(() => {
     if (!trip.cover_url) return [];
     try {
       const parsed = JSON.parse(trip.cover_url);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
-      return [];
+      return [trip.cover_url];
     }
   }, [trip.cover_url]);
 
+  // 狀態管理：目前嘗試到第幾張圖片
   const [imgIndex, setImgIndex] = useState(0);
 
-  const currentImageSrc = imgIndex < urls.length 
+  // 透過 first_place_id 向 Google 拿圖片 (結合 Session Storage 快取)
+  const { data: thumb } = useQuery({
+    queryKey: ["placeThumb", trip.first_place_id],
+    queryFn: () => fetchPlaceThumb(trip.first_place_id),
+    enabled: !!trip.first_place_id, // 只有在有 place_id 的情況下才發出請求
+    staleTime: Infinity, // 照片不常變動，盡量不重抓
+  });
+
+  // 決定最終要顯示的圖片來源 (資料庫圖片庫 -> Google 圖 -> 預設圖)
+  const currentImageSrc = urls.length > 0 && imgIndex < urls.length
     ? urls[imgIndex] 
+    : thumb?.url 
+    ? thumb.url 
     : "/default-trip-cover.png";
 
   return (

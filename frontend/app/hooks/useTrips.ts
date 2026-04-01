@@ -9,6 +9,7 @@ export interface TripData {
   start_date: string | null;
   share_token?: string | null;
   cover_url?: string | null;
+  first_place_id?: string | null;
 }
 
 // 1. 撈取會員所有行程

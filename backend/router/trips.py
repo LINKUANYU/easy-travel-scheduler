@@ -259,7 +259,21 @@ def get_user_trips(
     cur = Depends(get_cur)
 ):
     cur.execute("""
-        SELECT id AS trip_id, title, days, start_date, share_token, cover_url
+        SELECT
+            id AS trip_id,
+            title,
+            days,
+            start_date,
+            share_token,
+            cover_url,
+            (
+                SELECT d.google_place_id 
+                FROM itinerary_items ii 
+                JOIN destinations d ON ii.destination_id = d.id 
+                WHERE ii.trip_id = trips.id 
+                ORDER BY ii.day_index ASC, ii.position ASC 
+                LIMIT 1
+            ) AS first_place_id
         FROM trips 
         WHERE user_id = %s 
         ORDER BY id DESC
@@ -302,7 +316,21 @@ def delete_trip(
 def get_explore_trips(cur = Depends(get_cur)):
     try:
         cur.execute("""
-            SELECT id AS trip_id, title, days, start_date, share_token, cover_url
+            SELECT
+                id AS trip_id,
+                title,
+                days,
+                start_date,
+                share_token,
+                cover_url,
+                (
+                    SELECT d.google_place_id 
+                    FROM itinerary_items ii 
+                    JOIN destinations d ON ii.destination_id = d.id 
+                    WHERE ii.trip_id = trips.id 
+                    ORDER BY ii.day_index ASC, ii.position ASC 
+                    LIMIT 1
+                ) AS first_place_id
             FROM trips 
             WHERE is_public = 1 
               AND share_token IS NOT NULL 
