@@ -34,6 +34,7 @@ export default function TripMap({
   activeDayRoute,
   onPlaceClick, // 用來向外傳遞使用者點擊的 placeId
   readonly,     // 如果是唯讀模式 (Share頁面)，隱藏「加入 Trip」按鈕
+  defaultCityName,
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
@@ -45,6 +46,7 @@ export default function TripMap({
   activeDayRoute?: { lat: number; lng: number }[];
   onPlaceClick?: (placeId: string) => void;
   readonly?: boolean;
+  defaultCityName?: string;
 }) {
   /** Ref特性：不觸發re-render、裡面東西不會消失
   Google Map / Marker 是「外部物件」，不應該放在 React state（state 變動會觸發 re-render，反而干擾）
@@ -100,11 +102,11 @@ export default function TripMap({
 
       // 1) init map once，mapRef.current 一旦有值，就不會再 new Map。
       if (!mapRef.current) {
-        const defaultCenter ={ lat: 25.0330, lng: 121.5654 };
+        const fallbackCenter ={ lat: 25.0330, lng: 121.5654 };
 
         // 召喚地圖物件
         const mapInstance = new Map(divRef.current!, {
-          center: defaultCenter,
+          center: fallbackCenter,
           zoom: 12, // 縮放層級
           mapId: "DEMO_MAP_ID", // Map 的外觀樣式
           streetViewControl: false,  // 關閉小黃人
@@ -115,6 +117,22 @@ export default function TripMap({
 
         mapRef.current = mapInstance;
         infoRef.current = new google.maps.InfoWindow();
+
+        // 👈 新增 Geocoder 邏輯：如果是空行程且有傳入城市名稱，就解析該城市座標
+        if (valid.length === 0 && defaultCityName) {
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ address: defaultCityName }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              mapInstance.setCenter(results[0].geometry.location);
+            } else {
+              // 防呆機制：如果找不到地點，或 API 發生錯誤
+              console.warn(`無法解析城市名稱 "${defaultCityName}"，錯誤狀態: ${status}。已退回預設座標。`);
+              // 明確地將地圖設回預設的台北座標 (確保萬無一失)
+              mapInstance.setCenter(fallbackCenter);
+              mapInstance.setZoom(12);
+            }
+          });
+        }
       }
 
       const map = mapRef.current!;

@@ -158,6 +158,10 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             }}
             onClearPreview={() => data.setPreview(null)}
             onPlaceClick={(placeId) => data.updatePreview(placeId)}
+            defaultCityName={
+              typeof window !== 'undefined' 
+              ? sessionStorage.getItem("lastSearchLocation") || tripQ?.data?.title 
+              : undefined}
           />
 
           
