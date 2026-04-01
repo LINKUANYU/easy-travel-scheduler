@@ -450,6 +450,7 @@ def run_web_scraping_workflow(location):
             item["lng"] = lng
             item["address"] = address
             item["google_place_id"] = place_id
+            item["input_region"] = location
             valid_spots.append(item)
         else:
             print(f"捨棄無效或跨區地點 {original_name}")

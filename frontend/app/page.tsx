@@ -31,7 +31,7 @@ export default function Home(){
   const [bgIndex, setBgIndex] = useState(0);
   const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
 
-  const { draft, clear, activeTripId, clearActiveTrip } = useTripDraft();
+  const { activeTripId } = useTripDraft();
 
 
   // ==========================================

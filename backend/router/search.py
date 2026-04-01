@@ -136,7 +136,7 @@ def get_popular_searches(cur = Depends(get_cur)):
         popular_regions = [r["input_region"] for r in rows]
 
         try:
-            redis_client.setex(cache_key, 86400, json.dumps(popular_regions))
+            redis_client.setex(cache_key, 3600, json.dumps(popular_regions))
         except Exception as e:
             print(f"⚠️ Redis 寫入失敗: {e}")
 
