@@ -124,34 +124,35 @@ function SearchContent() {
 
 
 return (
-    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-8 pb-2 bg-gray-50 min-h-screen">
+    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-4 md:pt-8 pb-2 bg-gray-50 min-h-screen">
       
       {/* 根據不同狀態切換中間的內容 */}
       {isLoading ? (
-        <div className="flex flex-1 w-full flex-col items-center justify-center">
-          <div className="h-10 w-10 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">正在為您探索「{location}」的全新景點</h2>
-          <p className="text-gray-500 text-lg">您搜尋地點還沒有最新資料，這可能需要幾分鐘的時間，您可以先離開此頁面，完成時我們會通知您！</p>
+        <div className="flex flex-1 w-full flex-col items-center justify-center px-6 text-center">
+          <div className="h-10 w-10 md:h-12 md:w-12 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-4" />
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 md:mb-3">
+            正在為您探索「{location}」的全新景點
+          </h2>
+          <p className="text-gray-500 text-base md:text-lg max-w-2xl">
+            您搜尋地點還沒有最新資料，這可能需要幾分鐘的時間，您可以先離開此頁面，完成時我們會通知您！
+          </p>
         </div>
       ) : error ? (
         <div className="flex flex-1 w-full flex-col items-center justify-center px-4">
-          <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md w-full text-center hover:shadow-md transition-shadow">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md w-full text-center hover:shadow-md transition-shadow">
             
-            {/* 驚嘆號圖示 (使用 Tailwind 繪製 SVG) */}
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-14 h-14 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 md:w-8 md:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
 
-            {/* 標題與錯誤訊息 */}
-            <h3 className="text-xl font-bold text-gray-800 mb-2">哎呀，找不到景點</h3>
-            <p className="text-gray-500 text-base mb-8">{error}</p>
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-2">哎呀，找不到景點</h3>
+            <p className="text-gray-500 text-sm md:text-base mb-6 md:mb-8">{error}</p>
 
-            {/* 現代化實體按鈕 */}
             <button 
               onClick={() => router.push("/")} 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-colors shadow-sm active:scale-95"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 md:py-3 px-6 rounded-xl transition-colors shadow-sm active:scale-95 text-sm md:text-base"
             >
               回首頁重新搜尋
             </button>

@@ -36,7 +36,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
     queryFn: () => apiGet<SharedTripDataOut>(`/api/share/${token}`),
   });
 
-  // 將後端的巢狀行程資料，轉換成 TripMap 需要的 places 和 scheduleSummary
+  // 將後端的行程資料，轉換成 TripMap 需要的 places 和 scheduleSummary
   const { places, scheduleSummary } = useMemo(() => {
     if (!data) return { places: [], scheduleSummary: [] };
     
@@ -152,7 +152,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
   return (
     // 最外層容器：滿版高度，隱藏預設捲軸
-    <div style={{ display: "flex", flexDirection: "column", backgroundColor: "#f9fafb", width: "90%", margin: "0 auto", padding:"16px 0px", height: "100vh", overflow: "hidden" }}>
+    <div className="flex flex-col bg-gray-50 w-full md:w-[98%] lg:w-[95%] xl:w-[90%] mx-auto py-4 h-[calc(100dvh-72px)] overflow-hidden box-border">
       
       {/* 隱藏捲軸與按鈕特效的 CSS */}
       <style>{`
@@ -202,12 +202,18 @@ export default function ShareWorkspace({ token }: { token: string }) {
       `}</style>
       
       {/* ========================================== */}
-      {/* 主內容區：右側 60% 行程卡片 + 左側 40% 地圖 */}
+      {/* 主內容區：左側 40% 地圖 + 右側 60% 行程卡片 */}
       {/* ========================================== */}
-      <div style={{ display: "flex", flex: 1, padding: "", gap: "24px", overflow: "hidden" }}>
+      <div className="flex flex-1 gap-6 overflow-hidden relative">
         
-        {/* 左側 40%：地圖區域 */}
-        <div style={{ width: "40%", display: isMapVisible ? "block" : "none", borderRadius: "16px", overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}>
+        {/* 左側地圖區域：不再使用 hidden，改用寬度與定位控制，讓Map 的fitBounds可以用 */}
+        <div className={`
+              ${isMapVisible 
+                ? "relative w-full min-[1200px]:w-[40%] opacity-100 z-10" // 地圖展開時：手機佔滿 100%，桌機佔 40%
+                : "absolute top-0 left-0 w-full h-full opacity-0 -z-10 pointer-events-none" // 地圖隱藏時：全尺寸藏在背後算 fitBounds，不佔據正常版面空間
+              } 
+              rounded-2xl border border-gray-200 shadow-md transition-opacity duration-300
+            `}>
           <TripMap
             places={places}
             scheduleSummary={scheduleSummary}
@@ -222,63 +228,84 @@ export default function ShareWorkspace({ token }: { token: string }) {
           />
         </div>
 
-        {/* 右側 60%：橫向行程列表容器 */}
-        <div style={{ width: isMapVisible ? "60%" : "100%", display: "flex", padding: "0px 10px", flexDirection: "column", gap: "16px", backgroundColor: "#f9fafb" }}>
+        {/* 2. 右側 60%：橫向行程列表容器 */}
+          <div className={`
+            ${isMapVisible 
+              ? "hidden min-[1200px]:flex min-[1200px]:w-[60%]" // 地圖展開時：手機版把行程隱藏，桌機版讓行程佔 60% 配合地圖
+              : "flex w-full" // 地圖收起時：手機與桌機的行程都佔滿 100% 畫面
+            } 
+            px-2.5 flex-col gap-1 min-[1200px]:gap-4 bg-gray-50
+          `}>
 
           {/* 頂部 Header (按鈕區塊) */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div className="flex items-center justify-between shrink-0">
             
             <div>
-              <p style={{ fontWeight: 800, fontSize: "28px", color: "#111" }}>
+              <p className="font-extrabold text-[28px] text-[#111]">
                 {trip.title}
-                <span style={{ marginLeft: "12px", fontSize: "16px", color: "#666", fontWeight: 500 }}>
+                <span className="ml-3 text-base text-[#666] font-medium">
                   {trip.days} Days {trip.start_date ? `- ${trip.start_date}` : ""}
                 </span>
               </p>
             </div>
             
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div className="hidden min-[1200px]:flex gap-3">
+              {/* 1. 地圖開關 */}
               <Button 
                 onClick={() => setIsMapVisible(!isMapVisible)}
-                className="map-btn-pop" /* 👈 加入剛剛寫好的特效 class */
-                size="sm"
+                className="map-btn-pop !rounded-full w-10 h-10 flex items-center justify-center !p-0"
+                size="md"
+                title={isMapVisible ? "收起地圖" : "展開地圖"}
               >
-                {/* 加入一個簡單的 SVG 地圖 Icon */}
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
                   fill="none" 
                   viewBox="0 0 24 24" 
-                  strokeWidth={2} 
+                  strokeWidth={2.5} 
                   stroke="currentColor" 
-                  style={{ width: "16px", height: "16px", marginRight: "6px" }}
+                  className="w-5 h-5"
                 >
                   {isMapVisible ? (
-                    // 收起地圖的 Icon (眼睛閉上或是地圖折疊)
+                    // 收起地圖的 Icon
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
                   ) : (
-                    // 展開地圖的 Icon (地圖標記)
+                    // 展開地圖的 Icon
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                   )}
                 </svg>
-                {isMapVisible ? "收起地圖" : "展開地圖"}
               </Button>
 
               {isOwner ? (
                 <>
+                  {/* 2. 回上一步 */}
                   <Button
                     onClick={() => router.push(`/edit/${trip.trip_id}`)}
                     variant="secondary"
-                    size="sm"
+                    size="md"
+                    className="!rounded-full w-10 h-10 flex items-center justify-center !p-0 text-gray-600 hover:text-gray-900"
+                    title="回上一步"
                   >
-                    回上一步
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                    </svg>
                   </Button>
+
+                  {/* 3. 保存行程 */}
                   <Button 
                     onClick={handleSaveTrip}
                     variant="secondary"
-                    size="sm"
+                    size="md"
+                    className="!rounded-full w-10 h-10 flex items-center justify-center !p-0 text-gray-600 hover:text-gray-900"
+                    title="保存行程"
                   >
-                    保存行程
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path 
+                        strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
+                      />
+                    </svg>
                   </Button>
+
+                  {/* 4. 分享連結 */}
                   <Button 
                     onClick={() => {
                       navigator.clipboard.writeText(window.location.href)
@@ -286,9 +313,13 @@ export default function ShareWorkspace({ token }: { token: string }) {
                         .catch(() => toast.error("複製失敗，請手動複製網址"));
                     }}
                     variant="primary"
-                    size="sm"
+                    size="md"
+                    className="!rounded-full w-10 h-10 flex items-center justify-center !p-0"
+                    title="分享連結"
                   >
-                    分享連結
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                    </svg>
                   </Button>
                 </>
               ) : (
@@ -297,18 +328,12 @@ export default function ShareWorkspace({ token }: { token: string }) {
             </div>
           </div>
           
-          <div style={{ position: "relative", display: "flex", flex: 1, minHeight: 0 }}>
-
-            {/* 左滑按鈕 */}
+          <div className="relative flex flex-1 min-h-0 px-2 min-[1200px]:px-6">
+            {/* 左滑按鈕 (僅桌機版顯示) */}
             <button 
-              onClick={() => scrollCards(-275)} 
-              style={{ 
-                position: "absolute", left: "-10px", zIndex: 10, width: "40px", height: "40px", 
-                top: "50%", transform: "translateY(-50%)",
-                borderRadius: "50%", border: "1px solid #d1d5db", backgroundColor: "#fff", 
-                cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", display: "flex", 
-                justifyContent: "center", alignItems: "center", color: "#4b5563"
-              }}>
+              onClick={() => scrollCards(-310)} 
+              className="hidden min-[1200px]:flex absolute left-0 z-50 w-10 h-10 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white cursor-pointer shadow-md justify-center items-center text-gray-600 hover:bg-gray-50 hover:shadow-lg transition-all"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
@@ -317,14 +342,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
             {/* 橫向且垂直捲動的卡片區塊 */}
             <div 
               ref={topListRef}
-              className="no-scrollbar"
-              style={{ 
-                display: "flex", gap: "20px", height: "100%", width: "100%", 
-                overflowX: "auto", boxSizing: "border-box", scrollBehavior: "smooth",
-                overflowY: "auto", 
-                alignItems: "flex-start",
-                paddingBottom: "40px", // 👈 新增：底部留點白，滑到底才不會太擠
-              }}
+              className="no-scrollbar flex gap-5 h-full w-full overflow-x-auto box-border scroll-smooth overflow-y-auto items-start pb-10"
             >
               {dayNums.map((dayNum) => (
                 <DayScheduleCard
@@ -336,18 +354,17 @@ export default function ShareWorkspace({ token }: { token: string }) {
                   getThumbUrl={getThumbUrl}
                 />
               ))}
+              {/* 巧思：在列表最後面加一個隱形的 spacer，確保最後一張卡片能完全滑出來，不被右側按鈕擋住 */}
+              <div className="shrink-0 w-2 min-[1200px]:w-6 h-full" /> 
             </div>
 
-            {/* 右滑按鈕 */}
+            
+
+            {/* 右滑按鈕 (僅桌機版顯示) */}
             <button 
-              onClick={() => scrollCards(275)}
-              style={{ 
-                position: "absolute", right: "-10px", zIndex: 10, width: "40px", height: "40px", 
-                borderRadius: "50%", border: "1px solid #d1d5db", backgroundColor: "#fff", 
-                cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", display: "flex", 
-                top: "50%", transform: "translateY(-50%)",
-                justifyContent: "center", alignItems: "center", color: "#4b5563"
-              }}>
+              onClick={() => scrollCards(310)}
+              className="hidden min-[1200px]:flex absolute right-0 z-50 w-10 h-10 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white cursor-pointer shadow-md justify-center items-center text-gray-600 hover:bg-gray-50 hover:shadow-lg transition-all"
+            >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
               </svg>
@@ -355,9 +372,72 @@ export default function ShareWorkspace({ token }: { token: string }) {
           </div>
         </div>
 
-
-
       </div>
+      {/* ========================================= */}
+      {/* 手機/平板專屬：右下角浮動操作按鈕 (FAB) 群組 */}
+      {/* 只有在小於 1200px 時才會顯示 */}
+      {/* ========================================= */}
+      <div className="fixed bottom-6 left-3 gap-2 md:bottom-6 md:left-4 md:gap-4 z-[100] flex flex-col min-[1200px]:hidden">
+        
+        {/* 1. 地圖開關 */}
+        <button
+          onClick={() => setIsMapVisible(!isMapVisible)}
+          className="map-btn-pop w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-90 transition-transform"
+          title={isMapVisible ? "收起地圖" : "展開地圖"}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+            {isMapVisible ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            )}
+          </svg>
+        </button>
+
+        {isOwner && (
+          <>
+            {/* 2. 回上一步 */}
+            <button
+              onClick={() => router.push(`/edit/${trip.trip_id}`)}
+              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
+              title="回上一步"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+
+            {/* 3. 保存行程 */}
+            <button
+              onClick={handleSaveTrip}
+              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
+              title="保存行程"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                <path 
+                  strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" 
+                />
+              </svg>
+            </button>
+
+            {/* 4. 分享連結 */}
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href)
+                  .then(() => toast.success("分享連結已複製！"))
+                  .catch(() => toast.error("複製失敗，請手動複製網址"));
+              }}
+              className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-blue-600 text-white rounded-full shadow-[0_4px_12px_rgba(0,100,255,0.3)] active:scale-90 transition-transform"
+              title="分享連結"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+              </svg>
+            </button>
+          </>
+        )}
+      </div>
+
     </div>
   );
 }

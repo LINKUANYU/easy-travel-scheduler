@@ -242,13 +242,13 @@ export default function TripMap({
               padding:8px 12px; border-radius:10px; border:1px solid #eee;
               background:#f5f5f5; color:#999; font-weight:700; cursor:not-allowed;
             ">
-              ✓ 已在行程中
+              已在行程中
             </button>`
           : `<button id="${addId}" style="
               padding:8px 12px; border-radius:10px; border:1px solid #ddd;
               background:white; font-weight:700; cursor:pointer;
             ">
-              加入景點列表
+              加入景點
             </button>`);
 
         // 評價 HTML
@@ -275,6 +275,8 @@ export default function TripMap({
               ${escapeHtml(preview!.name ?? preview!.id)}
             </div>
             
+            ${photosHtml ? `<div style="margin-bottom:12px;">${photosHtml}</div>` : ""}
+
             ${ratingHtml} ${
               preview!.address
                 ? `<div style="font-size:14px;opacity:.8;margin-bottom:8px">${escapeHtml(
@@ -283,18 +285,10 @@ export default function TripMap({
                 : ""
             }
 
-            ${hoursHtml} ${photosHtml ? `<div style="margin-bottom:12px">${photosHtml}</div>` : ""}
+            ${hoursHtml} 
 
             <div style="display:flex;gap:8px;align-items:center">
               ${addBtnHtml}
-
-              <button id="${clearId}" style="
-                padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:white;
-                cursor:pointer;
-              ">
-                清除預覽
-              </button>
-
               ${
                 preview!.googleMapsURI
                   ? `<a href="${escapeHtml(preview!.googleMapsURI)}" target="_blank" rel="noreferrer" style="font-size:14px">開啟 Google Maps</a>`

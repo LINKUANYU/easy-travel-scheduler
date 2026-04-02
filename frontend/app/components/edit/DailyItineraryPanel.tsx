@@ -98,28 +98,25 @@ export default function DailyItineraryPanel({
   const themeColor = DAY_COLORS[(activeDay - 1) % DAY_COLORS.length];
 
   return (
-    <div style={{ border: `2px solid ${themeColor}`, transition: "border 0.3s ease", borderRadius: 12, padding: "0px 0px", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: "white" }}>
+    <div 
+      className="transition-colors duration-300 ease-in-out rounded-xl p-0 flex flex-col h-full min-h-0 bg-white"
+      style={{ border: `2px solid ${themeColor}` }}
+    >
       {/* 頂部：天數切換 */}
-      <div style={{ flexShrink: 0, paddingBottom: "10px" }}>
-        <div style={{ 
-          height: "44px", 
-          display: "flex", 
-          justifyContent: "center", 
-          alignItems: "center",
-          backgroundColor: themeColor,
-          color: "#fff",
-          borderRadius: "10px 10px 0px 00px",
-          padding: "0 16px",
-          transition: "background-color 0.3s ease"
-        }}>
+      <div className="shrink-0 pb-[10px]">
+        <div 
+          className="h-[44px] flex justify-center items-center text-white rounded-t-[10px] px-4 transition-colors duration-300 ease-in-out"
+          style={{ backgroundColor: themeColor }}
+        >
           <button 
             onClick={onPrevDay} 
             disabled={activeDay === 1} 
-            style={{ border: "none", background: "transparent", color: "#fff", cursor: activeDay === 1 ? "default" : "pointer", opacity: activeDay === 1 ? 0.3 : 1, fontSize: "18px", marginRight: "10px"}}>
+            className="border-none bg-transparent text-white text-lg mr-2.5 cursor-pointer disabled:cursor-default disabled:opacity-30 transition-opacity"
+          >
             ◀
           </button>
           
-          <div style={{ fontWeight: 800, fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <div className="font-extrabold text-base flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: "20px", height: "20px" }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
             </svg>
@@ -129,14 +126,15 @@ export default function DailyItineraryPanel({
           <button 
             onClick={onNextDay} 
             disabled={activeDay === days} 
-            style={{ border: "none", background: "transparent", color: "#fff", cursor: activeDay === days ? "default" : "pointer", opacity: activeDay === days ? 0.3 : 1, fontSize: "18px", marginLeft: "10px" }}>
+            className="border-none bg-transparent text-white text-lg ml-2.5 cursor-pointer disabled:cursor-default disabled:opacity-30 transition-opacity"
+          >
             ▶
           </button>
         </div>
       </div>
 
       {/* 滾動內容區 */}
-      <div className="custom-scrollbar" style={{ overflowY: "auto", flexGrow: 1, paddingRight: 4 }}>
+      <div className="custom-scrollbar overflow-y-auto grow pr-1">
         {isLoading ? (
           <p>Loading itinerary…</p>
         ) : error ? (
@@ -146,20 +144,12 @@ export default function DailyItineraryPanel({
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={dayItems.map((it) => it.item_id)} strategy={verticalListSortingStrategy}>
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ position: "relative", display: "flex", flexDirection: "column", padding: "16px" }}>
+              <div className="grid gap-2.5">
+                <div className="relative flex flex-col pl-1 md:p-4">
                 
                   {/* 1. 背景時間軸垂直線 */}
                   {dayItems.length > 0 && (
-                    <div style={{
-                      position: "absolute",
-                      left: "27px", // 對齊左側 24px 圖示的中心 (16px padding + 12px - 1px)
-                      top: "20px",
-                      bottom: "30px",
-                      width: "2px",
-                      backgroundColor: "#e5e7eb",
-                      zIndex: 0
-                    }} />
+                    <div className="absolute left-[15px] md:left-[27px] top-[20px] bottom-[30px] w-[2px] bg-gray-200 z-0" />
                   )}
 
                   {dayItems.map((it, idx) => {
@@ -177,44 +167,40 @@ export default function DailyItineraryPanel({
 
                             return (
                               // 外層改為 Flex，讓數字在左，卡片在右
-                              <div style={{ display: "flex", gap: "16px", position: "relative", zIndex: 100 - idx, paddingBottom: "16px" }}>
+                              <div 
+                                className="flex gap-1 md:gap-4 relative pb-4"
+                                style={{ zIndex: 100 - idx }}
+                              >
                                 
                                 {/* 2. 左側時間軸圓形數字 */}
-                                <div style={{ flexShrink: 0, width: "24px", height: "24px", borderRadius: "50%", backgroundColor: themeColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "bold", }}>
+                                <div 
+                                  className="shrink-0 w-6 h-6 rounded-full text-white flex items-center justify-center text-sm font-bold"
+                                  style={{ backgroundColor: themeColor }}
+                                >
                                   {idx + 1}
                                 </div>
 
                                 {/* 3. 右側：原本的卡片本體 */}
-                                <div
-                                  style={{
-                                    flex: 1, // 填滿右側空間
-                                    border: "1px solid #eee",
-                                    borderRadius: 12,
-                                    padding: 10,
-                                    display: "grid",
-                                    gridTemplateColumns: "80px minmax(0, 1fr) 28px",
-                                    gap: 12,
-                                    alignItems: "center",
-                                    background: "white",
-                                    boxShadow: "0 2px 4px -1px rgba(0,0,0,0.05)",
-                                  }}
-                                >
+                                <div className="flex-1 border border-[#eee] rounded-xl p-2.5 grid grid-cols-[80px_minmax(0,1fr)_28px] gap-3 items-center bg-white shadow-sm">
                                   {/* --- 圖片區塊 --- */}
-                                  <div style={{ width: "80px", height: "80px", borderRadius: "8px", backgroundColor: "#e5e7eb", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+                                  <div className="w-[80px] h-[80px] rounded-lg bg-gray-200 shrink-0 overflow-hidden relative">
                                     {thumbUrl ? (
-                                      <img src={thumbUrl} alt={it.place_name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                      <img src={thumbUrl} alt={it.place_name} className="w-full h-full object-cover" />
                                     ) : (
-                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "14px", color: "#9ca3af" }}>載入中</div>
+                                      <div className="flex items-center justify-center h-full text-sm text-gray-400">載入中</div>
                                     )}
                                   </div>
 
                                   {/* 中：名稱 + 時間 */}
-                                  <div style={{ minWidth: 0, padding: "4px 0px" }}>
-                                    <div style={{ fontWeight: 700, fontSize: "1.1rem", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer" }} onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}>
+                                  <div className="min-w-0 py-1">
+                                    <div 
+                                      className="font-bold text-[1.1rem] leading-tight overflow-hidden text-ellipsis cursor-pointer" 
+                                      onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}
+                                    >
                                       {it.place_name ?? `#${it.destination_id}`}
                                     </div>
-                                    <div style={{ marginTop: 8, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                      <span style={{ color: "#8b8c8d", fontWeight: "bold" }}>抵達時間：</span>
+                                    <div className="mt-2 text-[13px] text-[#555] flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[#8b8c8d] font-bold">抵達時間：</span>
                                       <TimePopover
                                         label=""
                                         value={arrivalValue}
@@ -223,8 +209,8 @@ export default function DailyItineraryPanel({
                                         compact
                                       />
                                     </div>
-                                    <div style={{ marginTop: 6, fontSize: 13, color: "#555", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                      <span style={{ color: "#8b8c8d", fontWeight: "bold" }}>離開時間：</span>
+                                    <div className="mt-1.5 text-[13px] text-[#555] flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[#8b8c8d] font-bold">離開時間：</span>
                                       <TimePopover
                                         label=""
                                         value={departureValue}
@@ -236,7 +222,7 @@ export default function DailyItineraryPanel({
                                   </div>
 
                                   {/* 右：X + ⠿  */}
-                                  <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}>
+                                  <div className="h-full flex flex-col justify-between items-center">
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); onRemoveItem(activeDay, it.item_id); }}
@@ -249,7 +235,7 @@ export default function DailyItineraryPanel({
                                       {...dragAttributes}
                                       {...dragListeners}
                                       onClick={(e) => e.stopPropagation()}
-                                      style={{ cursor: "grab", color: "#000", fontSize: 24, lineHeight: 1, userSelect: "none", padding: 5, border: "1px solid #ddd", borderRadius: 10 }}
+                                      className="cursor-grab text-black text-2xl leading-none select-none p-1 border border-[#ddd] rounded-[10px]"
                                       title="拖拉排序"
                                     >
                                       ⠿
@@ -263,29 +249,29 @@ export default function DailyItineraryPanel({
 
                         {/* 4. 路段交通資訊 (Leg) - 同步修改為左圖標右框的設計 */}
                         {next && legKey && (
-                          <div style={{ display: "flex", gap: "16px", paddingBottom: "16px", position: "relative", zIndex: 1 }}>
+                          <div className="flex gap-4 pb-4 relative z-10">
                             
                             {/* 交通方式小圖示 (壓在線上) */}
-                            <div style={{ flexShrink: 0, width: "24px", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                              <div style={{ backgroundColor: "#fff", padding: "4px 0", fontSize: "16px" }}>
+                            <div className="shrink-0 w-6 flex justify-center items-center">
+                              <div className="bg-white py-1 text-base">
                                 {currentDayLegModeMap[legKey] === "DRIVING" ? "🚘" : currentDayLegModeMap[legKey] === "WALKING" ? "👟" : currentDayLegModeMap[legKey] === "TRANSIT" ? "🚌" : ""}
                               </div>
                             </div>
                             
                             {/* 交通時間輸入框 */}
-                            <div style={{ flex: 1, borderRadius: 10, padding: "8px 12px", background: "#f9fafb", border: "1px dashed #d1d5db", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", width: "max-content", alignSelf: "flex-start" }}>
-                              <span style={{ fontSize: 13, opacity: 0.75 }}>交通</span>
+                            <div className="flex-1 rounded-[10px] py-2 px-3 bg-gray-50 border border-dashed border-gray-300 flex gap-2 items-center flex-wrap w-max self-start">
+                              <span className="text-[13px] opacity-75">交通</span>
                               <select
                                 value={currentDayLegModeMap[legKey] ?? ""}
                                 onChange={(e) => onUpdateLegMode(legKey, e.target.value as TravelMode)}
-                                style={{ padding: "4px 8px", borderRadius: 8, border: "1px solid #ddd", background: "white", fontSize: "13px" }}
+                                className="py-1 px-2 rounded-lg border border-[#ddd] bg-white text-[13px]"
                               >
-                                <option style={{textAlign: "center"}} value="">-- : --</option>
-                                <option style={{textAlign: "center"}} value="DRIVING">開車</option>
-                                <option style={{textAlign: "center"}} value="WALKING">步行</option>
-                                <option style={{textAlign: "center"}} value="TRANSIT">大眾運輸</option>
+                                <option className="text-center" value="">-- : --</option>
+                                <option className="text-center" value="DRIVING">開車</option>
+                                <option className="text-center" value="WALKING">步行</option>
+                                <option className="text-center" value="TRANSIT">大眾運輸</option>
                               </select>
-                              <span style={{ fontSize: 13, opacity: 0.85, fontWeight: "bold", color: "#4b5563" }}>
+                              <span className="text-[13px] opacity-85 font-bold text-gray-600">
                                 {!currentDayLegModeMap[legKey] 
                                   ? "-- : --"
                                   : leg?.loading 

@@ -109,7 +109,7 @@ export default function Home(){
       <div className="relative z-10 w-full flex flex-col items-center">
         
         {/* Hero 區塊：搜尋框 */}
-        <section className="w-full max-w-5xl px-6 pt-24 pb-32 flex flex-col items-center">
+        <section className="w-full max-w-5xl px-6 pt-24 pb-24 flex flex-col items-center">
           <div className="w-full max-w-3xl">
             <SearchPanel
               destination={destinationInput}

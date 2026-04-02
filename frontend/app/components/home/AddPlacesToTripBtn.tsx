@@ -72,7 +72,7 @@ export default function AddPlacesToTripBtn(){
   if (!activeTripId) return null;
   
   return (
-    <div className="fixed bottom-10 right-8 z-50 flex items-center gap-4">
+    <div className="fixed bottom-6 right-4 md:bottom-10 md:right-8 z-50 flex flex-col md:flex-row items-end md:items-center gap-4 md:gap-4 origin-bottom-right scale-[0.8] sm:scale-90 md:scale-100 transition-transform duration-300">
       {/* 放棄目前行程，開新行程的小按鈕 */}
       <Button
         onClick={() => {
@@ -83,9 +83,9 @@ export default function AddPlacesToTripBtn(){
           }
         }}
         variant="danger"
-        size="md"
+        size="lg"
       >
-        ✕ 捨棄目前行程
+        ✕ 捨棄行程
       </Button>
 
       {/* 核心動作按鈕群組 (設定 relative 讓小 X 可以絕對定位) */}
@@ -120,10 +120,10 @@ export default function AddPlacesToTripBtn(){
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-indigo-600 text-sm">
                 {draftCount}
               </div>
-              <span>追加景點至目前行程 ➔</span>
+              <span>加入行程</span>
             </>
           ) : (
-            "返回目前行程 ➔"
+            "返回行程 ➔"
           )}
         </Button>
       </div>

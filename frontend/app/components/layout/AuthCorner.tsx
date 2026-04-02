@@ -3,12 +3,14 @@
 
 import { useAuth } from "@/app/context/AuthContext";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiPost, apiPatch } from "@/app/lib/api";
 import { readTripIndex, clearTripIndex } from "@/app/lib/tripIndex";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
 import Button from "../ui/Button";
+import { motion, AnimatePresence } from "framer-motion"; // 引入動畫元件
+import { createPortal } from "react-dom";
 
 
 export default function AuthCorner() {
@@ -23,6 +25,7 @@ export default function AuthCorner() {
     logout 
   } = useAuth();
 
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // 控制手機版選單開關
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -102,56 +105,99 @@ export default function AuthCorner() {
   // --- 防止閃爍：載入中不顯示任何按鈕 ---
   if (isLoading) return <div className="w-20 h-8"></div>;
 
-  // --- 已登入狀態 UI ---
-  if (user) {
-    return (
-      <div className="flex items-center justify-end gap-4">
-        <span className="text-sm font-medium text-gray-600">
-          哈囉，{user.name}
-        </span>
-        <div className="flex justify-end gap-3">
-          <Link href="/dashboard">
-            <Button variant="primary" size="md">
-              我的行程
-            </Button>
-          </Link>
-          <Button 
-            onClick={handleFullLogout}
-            variant="secondary"
-            size="md"
-          >
-            登出
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
-  // --- 未登入狀態 UI (包含 Modal) ---
   return (
-    <>
-      <div className="flex justify-end gap-3">
-        <Button 
-          onClick={() => openAuthModal("login")}
-          variant="secondary"
-        >
-          登入
-        </Button>
-        <Button 
-          onClick={() => openAuthModal("register")} 
-          variant="primary"
-        >
-          註冊
-        </Button>
+    <div className="relative">
+      {/* --- 1. 桌機版 UI (md 以上顯示) --- */}
+      <div className="hidden min-[1100px]:flex items-center gap-4">
+        {user ? (
+          <>
+            <span className="text-sm font-medium text-gray-600">哈囉，{user.name}</span>
+            <Link href="/dashboard">
+              <Button variant="primary" size="md">我的行程</Button>
+            </Link>
+            <Button onClick={handleFullLogout} variant="secondary" size="md">登出</Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={() => openAuthModal("login")} variant="secondary">登入</Button>
+            <Button onClick={() => openAuthModal("register")} variant="primary">註冊</Button>
+          </>
+        )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
-            <h2 className="text-2xl font-black text-gray-900 mb-6 text-center">
-              {authMode === "login" ? "歡迎回來" : "建立新帳號"}
-            </h2>
+      {/* --- 2. 手機版漢堡按鈕 (md 以下顯示) --- */}
+      <div className="flex min-[1100px]:hidden items-center">
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="p-2 text-2xl text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          {isMenuOpen ? "✕" : "☰"}
+        </button>
+      </div>
 
+      {/* --- 3. 手機版下拉直列清單 --- */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute top-full right-0 mt-3 w-36 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-[110] flex flex-col gap-4"
+          >
+            {user ? (
+              <>
+                <Link 
+                  href="/dashboard" 
+                  className="text-gray-600 hover:text-blue-600 font-medium px-2 text-center"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  我的行程
+                </Link>
+                <button 
+                  onClick={() => { handleFullLogout(); setIsMenuOpen(false); }}
+                  className="text-red-500 font-medium px-2 text-center"
+                >
+                  登出
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => { openAuthModal("login"); setIsMenuOpen(false); }}
+                  className="text-gray-600 hover:text-blue-600 font-medium px-2 text-center"
+                >
+                  登入
+                </button>
+                <button 
+                  onClick={() => { openAuthModal("register"); setIsMenuOpen(false); }}
+                  className="text-gray-600 hover:text-blue-600 font-medium px-2 text-center"
+                >
+                  註冊
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 判斷：只有在瀏覽器端 (document 存在) 且 Modal 開啟時，才使用 createPortal 渲染到 body */}
+      {isModalOpen && typeof document !== "undefined" && createPortal(
+      // 1. 在最外層背景加上 onClick 觸發關閉
+      // 如果正在處理登入中 (isSubmitting)，可以判斷是否允許點擊關閉
+      <div 
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        onClick={isSubmitting ? undefined : closeAuthModal} 
+      >
+        {/* 2. 在中間的白色卡片加上 e.stopPropagation() */}
+        {/* 這樣點擊卡片內部（輸入框、按鈕）時，點擊事件就不會傳遞到外層的背景圖層 */}
+        <div 
+          className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl mx-4"
+          onClick={(e) => e.stopPropagation()} 
+        >
+          <h2 className="text-2xl font-black text-gray-900 mb-6 text-center">
+            {authMode === "login" ? "歡迎回來" : "建立新帳號"}
+          </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* 錯誤訊息提示區 */}
               {errorMsg && (
@@ -233,8 +279,9 @@ export default function AuthCorner() {
               ✕
             </button>
           </div>
-        </div>
+        </div>,
+        document.body // 這是 createPortal 的第二個參數，指定要掛載到哪個 DOM 節點
       )}
-    </>
+    </div>
   );
 }

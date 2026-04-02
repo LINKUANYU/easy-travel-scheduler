@@ -85,7 +85,7 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
             onClick={isScheduled ? undefined : onToggleDraft} // 已在行程中則不綁定點擊事件
             disabled={isScheduled} // 停用按鈕
           >
-            {isScheduled ? "已在行程中" : inDraft ? "已加入" : "加入本次規劃"}
+            {isScheduled ? "已在行程中" : inDraft ? "已加入" : "加入＋"}
           </button>
         </div>
       </div>
