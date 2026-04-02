@@ -277,7 +277,7 @@ export default function DailyItineraryPanel({
                                   : leg?.loading 
                                   ? "計算中…" 
                                   : leg?.error 
-                                  ? `失敗` 
+                                  ? `查無路線` 
                                   : `${formatDuration(leg?.durationMillis)} · ${formatDistance(leg?.distanceMeters)}`}
                               </span>
                             </div>
