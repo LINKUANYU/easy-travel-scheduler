@@ -255,7 +255,7 @@ def master_scraper_workflow(location):
         1. 提取所有關於「{location}」的旅遊景點。
         2. **去重處理**：相同景點僅保留一個。
         3. **描述生成**：參考網頁中的介紹，為每個景點撰寫一段 40 字左右、生動且具吸引力的描述。
-        4. **實體過濾 (極度重要)**：只提取具有「專有名詞」的明確地標、島嶼、飯店或建築。絕對不要提取通用的水上活動、模糊地點或形容詞（例如：浮潛點、海龜天堂、看夕陽的沙灘、花火節）。
+        4. **實體過濾 (極度重要)**：只提取具有「專有名詞」的明確地標、島嶼、建築。絕對不要提取通用的活動、模糊地點或形容詞（例如：浮潛點、海龜天堂、看夕陽的沙灘、花火節）。
         
         # 請回傳一個 JSON 格式的列表，每個元素包含以下欄位：
         - "city": 景點所在的具體行政城市/縣名稱 (字串)
@@ -265,8 +265,8 @@ def master_scraper_workflow(location):
 
         範例 (僅供格式參考，請根據實際搜尋內容調整)：
         [
-            {{"city": "具體城市A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,州/省,具體城市A"}},
-            {{"city": "具體城市B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,州/省,具體城市B"}}
+            {{"city": "州/省A", "attraction": "景點 A", "description": "描述 A...", "geo_tags": "國家,州/省,具體城市A"}},
+            {{"city": "州/省B", "attraction": "景點 B", "description": "描述 B...", "geo_tags": "國家,州/省,具體城市B"}}
         ]
 
         # 規則
@@ -450,17 +450,13 @@ def run_web_scraping_workflow(location):
             item["lng"] = lng
             item["address"] = address
             item["google_place_id"] = place_id
+            item["input_region"] = location
             valid_spots.append(item)
         else:
             print(f"捨棄無效或跨區地點 {original_name}")
     
     if not valid_spots:
         raise ValueError(f"「{location}」的景點經過 Google 驗證後皆無效，可能為過於空泛的詞彙，請換個地點再試。")
-
-    print(f"\n📸 開始為 {len(valid_spots)} 個有效景點抓取圖片...")
-    img_data = fetch_attraction_images(valid_spots, location)
     
-    result = integrate_spot_results(location, valid_spots, img_data)
-
-    return result
+    return valid_spots
 

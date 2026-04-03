@@ -21,7 +21,7 @@ export async function fetchPlaceThumb(placeId: string): Promise<PlaceThumb> {
   const photo = place.photos?.[0]
 
   return {
-    url: photo?.getURI({maxHeight: 96, maxWidth: 96}),
+    url: photo?.getURI({maxHeight: 400, maxWidth: 400}),
     authorAttributions: photo?.authorAttributions ?? [],
   };
 

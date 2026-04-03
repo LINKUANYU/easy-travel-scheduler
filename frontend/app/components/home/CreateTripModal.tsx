@@ -95,7 +95,7 @@ export default function CreateTripModal({ isOpen, onClose, onSuccess }: Props) {
         className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
         onClick={submitting ? undefined : handleClose} 
       />
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-[90%] max-w-md rounded-xl bg-white p-6 shadow-xl">
         <h2 className="text-xl font-bold mb-4">建立旅程（Trip）</h2>
         <div className="space-y-3">
           <div>
@@ -103,6 +103,7 @@ export default function CreateTripModal({ isOpen, onClose, onSuccess }: Props) {
             <input 
               value={title} 
               onChange={(e) => setTitle(e.target.value)} 
+              maxLength={20}
               placeholder="例：家族旅遊" 
               className="w-full rounded-lg border border-gray-300 px-3 py-2" 
               disabled={submitting} 
@@ -111,11 +112,34 @@ export default function CreateTripModal({ isOpen, onClose, onSuccess }: Props) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">天數（1~60）</label>
             <input 
-              type="number" 
-              value={days} 
-              onChange={(e) => setDays(Number(e.target.value))} 
-              min={1} 
-              max={60} 
+              type="text" // 放棄難用的原生 number，改用 text
+              inputMode="numeric" // 確保手機點擊時，依然會彈出九宮格數字鍵盤
+              pattern="[0-9]*"
+              // 若天數為 0 或沒值時，顯示空字串，讓使用者可以整欄刪乾淨
+              value={days === 0 ? "" : days} 
+              onChange={(e) => {
+                const val = e.target.value;
+                
+                // 1. 如果使用者把欄位清空，先設定為 0 (搭配上面的 value 判斷，畫面會是空的)
+                if (val === "") {
+                  setDays(0); 
+                  return;
+                }
+
+                // 2. 只允許輸入數字，過濾掉 . - e 等奇怪符號
+                if (/^\d+$/.test(val)) {
+                  let num = parseInt(val, 10);
+                  // 3. 即時限制最大值不能超過 60
+                  if (num > 60) num = 60;
+                  setDays(num);
+                }
+              }}
+              onBlur={() => {
+                // 4. 防呆：當使用者離開輸入框時，如果欄位是空的或小於 1，自動幫他補上 1
+                if (!days || days < 1) {
+                  setDays(1);
+                }
+              }}
               className="w-full rounded-lg border border-gray-300 px-3 py-2" 
               disabled={submitting} 
             />

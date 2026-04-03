@@ -119,7 +119,7 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
       {/* 🚀 左下角浮動狀態指示器 (Floating Widget) */}
       {/* ========================================== */}
       {taskState !== "idle" && (
-        <div className="fixed bottom-6 left-6 z-[9999] flex flex-col gap-2">
+        <div className="fixed bottom-6 left-16 z-[9999] flex flex-col gap-2">
           
           {/* 狀態：搜尋中 (轉圈圈動畫) */}
           {taskState === "polling" && (
@@ -128,7 +128,9 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>正在探索「{searchLocation}」...</span>
+              {/* 手機版顯示簡短文字，桌機版顯示完整文字 */}
+              <span className="md:hidden">正在探索</span>
+              <span className="hidden md:inline">正在探索「{searchLocation}」...</span>
             </div>
           )}
 
@@ -140,9 +142,10 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
                 router.push(`/search?location=${searchLocation}&t=${Date.now()}`);
               }}
               variant="primary"
-              size="lg"
+              size="md"
             >
-              <span>🎉 搜尋完成！點擊查看</span>
+              <span className="md:hidden">🎉 搜尋完成</span>
+              <span className="hidden md:inline">🎉 搜尋完成！點擊查看</span>
             </Button>
           )}
 
@@ -155,7 +158,8 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
               }}
               className="bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 rounded-full shadow-xl text-sm font-medium flex items-center gap-2 transition-transform hover:scale-105"
             >
-              <span>❌ 搜尋失敗，回首頁重試 ({errorMessage})</span>
+              <span className="md:hidden">失敗，回首頁</span>
+              <span className="hidden md:inline">❌ 搜尋失敗，回首頁重試 ({errorMessage})</span>
             </button>
           )}
 

@@ -139,10 +139,13 @@ export default function PlaceAutocompleteInput({
 
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <div ref={hostRef} />
+      {/* 14px 改成 16px，維持最佳體驗並防止 iOS 自動放大 */}
+      <div ref={hostRef} className="text-[16px] md:text-base" />
 
       {status.kind !== "ready" && (
-        <div style={{ fontSize: 13, opacity: 0.75 }}>{hint}</div>
+        <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+          {hint}
+        </div>
       )}
 
       {status.kind === "error" && (

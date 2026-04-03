@@ -27,20 +27,22 @@ export default function PopularSearches({ onSelect }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 mt-6 animate-fade-in">
-      <span className="text-sm font-semibold text-slate-700 mr-1 tracking-wide">
-        熱門搜尋：
+    <div className="flex flex-col lg:flex-row items-center justify-center gap-3 lg:gap-2 mt-6 animate-fade-in">
+      <span className="text-sm font-semibold text-slate-700 tracking-wide shrink-0">
+        熱門搜尋
       </span>
-      {data.map((city) => (
-        <button
-          key={city}
-          onClick={() => onSelect(city)}
-          // 套用半透明玻璃質感的膠囊按鈕，Hover 時變成主色調
-          className="px-4 py-1.5 text-sm font-medium text-slate-600 bg-white/50 hover:bg-blue-100 hover:text-blue-700 rounded-full border border-white/60 shadow-sm transition-all duration-200"
-        >
-          {city}
-        </button>
-      ))}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {data.map((city) => (
+          <button
+            key={city}
+            onClick={() => onSelect(city)}
+            // 套用半透明玻璃質感的膠囊按鈕，Hover 時變成主色調
+            className="px-4 py-1.5 text-sm font-medium text-slate-600 bg-white/50 hover:bg-blue-100 hover:text-blue-700 rounded-full border border-white/60 shadow-sm transition-all duration-200"
+          >
+            {city}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

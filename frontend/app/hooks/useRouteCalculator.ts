@@ -52,14 +52,22 @@ export function useRouteCalculator(
       return {
         // 🌟 將 mode 加入 key 裡面，使用者切換交通工具就會自動重抓並快取
         queryKey: ["routeLeg", from.item_id, to.item_id, mode],
-        queryFn: () => computeLegRoute({
-          from: { lat: fromPlace!.lat as number, lng: fromPlace!.lng as number },
-          to: { lat: toPlace!.lat as number, lng: toPlace!.lng as number },
-          mode: mode,
-        }),
+        queryFn: async () => {
+          try {
+            return await computeLegRoute({
+              from: { lat: fromPlace!.lat as number, lng: fromPlace!.lng as number },
+              to: { lat: toPlace!.lat as number, lng: toPlace!.lng as number },
+              mode: mode,
+            });
+          } catch (error: any) {  // 攔截預期錯誤，沒有路線的狀態
+            // 將錯誤包裝成正常物件回傳，這樣 React Query 才會幫我們把「錯誤結果」快取起來
+            return { isExpectedError: true, message: error.message || "查無路線" };
+          }
+        },
         enabled: isReady,
-        staleTime: 1000 * 60 * 60 * 1, // 1 天內
-        // 🌟 神來一筆：如果後端已經有資料，直接餵給快取，完全不用發出任何網路請求！
+        staleTime: 1000 * 60 * 60 * 1, // 1 小時
+        retry: false, // 因為預期有時就是沒路線，不需要浪費額度重試 3 次
+        // 🌟 如果後端已經有資料，直接餵給快取，完全不用發出任何網路請求！
         initialData: hasServerData ? {
           durationMillis: from.duration_millis,
           distanceMeters: from.distance_meters,
@@ -76,15 +84,20 @@ export function useRouteCalculator(
       const result = queryResults[index];
       
       if (result) {
+        // 🌟 判斷回傳的資料是不是我們攔截下來的「預期內錯誤」
+         const data = result.data as any;
+         const isRouteError = data?.isExpectedError;
+
          map[pair.key] = {
            fromItemId: pair.from.item_id,
            toItemId: pair.to.item_id,
            mode: pair.mode,
-           durationMillis: result.data?.durationMillis,
-           distanceMeters: result.data?.distanceMeters,
-           // 只有在真正發送網路請求時，才顯示 loading
+           // 如果是預期內錯誤，就不會有時間跟距離
+           durationMillis: isRouteError ? undefined : data?.durationMillis,
+           distanceMeters: isRouteError ? undefined : data?.distanceMeters,
            loading: result.isLoading && result.fetchStatus !== 'idle', 
-           error: result.error ? result.error.message : undefined,
+           // 錯誤訊息來源：可能是接到的 isRouteError，也可能是程式真的壞掉的 result.error
+           error: isRouteError ? data.message : (result.error ? result.error.message : undefined),
          };
       }
     });

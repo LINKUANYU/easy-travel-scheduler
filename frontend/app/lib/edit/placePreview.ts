@@ -11,6 +11,9 @@ export type PlacePreview = {
   photoUrls: string[];
   googleMapsURI?: string;
   websiteURI?: string;
+  rating?: number;
+  userRatingCount?: number;
+  openingHours?: string[];
 };
 
 // place api 回來的lat、lng資料會是方法，所以先用一層function去讀值
@@ -40,11 +43,14 @@ export async function fetchPlacePreview(placeId: string): Promise<PlacePreview> 
       "photos",
       "googleMapsURI",
       "websiteURI",
+      "rating",
+      "userRatingCount",
+      "regularOpeningHours",
     ],
   });
 
   const photoUrls =
-    (place.photos ?? []).slice(0, 3).map((ph: any) => ph.getURI());
+    (place.photos ?? []).slice(0, 1).map((ph: any) => ph.getURI({ maxWidth: 800 }));
     /** 原本的 ph (Photo 物件) 長相：
     它是一個複雜的物件，裡面包含：authorAttributions（攝影者名稱）、height、width 等，但它不是網址。
     執行 getURI() 後：
@@ -59,5 +65,9 @@ export async function fetchPlacePreview(placeId: string): Promise<PlacePreview> 
     photoUrls,
     googleMapsURI: place.googleMapsURI,
     websiteURI: place.websiteURI,
+    rating: place.rating,
+    userRatingCount: place.userRatingCount,
+    // Google API 會將營業時間整理成字串陣列 (例如: ["Monday: 9:00 AM – 5:00 PM", ...])
+    openingHours: place.regularOpeningHours?.weekdayDescriptions,
   };
 }

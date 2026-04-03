@@ -12,4 +12,3 @@ argon2-cffi
 pydantic[email]
 redis
 celery
-curl_cffi # 繞過cloudflare 抓圖

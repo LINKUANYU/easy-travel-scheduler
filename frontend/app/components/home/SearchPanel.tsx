@@ -39,28 +39,55 @@ export default function SearchPanel({
   };
 
   return (
-    <div className="relative bg-white/40 p-10 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-2xl mx-auto border border-white/20">
-      <h1 className="text-3xl font-extrabold text-slate-900 mb-8 text-center tracking-tight">
+    <div className="relative bg-white/40 p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-2xl mx-auto border border-white/20">
+      <h1 className="text-xl md:text-3xl font-extrabold text-slate-900 mb-6 md:mb-8 text-center tracking-tight">
         這次想去哪個城市旅遊呢？
       </h1>
 
       <div className="relative flex items-center">
+        {/* --- 1. 手機版 Input --- 
+            小於 sm (640px) 時顯示 (block)，大於 sm 時隱藏 (sm:hidden)
+            使用較短的 placeholder，並縮小字體 (text-sm) 與上下內距 (py-4)
+        */}
+        <input
+          type="text"
+          value={destination}
+          onChange={(e) => onDestinationChange(e.target.value)}
+          placeholder="請輸入國家／城市"
+          className="block sm:hidden w-full pl-5 pr-24 py-4 bg-white/80 border-none rounded-full focus:ring-2 focus:ring-blue-100 transition-all text-slate-700 placeholder:text-slate-400 text-sm"
+        />
+        <div className="block sm:hidden absolute right-2">
+          <Button
+            onClick={handleSearchClick}
+            variant="primary"
+            size="md"
+          >
+            搜尋
+          </Button>
+        </div>
+
+        {/* --- 2. 桌機版 Input --- 
+            預設隱藏 (hidden)，大於 sm (640px) 時才顯示 (sm:block)
+            保留原本完整的 placeholder，並維持正常字體 (text-base) 與上下內距 (py-5)
+        */}
         <input
           type="text"
           value={destination}
           onChange={(e) => onDestinationChange(e.target.value)}
           placeholder="請輸入國家／城市（東京、巴黎、上海、洛杉磯）"
-          className="w-full pl-6 pr-32 py-5 bg-white/80 border-none rounded-full focus:ring-2 focus:ring-blue-100 transition-all text-slate-700 placeholder:text-slate-400"
+          className="hidden sm:block w-full pl-6 pr-32 py-5 bg-white/80 border-none rounded-full focus:ring-2 focus:ring-blue-100 transition-all text-slate-700 placeholder:text-slate-400 text-base"
         />
+        <div className="hidden sm:block absolute right-2">
+          <Button
+            onClick={handleSearchClick}
+            variant="primary"
+            size="lg"
+          >
+            搜尋
+          </Button>
+        </div>
 
-        <Button
-          onClick={handleSearchClick}
-          className="absolute right-2"
-          variant="primary"
-          size="lg"
-        >
-          出發搜尋
-        </Button>
+       
       </div>
 
       <PopularSearches onSelect={(city) => {

@@ -34,6 +34,7 @@ export default function TripMap({
   activeDayRoute,
   onPlaceClick, // 用來向外傳遞使用者點擊的 placeId
   readonly,     // 如果是唯讀模式 (Share頁面)，隱藏「加入 Trip」按鈕
+  defaultCityName,
 }: {
   places: TripPlace[];
   preview?: PlacePreview | null;
@@ -45,6 +46,7 @@ export default function TripMap({
   activeDayRoute?: { lat: number; lng: number }[];
   onPlaceClick?: (placeId: string) => void;
   readonly?: boolean;
+  defaultCityName?: string;
 }) {
   /** Ref特性：不觸發re-render、裡面東西不會消失
   Google Map / Marker 是「外部物件」，不應該放在 React state（state 變動會觸發 re-render，反而干擾）
@@ -100,11 +102,11 @@ export default function TripMap({
 
       // 1) init map once，mapRef.current 一旦有值，就不會再 new Map。
       if (!mapRef.current) {
-        const defaultCenter ={ lat: 35.681236, lng: 139.767125 };
+        const fallbackCenter ={ lat: 25.0330, lng: 121.5654 };
 
         // 召喚地圖物件
         const mapInstance = new Map(divRef.current!, {
-          center: defaultCenter,
+          center: fallbackCenter,
           zoom: 12, // 縮放層級
           mapId: "DEMO_MAP_ID", // Map 的外觀樣式
           streetViewControl: false,  // 關閉小黃人
@@ -115,6 +117,22 @@ export default function TripMap({
 
         mapRef.current = mapInstance;
         infoRef.current = new google.maps.InfoWindow();
+
+        // 👈 新增 Geocoder 邏輯：如果是空行程且有傳入城市名稱，就解析該城市座標
+        if (valid.length === 0 && defaultCityName) {
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ address: defaultCityName }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              mapInstance.setCenter(results[0].geometry.location);
+            } else {
+              // 防呆機制：如果找不到地點，或 API 發生錯誤
+              console.warn(`無法解析城市名稱 "${defaultCityName}"，錯誤狀態: ${status}。已退回預設座標。`);
+              // 明確地將地圖設回預設的台北座標 (確保萬無一失)
+              mapInstance.setCenter(fallbackCenter);
+              mapInstance.setZoom(12);
+            }
+          });
+        }
       }
 
       const map = mapRef.current!;
@@ -210,10 +228,10 @@ export default function TripMap({
         const clearId = `${uidRef.current}_${preview!.id}_clear`;
 
         const photosHtml = (preview!.photoUrls ?? [])
-          .slice(0, 3)
+          .slice(0, 1)
           .map(
             (u:any) =>
-              `<img src="${escapeHtml(u)}" style="width:84px;height:64px;object-fit:cover;border-radius:10px;margin-right:8px;border:1px solid #eee;" />`
+              `<img src="${escapeHtml(u)}" style="width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid #eee;" />`
           )
           .join("");
         
@@ -224,44 +242,56 @@ export default function TripMap({
               padding:8px 12px; border-radius:10px; border:1px solid #eee;
               background:#f5f5f5; color:#999; font-weight:700; cursor:not-allowed;
             ">
-              ✓ 已在行程中
+              已在行程中
             </button>`
           : `<button id="${addId}" style="
               padding:8px 12px; border-radius:10px; border:1px solid #ddd;
               background:white; font-weight:700; cursor:pointer;
             ">
-              加入 Trip
+              加入景點
             </button>`);
 
+        // 評價 HTML
+        const ratingHtml = preview!.rating
+          ? `<div style="font-size:14px; color:#E7711B; margin-bottom:6px; font-weight:bold; display:flex; align-items:center; gap:4px;">
+              <span>★ ${preview!.rating}</span>
+              <span style="color:#777; font-size:12px; font-weight:normal;">(${preview!.userRatingCount || 0} 則評價)</span>
+            </div>`
+          : "";
 
+        // 營業時間 HTML (使用 details 折疊面板，節省空間)
+        const hoursHtml = preview!.openingHours && preview!.openingHours.length > 0
+          ? `<details style="font-size:13px; margin-bottom:12px; cursor:pointer;">
+              <summary style="outline:none; color:#1A73E8; font-weight:bold;">查看營業時間</summary>
+              <ul style="margin:6px 0 0 0; padding-left:18px; color:#555; list-style-type:disc;">
+                ${preview!.openingHours.map((h: string) => `<li>${escapeHtml(h)}</li>`).join("")}
+              </ul>
+            </details>`
+          : "";
 
         const html = `
-          <div style="max-width:320px">
-            <div style="font-weight:800;font-size:16px;margin-bottom:4px">
+          <div style="width:360px; max-width:100%;">
+            <div style="font-weight:800;font-size:18px;margin-bottom:4px">
               ${escapeHtml(preview!.name ?? preview!.id)}
             </div>
-            ${
+            
+            ${photosHtml ? `<div style="margin-bottom:12px;">${photosHtml}</div>` : ""}
+
+            ${ratingHtml} ${
               preview!.address
-                ? `<div style="font-size:13px;opacity:.8;margin-bottom:10px">${escapeHtml(
+                ? `<div style="font-size:14px;opacity:.8;margin-bottom:8px">${escapeHtml(
                     preview!.address
                   )}</div>`
                 : ""
             }
-            ${photosHtml ? `<div style="display:flex;margin-bottom:10px">${photosHtml}</div>` : ""}
+
+            ${hoursHtml} 
 
             <div style="display:flex;gap:8px;align-items:center">
               ${addBtnHtml}
-
-              <button id="${clearId}" style="
-                padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:white;
-                cursor:pointer;
-              ">
-                清除預覽
-              </button>
-
               ${
                 preview!.googleMapsURI
-                  ? `<a href="${escapeHtml(preview!.googleMapsURI)}" target="_blank" rel="noreferrer" style="font-size:13px">開啟 Google Maps</a>`
+                  ? `<a href="${escapeHtml(preview!.googleMapsURI)}" target="_blank" rel="noreferrer" style="font-size:14px">開啟 Google Maps</a>`
                   : ""
               }
             </div>
@@ -273,7 +303,7 @@ export default function TripMap({
         // 讓 InfoWindow 永遠在最上層
         infoRef.current!.setOptions({ 
           zIndex: 100, 
-          pixelOffset: new google.maps.Size(0, -30) // 視窗位置偏移向上
+          pixelOffset: new google.maps.Size(0, -20) // 視窗位置偏移向上
         });
         // 畫面登場
         infoRef.current!.open({ map, anchor: am as any }); // 設定了 anchor，視窗就會自動對齊圖釘的尖端彈出來。
@@ -326,7 +356,7 @@ export default function TripMap({
           }
         });
         // 5a) 有預覽視窗時：只顯示該地點的畫面
-        const offset = 0.005
+        const offset = 0.01
         map.panTo({  // MAP 平滑滑行
           lat: (preview!.lat as number) + offset,  // 微調圖釘畫面向下
           lng: preview!.lng as number 

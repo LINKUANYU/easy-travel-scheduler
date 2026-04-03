@@ -99,7 +99,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
     if not exists:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    # 取景點池 + destination 基本資料 + 第一張圖片當 cover（可選）
+    # 取景點池 + destination 基本資料
     cur.execute(
         """
         SELECT
@@ -108,14 +108,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
           d.city_name,
           d.google_place_id,
           d.lat,
-          d.lng,
-          (
-            SELECT dp.photo_url
-            FROM destination_photos dp
-            WHERE dp.destination_id = d.id
-            ORDER BY dp.id ASC
-            LIMIT 1
-          ) AS cover_url
+          d.lng
         FROM trip_places tp
         JOIN destinations d ON d.id = tp.destination_id
         WHERE tp.trip_id = %s
@@ -196,14 +189,7 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
           d.city_name,
           d.google_place_id,
           d.lat,
-          d.lng,
-          (
-            SELECT dp.photo_url
-            FROM destination_photos dp
-            WHERE dp.destination_id = d.id
-            ORDER BY dp.id ASC
-            LIMIT 1
-          ) AS cover_url
+          d.lng
         FROM destinations d
         WHERE d.id=%s
         """,
@@ -273,7 +259,21 @@ def get_user_trips(
     cur = Depends(get_cur)
 ):
     cur.execute("""
-        SELECT id AS trip_id, title, days, start_date, share_token, cover_url
+        SELECT
+            id AS trip_id,
+            title,
+            days,
+            start_date,
+            share_token,
+            cover_url,
+            (
+                SELECT d.google_place_id 
+                FROM itinerary_items ii 
+                JOIN destinations d ON ii.destination_id = d.id 
+                WHERE ii.trip_id = trips.id 
+                ORDER BY ii.day_index ASC, ii.position ASC 
+                LIMIT 1
+            ) AS first_place_id
         FROM trips 
         WHERE user_id = %s 
         ORDER BY id DESC
@@ -316,7 +316,21 @@ def delete_trip(
 def get_explore_trips(cur = Depends(get_cur)):
     try:
         cur.execute("""
-            SELECT id AS trip_id, title, days, start_date, share_token, cover_url
+            SELECT
+                id AS trip_id,
+                title,
+                days,
+                start_date,
+                share_token,
+                cover_url,
+                (
+                    SELECT d.google_place_id 
+                    FROM itinerary_items ii 
+                    JOIN destinations d ON ii.destination_id = d.id 
+                    WHERE ii.trip_id = trips.id 
+                    ORDER BY ii.day_index ASC, ii.position ASC 
+                    LIMIT 1
+                ) AS first_place_id
             FROM trips 
             WHERE is_public = 1 
               AND share_token IS NOT NULL 
