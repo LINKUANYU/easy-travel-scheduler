@@ -48,12 +48,30 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     // 確保不會有多個計時器同時跑
     if (pollingRef.current) clearInterval(pollingRef.current);
 
+    // 記錄任務開始的時間
+    const pollingStartTime = Date.now();
+    // 設定最大容忍時間
+    const MAX_TIMEOUT_MS = 1000 * 60 *10;
+
     // 任務啟動，設定狀態為 polling，展開左下角 UI
     setTaskState("polling");
     setSearchLocation(location);
     setErrorMessage("");
 
     pollingRef.current = setInterval(async () => {
+      // 先檢查任務時間是否超時，是的話直接判斷失敗
+      if ((Date.now() - pollingStartTime) > MAX_TIMEOUT_MS) {
+        clearInterval(pollingRef.current!);  // 清除計時器
+        pollingRef.current = null;  // 清除計時器
+        setTaskState("error");  // 設定任務狀態
+        setErrorMessage("探索時間過長，伺服器可能過載，請稍後再試。");
+        sessionStorage.removeItem(`crawling_task_${location}`);  // 清空紀錄，讓使用者可以重試
+
+        // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
+        if (onTaskFailed) onTaskFailed("探索時間過長，伺服器可能過載，請稍後再試。");
+        return
+      }
+
       try {
         const statusRes = await apiGet<any>(`/api/search/status/${taskId}`);
         if (statusRes.status === "completed") {
@@ -79,7 +97,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         } else if (statusRes.status === "failed") {
           clearInterval(pollingRef.current!);
           pollingRef.current = null;
-          // 任務失敗，也要把記憶擦掉，讓使用者有機會重試
           setTaskState("error");
           setErrorMessage(statusRes.error || "伺服器處理異常");
           sessionStorage.removeItem(`crawling_task_${location}`);
