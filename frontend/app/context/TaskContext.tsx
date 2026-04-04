@@ -10,7 +10,7 @@ import Button from "../components/ui/Button";
 // 需要三個參數：任務id(計時器要去打後端)、地點、失敗的時候執行的函數
 type TaskContextType = {
   taskState: TaskState;
-  startBackgroundPolling: (taskId: string, location: string, onTaskFailed?: () => void) => void;
+  startBackgroundPolling: (taskId: string, location: string, onTaskFailed?: (msg:string) => void) => void;
 };
 
 // 創造出這個 Context（廣播頻道）。一開始裡面沒有東西（undefined），稍後會在 Provider 裡面把真正的函數放進去。
@@ -44,7 +44,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   
   // useCallback 運作原理： 當你用 useCallback 把函數包起來後，React 就會把這個函數「護貝」起來存放在記憶體裡。
   // 下次畫面重新整理時，React 會直接拿上次護貝好的那個函數來用，而不會浪費效能再去創造一個新的。
-  const startBackgroundPolling = useCallback((taskId: string, location: string, onTaskFailed?: () => void) => {
+  const startBackgroundPolling = useCallback((taskId: string, location: string, onTaskFailed?: (msg:string) => void) => {
     // 確保不會有多個計時器同時跑
     if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -85,7 +85,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           sessionStorage.removeItem(`crawling_task_${location}`);
 
           // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
-          if (onTaskFailed) onTaskFailed();
+          if (onTaskFailed) onTaskFailed(statusRes.error);
         }
       } catch (e:any) {
         clearInterval(pollingRef.current!);
@@ -93,7 +93,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.removeItem(`crawling_task_${location}`);
         setTaskState("error");
         setErrorMessage(e.message || "網路連線發生錯誤");
-        if (onTaskFailed) onTaskFailed();
+        if (onTaskFailed) onTaskFailed(e.message);
       }
     }, 3000);
   }, [router]);

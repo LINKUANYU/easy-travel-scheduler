@@ -104,7 +104,7 @@ def search_more_destinations_api(payload: SearchMore):
 
     exhausted_key = f"exhausted:location:{location}"
     if redis_client.get(exhausted_key):
-        return {"status": "failed", "error": "此地點今日已無更多推薦景點。"}
+        return {"status": "failed", "error": "目前此地點已無更多推薦景點。"}
     
     # 觸發爬蟲任務
     print(f"🔄 觸發再次搜尋：「{location}」")
