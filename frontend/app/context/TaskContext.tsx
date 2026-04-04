@@ -9,6 +9,7 @@ import Button from "../components/ui/Button";
 // 定義這個「廣播電台」會提供什麼服務。這裡說它會提供一個叫 startBackgroundPolling 的函數。
 // 需要三個參數：任務id(計時器要去打後端)、地點、失敗的時候執行的函數
 type TaskContextType = {
+  taskState: TaskState;
   startBackgroundPolling: (taskId: string, location: string, onTaskFailed?: () => void) => void;
 };
 
@@ -112,7 +113,7 @@ router 其實已經設計得相對穩定了，不常發生變化。但 React 的
 
 
   return (
-    <TaskContext.Provider value={{ startBackgroundPolling }}>
+    <TaskContext.Provider value={{ taskState, startBackgroundPolling }}>
       {children}
 
       {/* ========================================== */}

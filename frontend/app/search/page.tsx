@@ -17,11 +17,13 @@ function SearchContent() {
   const location = searchParams.get("location"); // 抓取網址上的 ?location= 值
   const router = useRouter();
 
-  const { startBackgroundPolling } = useTask(); // 呼叫取得全域廣播
+  const { taskState, startBackgroundPolling } = useTask(); // 呼叫取得全域廣播
 
   const [travelList, setTravelList] = useState<Attraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [isExhausted, setIsExhausted] = useState(false);
 
   const { ids, add, remove, activeTripId } = useTripDraft();
 
@@ -54,22 +56,20 @@ function SearchContent() {
       return;
     }
 
+    const allowScrape = !(taskState === 'polling');
+
+
     // ==========================================
     // 防護網：攔截「上一頁」與「F5 重新整理」
     // ==========================================
     const existingTaskId = sessionStorage.getItem(`crawling_task_${location}`);
     
     if (existingTaskId) {
-      // 1. 發現這個城市正在爬蟲！開啟轉圈圈，阻止下方去打 POST 觸發新爬蟲
-      setIsLoading(true);
-      
-      // 2. 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
+      // 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
       startBackgroundPolling(existingTaskId, location, () => {
         setError("搜尋失敗，請檢查輸入地點，或稍後再試");
         setIsLoading(false);
       });
-      
-      return; // 提早結束，避開鬼打牆迴圈！
     }
 
     // 用來記錄「已經發送過 API 的地點」的紀錄本，為了阻止 React Strict Mode 「掛載 ➔ 卸載 ➔ 重新掛載」的第二次執行
@@ -84,11 +84,16 @@ function SearchContent() {
       setIsLoading(true);
       setError("");
       try {
-        const res = await apiPost<any>("/api/search", { location });
+        const res = await apiPost<any>("/api/search", { location, allow_scrape: allowScrape });
         
-        if (res.status === "completed") {
-          setTravelList(res.data || []);
+        if (res.status === 'completed' || res.status === 'blocked') {
+          setTravelList(res.data);
+          setIsExhausted(res.is_exhausted || false);
           setIsLoading(false);
+          
+          if (res.status === 'blocked') {
+            toast.success("正在探索中，請稍候！", { duration: 8000, icon: '⏳' });
+          }
           
 
         } else if (res.status === "processing") {
@@ -121,6 +126,35 @@ function SearchContent() {
 
     fetchResults();
   }, [location, refreshKey, router, startBackgroundPolling, activeTripId]);
+
+
+  const handleSearchMore = async () => {
+    if (!location) return;
+    
+    if (taskState === 'polling') {
+      toast.error(`目前已有任務進行中，請稍候！`,{ duration: 8000, icon: '⏳' });
+      return;
+    }
+
+    try {
+      const res = await apiPost<any>('/api/search-more', { location });
+      
+      if (res.status === 'failed') {
+        toast.error(res.error || "此地點今日已無更多推薦景點。");
+        setIsExhausted(true);
+        return;
+      }
+
+      if (res.status === 'processing') {
+        // 觸發全域等待，並且如果失敗，給予對應的 toast 提示
+        startBackgroundPolling(res.task_id, location, () => {
+          toast.error("發掘新景點失敗，請稍後再試");
+        });
+      }
+    } catch (err) {
+      toast.error("網路發生錯誤");
+    }
+  };
 
 
 return (
@@ -158,16 +192,45 @@ return (
             </button>
           </div>
         </div>
+      ) : travelList.length === 0 ? (
+        <div className="flex flex-1 w-full flex-col items-center justify-center px-4">
+          <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md w-full text-center hover:shadow-md transition-shadow">
+            
+            <div className="w-14 h-14 md:w-16 md:h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-4 text-3xl">
+              {taskState === 'polling' ? '⏳' : '📭'}
+            </div>
+
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-2">
+              {taskState === 'polling' ? '系統正在探索其他城市' : '目前沒有景點資料'}
+            </h3>
+            
+            <p className="text-gray-500 text-sm md:text-base mb-6 md:mb-8">
+              {taskState === 'polling' 
+                ? `資料庫中尚未有「${location}」的景點。由於系統正在背景執行其他任務，為避免資源衝突，請等待任務完成後再來發掘新城市！`
+                : `我們目前找不到「${location}」的相關景點，請確認地名是否正確，或嘗試搜尋其他城市。`}
+            </p>
+
+            <button 
+              onClick={() => router.push("/")} 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 md:py-3 px-6 rounded-xl transition-colors shadow-sm active:scale-95 text-sm md:text-base"
+            >
+              先回首頁逛逛
+            </button>
+          </div>
+        </div>
       ) : (
         <ResultsSection
           destination={location || ""}
           travelList={travelList}
           responseMsg=""
-          onSearchOther={(newLocation) => router.push(`/search?location=${newLocation}`)}    
+          onSearchOther={(newLocation) => router.push(`/search?location=${newLocation}`)}
           scheduledIds={scheduledIds} 
           draftIds={ids}
           onAddToDraft={add}
           onRemoveFromDraft={remove}
+          isExhausted={isExhausted}
+          onSearchMore={handleSearchMore}
+          isTaskPolling={taskState === 'polling'}
         />
       )}
 

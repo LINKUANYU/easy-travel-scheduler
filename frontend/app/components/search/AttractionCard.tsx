@@ -50,7 +50,6 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
         <img
           src={finalImageUrl}
           alt={item.attraction}
-          referrerPolicy="no-referrer"
           loading="lazy"
           onError={() => setImgError(true)}
           className={`w-full h-60 object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}

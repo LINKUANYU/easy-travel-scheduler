@@ -4,6 +4,10 @@ from datetime import date
 
 class SearchRequest(BaseModel):
     location: str
+    allow_scrape: bool = True
+
+class SearchMore(BaseModel):
+    location: str
 
 class ImageData(BaseModel):
     url: str
