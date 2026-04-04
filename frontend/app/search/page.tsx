@@ -66,8 +66,9 @@ function SearchContent() {
     
     if (existingTaskId) {
       // 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
-      startBackgroundPolling(existingTaskId, location, () => {
-        setError("搜尋失敗，請檢查輸入地點，或稍後再試");
+      startBackgroundPolling(existingTaskId, location, (errmsg) => {
+        toast.error(errmsg);
+        setError(errmsg);
         setIsLoading(false);
       });
     }
@@ -100,13 +101,14 @@ function SearchContent() {
           // 紀錄爬蟲正在進行，用來判斷重新回到此頁要不要跑爬蟲！
           sessionStorage.setItem(`crawling_task_${location}`, res.task_id);
           
-          startBackgroundPolling(res.task_id, location, () => {
-            setError("搜尋失敗，請檢查輸入地點，或稍後再試");
+          startBackgroundPolling(res.task_id, location, (errmsg: string) => {
+            toast.error(errmsg);
+            setError(errmsg);
             setIsLoading(false);
           });
 
           if (activeTripId) {
-            toast.success("正在背景為您探索景點，先帶您前往行程編輯頁！", { duration: 8000, icon: '⏳' });
+            toast.success("正在背景為您探索景點中！", { duration: 8000, icon: '⏳' });
             router.push(`/edit/${activeTripId}`);
           } else {
             // 理論上不會發生
@@ -114,11 +116,9 @@ function SearchContent() {
             router.push('/');
           }
 
-        } else if (res.status === "failed") {
-          setError("搜尋失敗，請檢查輸入地點，或稍後再試");
-          setIsLoading(false);
         }
       } catch (err: any) {
+        toast.error(err.message || "發生錯誤，請稍後再試");
         setError(err.message || "發生錯誤，請稍後再試");
         setIsLoading(false);
       }
@@ -140,15 +140,16 @@ function SearchContent() {
       const res = await apiPost<any>('/api/search-more', { location });
       
       if (res.status === 'failed') {
-        toast.error(res.error || "此地點今日已無更多推薦景點。");
+        toast.error(res.error || "目前此地點已無更多推薦景點。");
         setIsExhausted(true);
         return;
       }
 
       if (res.status === 'processing') {
         // 觸發全域等待，並且如果失敗，給予對應的 toast 提示
-        startBackgroundPolling(res.task_id, location, () => {
-          toast.error("發掘新景點失敗，請稍後再試");
+        startBackgroundPolling(res.task_id, location, (errmsg) => {
+          toast.error(errmsg);
+          setError(errmsg);
         });
       }
     } catch (err) {
@@ -181,7 +182,7 @@ return (
               </svg>
             </div>
 
-            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-2">哎呀，找不到景點</h3>
+            <h3 className="text-lg md:text-xl font-bold text-gray-800 mb-2">哎呀，搜尋任務失敗</h3>
             <p className="text-gray-500 text-sm md:text-base mb-6 md:mb-8">{error}</p>
 
             <button 

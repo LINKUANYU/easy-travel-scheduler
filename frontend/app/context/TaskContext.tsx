@@ -10,7 +10,7 @@ import Button from "../components/ui/Button";
 // 需要三個參數：任務id(計時器要去打後端)、地點、失敗的時候執行的函數
 type TaskContextType = {
   taskState: TaskState;
-  startBackgroundPolling: (taskId: string, location: string, onTaskFailed?: () => void) => void;
+  startBackgroundPolling: (taskId: string, location: string, onTaskFailed?: (msg:string) => void) => void;
 };
 
 // 創造出這個 Context（廣播頻道）。一開始裡面沒有東西（undefined），稍後會在 Provider 裡面把真正的函數放進去。
@@ -44,9 +44,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   
   // useCallback 運作原理： 當你用 useCallback 把函數包起來後，React 就會把這個函數「護貝」起來存放在記憶體裡。
   // 下次畫面重新整理時，React 會直接拿上次護貝好的那個函數來用，而不會浪費效能再去創造一個新的。
-  const startBackgroundPolling = useCallback((taskId: string, location: string, onTaskFailed?: () => void) => {
+  const startBackgroundPolling = useCallback((taskId: string, location: string, onTaskFailed?: (msg:string) => void) => {
     // 確保不會有多個計時器同時跑
     if (pollingRef.current) clearInterval(pollingRef.current);
+
+    // 記錄任務開始的時間
+    const pollingStartTime = Date.now();
+    // 設定最大容忍時間
+    const MAX_TIMEOUT_MS = 1000 * 60 *10;
 
     // 任務啟動，設定狀態為 polling，展開左下角 UI
     setTaskState("polling");
@@ -54,6 +59,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setErrorMessage("");
 
     pollingRef.current = setInterval(async () => {
+      // 先檢查任務時間是否超時，是的話直接判斷失敗
+      if ((Date.now() - pollingStartTime) > MAX_TIMEOUT_MS) {
+        clearInterval(pollingRef.current!);  // 清除計時器
+        pollingRef.current = null;  // 清除計時器
+        setTaskState("error");  // 設定任務狀態
+        setErrorMessage("探索時間過長，伺服器可能過載，請稍後再試。");
+        sessionStorage.removeItem(`crawling_task_${location}`);  // 清空紀錄，讓使用者可以重試
+
+        // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
+        if (onTaskFailed) onTaskFailed("探索時間過長，伺服器可能過載，請稍後再試。");
+        return
+      }
+
       try {
         const statusRes = await apiGet<any>(`/api/search/status/${taskId}`);
         if (statusRes.status === "completed") {
@@ -79,13 +97,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         } else if (statusRes.status === "failed") {
           clearInterval(pollingRef.current!);
           pollingRef.current = null;
-          // 任務失敗，也要把記憶擦掉，讓使用者有機會重試
           setTaskState("error");
           setErrorMessage(statusRes.error || "伺服器處理異常");
           sessionStorage.removeItem(`crawling_task_${location}`);
 
           // 如果畫面有傳入失敗處理函式，就呼叫它來解除畫面的轉圈圈
-          if (onTaskFailed) onTaskFailed();
+          if (onTaskFailed) onTaskFailed(statusRes.error);
         }
       } catch (e:any) {
         clearInterval(pollingRef.current!);
@@ -93,7 +110,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.removeItem(`crawling_task_${location}`);
         setTaskState("error");
         setErrorMessage(e.message || "網路連線發生錯誤");
-        if (onTaskFailed) onTaskFailed();
+        if (onTaskFailed) onTaskFailed(e.message);
       }
     }, 3000);
   }, [router]);

@@ -70,7 +70,7 @@ async def search_destinations_api(
     # 三、【資料不足】 交給Celery (DB 查詢與爬蟲) 
     # ==========================================
     else:
-        # 檢查是否是is_exhausted
+        # # 資料不足，但是地點已在cooldown 中，檢查是否是is_exhausted
         if is_exhausted:
             print(f"⚠️ 資料不足，「{location}」處於冷卻期 (枯竭狀態)，不觸發背景爬蟲。")
             try:
@@ -79,16 +79,26 @@ async def search_destinations_api(
             except Exception:
                 print(f"⚠️ Redis 讀取失敗: {e}")
             
-
-        # 發送 Celery 任務！
+        # 資料不足，但是前端已在爬蟲中
         if not allow_scrape:
             print(f"⚠️ 阻擋多重爬蟲：「{location}」只回傳現有資料。")
             return {"status": "blocked", "data": existing_spots_data, "is_exhausted": is_exhausted}
-
-        print(f"資料不足，派發 Celery 任務進行爬蟲...")
+        
+        # 發送 Celery 任務！
+        try:
+            print(f"資料不足，派發 Celery 任務進行爬蟲...")
+            # 先測試連線
+            active_workers = celery_app.control.ping(timeout=0.5)
+            if not active_workers:
+                print("❌ 錯誤： Celery Worker 連線失敗")
+                raise HTTPException(status_code=503, detail="錯誤： Celery Worker 連線失敗")
+        except Exception as e:
+            print(f"❌ Celery Ping 失敗: {e}")
+            raise HTTPException(status_code=503, detail="後端伺服器錯誤，請稍後再試")
+        
         # 使用 .delay() 將任務丟給背景的 Celery Worker
         task = scrape_and_save_destinations_task.delay(location)
-        
+
         return {
             "status": "processing", 
             "task_id": task.id,  # 自動產生
@@ -104,7 +114,7 @@ def search_more_destinations_api(payload: SearchMore):
 
     exhausted_key = f"exhausted:location:{location}"
     if redis_client.get(exhausted_key):
-        return {"status": "failed", "error": "此地點今日已無更多推薦景點。"}
+        return {"status": "failed", "error": "目前此地點已無更多推薦景點。"}
     
     # 觸發爬蟲任務
     print(f"🔄 觸發再次搜尋：「{location}」")

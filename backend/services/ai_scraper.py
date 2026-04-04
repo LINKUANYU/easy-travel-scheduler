@@ -311,117 +311,11 @@ def master_scraper_workflow(location):
             fallback_msg = str(fallback_e).lower()
             if "429" in fallback_msg or "quota" in fallback_msg or "exhausted" in fallback_msg:
                  raise ValueError("伺服器 AI 服務目前達到流量限制，請稍後再試。")
+            if "503" in fallback_msg or "overloaded" in fallback_msg or "unavailable" in fallback_msg:
+                 raise ValueError("AI 伺服器目前過載忙碌中，請稍後再試。")
             
             print(f"❌ [雙引擎皆失效]: {fallback_e}")
             return []
-
-# ==========================================
-#  模組 5：圖片抓取與資料整合 
-# ==========================================
-def fetch_attraction_images(spots, base_location):
-    total_result = []
-    
-    WEBSHARE_PROXIES = [
-    "http://tivlorll:wpmx9pvx2qu6@31.59.20.176:6754",
-    "http://tivlorll:wpmx9pvx2qu6@23.95.150.145:6114",
-    "http://tivlorll:wpmx9pvx2qu6@198.23.239.134:6540",
-    "http://tivlorll:wpmx9pvx2qu6@142.111.67.146:5611",
-    "http://tivlorll:wpmx9pvx2qu6@31.58.9.4:6077",
-]
-
-    for item in spots:
-        # google_id 查到的官方名稱
-        official_name = item.get("attraction")
-        target = f"{base_location} {official_name}"
-        
-        # 初始化結果字典
-        attraction_data = {
-            "name": official_name,
-            "images": [],
-        }
-
-        # 設定retry，避免抓圖失敗
-        max_retries = 6
-        retry_delay = 1
-
-        for i in range(max_retries):
-            # 判斷目前是第幾次嘗試，前三次不掛，後三次掛Proxy
-            current_proxy = None
-            # 第三次開始掛Proxy
-            if i > 2:
-                current_proxy = random.choice(WEBSHARE_PROXIES)
-
-            try:
-                print(f"搜尋名稱是：{target}")
-                with DDGS(proxy=current_proxy) as ddgs:
-                    # ---------------------------------------------------------
-                    # 搜尋圖片 (加入版權過濾)
-                    # ---------------------------------------------------------
-                    # 加入 license 參數
-                    # license='Public' -> 公眾領域 (最安全，像 CC0)
-                    # license='Share'  -> 允許分享 (通常需要標示出處)
-                    # license='Modify' -> 允許修改
-                    
-                    images_results = list(ddgs.images(
-                        target, 
-                        max_results=3, 
-                        safesearch='on',
-                        license='Public'
-                    ))
-                    if images_results:
-                        for img in images_results:
-                            attraction_data["images"].append({
-                                "url": img.get("image"),
-                                "source": img.get("url") # 最好保留原始網頁連結，以備不時之需
-                            })
-                        break # 找到圖片，換下一個景點
-                    else:
-                        raise Exception("找不到圖片")
-                        
-            except Exception as e:
-                print(f"   ⚠️ 第 {i + 1} 次嘗抓取取圖片失敗 ({target}): {e}")
-                if i < max_retries - 1:
-                    # 指數退避 + 隨機抖動，避免被伺服器偵測為機器人
-                    sleep_time = (retry_delay * 2 ** i) + random.uniform(0, 1)
-                    time.sleep(sleep_time)
-                else:
-                    print(f"❌ {target}圖片搜尋錯誤: {e}")
-
-        total_result.append(attraction_data)
-        
-        # 景點之間稍微停頓，避免被封鎖
-        time.sleep(1)
-
-    return total_result
-
-def integrate_spot_results(location, valid_spots, img_data):
-    # 將 img_data 轉換成以名稱為 Key 的字典，方便查找
-    # 格式：{'日清杯麵博物館': [{'url':...}, {...}], ...}
-    img_dict = {item['name']: item['images'] for item in img_data}
-
-    result = []
-
-    for item in valid_spots:
-        attraction_name = item.get('attraction')
-        images = img_dict.get(attraction_name, [])
-        
-
-        data = {
-            'input_region': location,
-            'city': item.get('city'),
-            'attraction': item.get('attraction'),
-            'description': item.get('description'),
-            'geo_tags': item.get('geo_tags'),
-            'images': images,
-            'lat': item.get('lat'),
-            'lng': item.get('lng'),
-            'google_place_id': item.get('google_place_id'),
-            'address': item.get('address')
-        }
-        result.append(data)
-
-
-    return result
 
 
 # ==========================================

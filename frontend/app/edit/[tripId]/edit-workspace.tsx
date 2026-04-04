@@ -295,7 +295,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
               {/* 1. 地圖開關 */}
               <button
                 onClick={() => setIsMapVisible(!isMapVisible)}
-                className="map-btn-pop w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.3)] active:scale-90 transition-transform"
+                className="min-[1200px]:hidden map-btn-pop w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.3)] active:scale-90 transition-transform"
                 title={isMapVisible ? "收起地圖" : "展開地圖"}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
@@ -420,7 +420,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
       {/* 3. 浮動操作按鈕 (FAB) - 小於 1200px 顯示 */}
       {/* ========================================= */}
       <div className={`
-        flex flex-col fixed bottom-6 left-3 gap-4 z-[100]
+        flex flex-col fixed bottom-6 left-3 gap-4 z-[100] min-[1200px]:hidden
         ${!isMapVisible ? "md:hidden" : ""}
       `}>
         {/* 1. 地圖開關 */}
