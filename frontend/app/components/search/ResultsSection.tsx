@@ -16,6 +16,9 @@ type Props = {
   onAddToDraft: (p: DraftPlace) => void;
   onRemoveFromDraft: (google_place_id: string) => void;
   scheduledIds: Set<string>;
+  isExhausted?: boolean;
+  onSearchMore?: () => void;
+  isTaskPolling?: boolean
 };
 
 export default function ResultsSection({
@@ -27,6 +30,9 @@ export default function ResultsSection({
   onAddToDraft,
   onRemoveFromDraft,
   scheduledIds,
+  isExhausted = false,
+  onSearchMore,
+  isTaskPolling = false,
 }: Props){
   const [otherCity, setOtherCity] = useState("");
 
@@ -72,37 +78,56 @@ export default function ResultsSection({
           <p className="text-slate-400 font-medium">{responseMsg ?? "目前沒有搜尋結果，換個城市試試？"}</p>
         </div>
       ) : (
-        /* 調整 Gap 到 8 或 10，讓卡片陰影不重疊，視覺更乾淨 */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
-          {travelList.map((item, index) => {
-            const gpid = item.google_place_id;
-            const inDraft = gpid ? draftIds.has(gpid) : false;
-            const isScheduled = gpid ? scheduledIds.has(gpid) : false; // 判斷是否已在資料庫行程中
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
+            {travelList.map((item, index) => {
+              const gpid = item.google_place_id;
+              const inDraft = gpid ? draftIds.has(gpid) : false;
+              const isScheduled = gpid ? scheduledIds.has(gpid) : false; // 判斷是否已在資料庫行程中
 
-            const onToggleDraft = () => {
-              if (!gpid || isScheduled) return;
-              if (inDraft) onRemoveFromDraft(gpid);
-              else
-                onAddToDraft({
-                  google_place_id: gpid,
-                  attraction: item.attraction,
-                  city: item.city,
-                  cover_url: item.images?.[0]?.url,
-                });
-            };
+              const onToggleDraft = () => {
+                if (!gpid || isScheduled) return;
+                if (inDraft) onRemoveFromDraft(gpid);
+                else
+                  onAddToDraft({
+                    google_place_id: gpid,
+                    attraction: item.attraction,
+                    city: item.city,
+                    cover_url: item.images?.[0]?.url,
+                  });
+              };
 
-            return (
-              <AttractionCard
-                key={gpid ?? item.id}
-                item={item}
-                index={index}
-                inDraft={inDraft}
-                onToggleDraft={onToggleDraft}
-                isScheduled={isScheduled}
-              />
-            );
-          })}
-        </div>
+              return (
+                <AttractionCard
+                  key={gpid ?? item.id}
+                  item={item}
+                  index={index}
+                  inDraft={inDraft}
+                  onToggleDraft={onToggleDraft}
+                  isScheduled={isScheduled}
+                />
+              );
+            })}
+          </div>
+
+          <div className="w-full max-w-6xl my-12 flex justify-center">
+            {isExhausted ? (
+              <span className="text-slate-400 font-medium px-6 py-3 bg-slate-50 rounded-full border border-slate-200">
+                沒有更多推薦景點了
+              </span>
+            ) : (
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={onSearchMore}
+                className="w-full md:w-auto px-12"
+                disabled={isTaskPolling}
+              >
+                {isTaskPolling ? "系統探索中..." : "搜尋更多景點"}
+              </Button>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

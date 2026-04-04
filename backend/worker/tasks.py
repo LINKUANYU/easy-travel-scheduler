@@ -70,11 +70,15 @@ def scrape_and_save_destinations_task(self, location: str):
         if final_new_data:
             save_spot_data(final_new_data, cur)
             conn.commit()
-            print(f"✅ Celery 任務完成！成功寫入 {len(final_new_data)} 筆新景點。")
+            print(f"✅ Celery 任務完成！爬蟲回來{len(new_search_data)}筆資料，去重後成功寫入 {len(final_new_data)} 筆新景點。")
             
-        # 紀錄在快取，發放免死金牌：24小時內不要再對這個地點觸發爬蟲
-        redis_client = get_redis()
-        redis_client.setex(f"cooldown:location:{location}", 86400, "1")
+            # 將快取記錄清空，讓新資料可以被抓到
+            redis_client = get_redis()
+            redis_client.delete(f"search:location:{location}")
+        # 6. 如果抓到的資料數量 < 3 就認定該地點已經沒有更多景點
+        if len(final_new_data) < 3:
+            print(f"❄️ 新增景點小於 3 ({len(final_new_data)})，觸發「{location}」冷卻機制 1 天")
+            redis_client.setex(f"exhausted:location:{location}", 86400, "1")
             
         # 任務完成，回傳結果 (這個結果會被存回 Redis 的 Backend 中)
         return {"location": location, "status": "success", "added_count": len(final_new_data)}
