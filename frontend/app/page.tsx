@@ -28,25 +28,12 @@ import ExploreTripCard from "./components/home/ExploreTripCard";
 
 export default function Home(){
   const router = useRouter();
-  const [bgIndex, setBgIndex] = useState(0);
-  const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
-
   const { activeTripId } = useTripDraft();
 
-
-  // ==========================================
-  // 控制 Modal 與背景搜尋狀態的 State
-  // ==========================================
+  const [bgIndex, setBgIndex] = useState(0);
+  const [destinationInput, setDestinationInput] = useState<string>(""); // 給 input 用
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchLoc, setSearchLoc] = useState("");  // 紀錄要搜尋的地點
-
-  // 輪播邏輯：每 3 秒換下一張
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
-    },5000);
-    return () => clearInterval(timer);
-  }, []);
 
   // ==========================================
   // 抓取首頁下方「探索熱門行程」
@@ -56,6 +43,13 @@ export default function Home(){
     queryFn: async () => apiGet<any[]>("/api/explore/trips"),
   });
 
+  // 輪播邏輯：每 3 秒換下一張
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    },5000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ==========================================
   // 搜尋按鈕邏輯

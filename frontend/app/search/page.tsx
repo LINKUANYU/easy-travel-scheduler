@@ -10,22 +10,23 @@ import type { Attraction } from "@/app/types/all-types";
 import { useTask } from "../context/TaskContext";
 import AddPlacesToTripBtn from "@/app/components/home/AddPlacesToTripBtn";
 import toast from "react-hot-toast";
+import LogoSpinner from "../components/ui/LogoSpinner";
+import loadConfig from "next/dist/server/config";
 
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const location = searchParams.get("location"); // 抓取網址上的 ?location= 值
-  const router = useRouter();
-
+  const { ids, add, remove, activeTripId } = useTripDraft();
   const { taskState, startBackgroundPolling } = useTask(); // 呼叫取得全域廣播
-
+  const router = useRouter();
+  const location = searchParams.get("location"); // 抓取網址上的 ?location= 值
+  
   const [travelList, setTravelList] = useState<Attraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showLoadingUI, setShowLoadingUI] = useState(false);
 
   const [isExhausted, setIsExhausted] = useState(false);
-
-  const { ids, add, remove, activeTripId } = useTripDraft();
 
   const refreshKey = searchParams.get("t"); // 🌟 抓取 TaskContext 傳來的時間戳記
 
@@ -49,6 +50,18 @@ function SearchContent() {
     return set;
   }, [activeTripPlacesQ.data]);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading){
+      timer = setTimeout(() => {
+        setShowLoadingUI(true);
+      }, 300);
+    } else {
+      setShowLoadingUI(false);
+    }
+
+    return () => clearTimeout(timer)
+  }, [isLoading]);
   
   useEffect(() => {
     if (!location) {
@@ -57,7 +70,6 @@ function SearchContent() {
     }
 
     const allowScrape = !(taskState === 'polling');
-
 
     // ==========================================
     // 防護網：攔截「上一頁」與「F5 重新整理」
@@ -157,22 +169,18 @@ function SearchContent() {
     }
   };
 
+  if (isLoading){
+    // 超過 300ms，顯示專屬 Logo 動畫
+    if (showLoadingUI){
+      return <LogoSpinner />
+    }
+    // 0 ~ 300ms 內，為了防閃爍，回傳一個空白的背景或簡單的佔位符
+    return <main className="flex flex-1 w-full min-h-screen bg-gray-50" />;
+  }
 
-return (
-    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-4 md:pt-8 pb-2 bg-gray-50 min-h-screen">
-      
-      {/* 根據不同狀態切換中間的內容 */}
-      {isLoading ? (
-        <div className="flex flex-1 w-full flex-col items-center justify-center px-6 text-center">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-full border-4 border-gray-300 border-t-blue-600 animate-spin mb-4" />
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2 md:mb-3">
-            正在為您探索「{location}」的全新景點
-          </h2>
-          <p className="text-gray-500 text-base md:text-lg max-w-2xl">
-            您搜尋地點還沒有最新資料，這可能需要幾分鐘的時間，您可以先離開此頁面，完成時我們會通知您！
-          </p>
-        </div>
-      ) : error ? (
+  if (error){
+    return (
+      <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-4 md:pt-8 pb-2 bg-gray-50 min-h-screen">
         <div className="flex flex-1 w-full flex-col items-center justify-center px-4">
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md w-full text-center hover:shadow-md transition-shadow">
             
@@ -193,7 +201,14 @@ return (
             </button>
           </div>
         </div>
-      ) : travelList.length === 0 ? (
+        <AddPlacesToTripBtn/>
+      </main>
+    );
+  }
+
+  if (travelList.length === 0){
+    return(
+      <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-4 md:pt-8 pb-2 bg-gray-50 min-h-screen">
         <div className="flex flex-1 w-full flex-col items-center justify-center px-4">
           <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center max-w-md w-full text-center hover:shadow-md transition-shadow">
             
@@ -219,22 +234,26 @@ return (
             </button>
           </div>
         </div>
-      ) : (
-        <ResultsSection
-          destination={location || ""}
-          travelList={travelList}
-          responseMsg=""
-          onSearchOther={(newLocation) => router.push(`/search?location=${newLocation}`)}
-          scheduledIds={scheduledIds} 
-          draftIds={ids}
-          onAddToDraft={add}
-          onRemoveFromDraft={remove}
-          isExhausted={isExhausted}
-          onSearchMore={handleSearchMore}
-          isTaskPolling={taskState === 'polling'}
-        />
-      )}
+        <AddPlacesToTripBtn/>
+      </main>
+    );
+  }
 
+  return (
+    <main className="relative flex flex-1 w-full flex-col items-center justify-start pt-4 md:pt-8 pb-2 bg-gray-50 min-h-screen">
+      <ResultsSection
+        destination={location || ""}
+        travelList={travelList}
+        responseMsg=""
+        onSearchOther={(newLocation) => router.push(`/search?location=${newLocation}`)}
+        scheduledIds={scheduledIds} 
+        draftIds={ids}
+        onAddToDraft={add}
+        onRemoveFromDraft={remove}
+        isExhausted={isExhausted}
+        onSearchMore={handleSearchMore}
+        isTaskPolling={taskState === 'polling'}
+      />
       <AddPlacesToTripBtn/>
     </main>
   );
