@@ -1,4 +1,4 @@
-
+services:
   # 1. FastAPI 後端
   backend:
     build: ./backend
