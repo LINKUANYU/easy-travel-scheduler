@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 
 import PlaceAutocompleteInput from "@/app/components/edit/PlaceAutocompleteInput";
 import TripMap from "@/app/components/edit/TripMap";
-import EditSaveButton from "@/app/components/edit/EditSaveBtn";
 import PlacePoolPanel from "../../components/edit/PlacePoolPanel";
 import DailyItineraryPanel from "../../components/edit/DailyItineraryPanel";
 import { usePlaceThumbnails } from "../../hooks/usePlaceThumbnails";
@@ -15,6 +14,7 @@ import { useEditData } from "../../hooks/useEditData";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
 import Button from "@/app/components/ui/Button";
+import LogoSpinner from "@/app/components/ui/LogoSpinner";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -30,6 +30,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   // 控制平板/手機模式下，地圖是否展開
   const [isMapVisible, setIsMapVisible] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  
+  const [showLoadingUI, setShowLoadingUI] = useState(false);
+
 
   // 1. 取得設定 ActiveTrip 的方法
   const { setActiveTripId } = useTripDraft();
@@ -47,14 +50,6 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
     enabled: tid !== null,
     queryFn: async () => apiGet<any>(`/api/trips/${tid}`),
   });
-  
-  // 攔截無權限 (403) 或找不到行程 (404) 的狀態，利用 useEffect 安全地執行轉址與提示
-  useEffect(() => {
-    if (tripQ.error) {
-      alert("您沒有權限查看此行程，或者該行程已不存在");
-      router.push('/');
-    }
-  }, [tripQ.error, router]);
 
   // 4. 統籌所有行程與狀態資料 (等待 tid 和 trip 資料準備好才執行)
   const days = tripQ.data?.days ?? 1; 
@@ -84,7 +79,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
     return [...filteredSummary, ...newActiveDaySummary];
   }, [data.summaryQ.data, data.dayItems, data.activeDay]);
 
- // 監聽 data.uiMsg，只要有文字就跳出 toast
+  // 監聽 data.uiMsg，只要有文字就跳出 toast
   useEffect(() => {
     if (data.uiMsg) {
       // 判斷訊息內容是否包含負面關鍵字
@@ -98,30 +93,57 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
     }
   }, [data.uiMsg]);
 
-// 回上一步
-  const handleGoBack = () => {
-  // 去短期記憶裡面找找看上次搜了哪裡
-  const lastSearch = sessionStorage.getItem("lastSearchLocation");
+
+
   
-  if (lastSearch) {
-    router.push(`/search?location=${lastSearch}`);
-  } else {
-    // 如果沒找到（例如他是直接從 Dashboard 點進來的），回首頁
-    router.push('/');
-  }
-};
+  // 攔截無權限 (403) 或找不到行程 (404) 的狀態，利用 useEffect 安全地執行轉址與提示
+  useEffect(() => {
+    if (tripQ.error) {
+      alert("您沒有權限查看此行程，或者該行程已不存在");
+      router.push('/');
+    }
+  }, [tripQ.error, router]);
+
+  // 等待動畫
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (tripQ.isLoading) {
+      timer = setTimeout(() => setShowLoadingUI(true), 300);
+    } else {
+      setShowLoadingUI(false);
+    }
+    return () => clearTimeout(timer);
+  }, [tripQ.isLoading]);
+
+  // 回上一步
+  const handleGoBack = () => {
+    // 去短期記憶裡面找找看上次搜了哪裡
+    const lastSearch = sessionStorage.getItem("lastSearchLocation");
+    
+    if (lastSearch) {
+      router.push(`/search?location=${lastSearch}`);
+    } else {
+      // 如果沒找到（例如他是直接從 Dashboard 點進來的），回首頁
+      router.push('/');
+    }
+  };
 
   
   // ==========================================
   // 阻擋畫面渲染 (Loading & Error 處理)
   // ==========================================
-  if (tid === null) return <p className="p-4 text-red-500">tripId 不合法</p>;
-  if (tripQ.isLoading || !tripQ.data) return <p className="p-4 text-gray-500">Loading trip…</p>;
-  if (tripQ.isError) return <p className="p-4 text-red-500">Load trip failed: {(tripQ.error as Error).message}</p>;
-  
-  // 如果在錯誤狀態，直接回傳 null (畫面空白)，防止下方的 useEditData 繼續發送其他 API 導致 403 洗版
-  if (tripQ.error) {
-    return null; 
+  if (tid === null) return <p className="p-4 text-red-500 text-center mt-10">無效的行程 ID</p>;
+
+  if (tripQ.isLoading) {
+    if (showLoadingUI) {
+       return <LogoSpinner />;
+    }
+    // 300ms 內防閃爍，回傳空背景
+    return <div className="h-[calc(100vh-72px)] bg-gray-50" />; 
+  }
+
+  if (!tripQ.data || tripQ.isError) {
+    return null;
   }
 
   return (
@@ -195,7 +217,6 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             ? "relative w-full flex-1 opacity-100 z-10" // 手機/平板展開時：佔滿空間
             : "absolute top-0 left-0 w-full h-full opacity-0 -z-10 pointer-events-none min-[1200px]:pointer-events-auto" // 手機/平板隱藏時：退到背景。★ 修正：加上 min-[1200px]:pointer-events-auto 讓桌機版永遠可點擊！
           } 
-          /* 桌機版霸王條款：永遠顯示、永遠佔據位置、永遠可操作 */
           min-[1200px]:!relative min-[1200px]:!w-auto min-[1200px]:!h-auto min-[1200px]:!opacity-100 min-[1200px]:!z-10 min-[1200px]:!flex min-[1200px]:!flex-col
           border border-[#ddd] rounded-xl overflow-hidden shadow-md transition-opacity duration-300
         `}>

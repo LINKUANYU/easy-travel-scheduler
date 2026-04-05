@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiGet, apiPatch } from "@/app/lib/api";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import TripMap from "@/app/components/edit/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,8 @@ import { useAuth } from "@/app/context/AuthContext";
 import { getTripEditToken } from "@/app/lib/tripIndex";
 import toast from "react-hot-toast";
 import Button from "@/app/components/ui/Button";
+import LogoSpinner from "@/app/components/ui/LogoSpinner";
+
 
 export default function ShareWorkspace({ token }: { token: string }) {
   const router = useRouter();
@@ -29,6 +31,8 @@ export default function ShareWorkspace({ token }: { token: string }) {
   const [activeDay, setActiveDay] = useState<number | null>(1);
   // 地圖 preview 視窗 Hook 呼叫
   const { preview, setPreview, updatePreview } = usePlacePreview();
+
+  const [showLoadingUI, setShowLoadingUI] = useState(false);
 
   // 讀取資料庫的trip、itinerary 資料
   const { data, isLoading, error } = useQuery({
@@ -88,8 +92,41 @@ export default function ShareWorkspace({ token }: { token: string }) {
   // 第一個參數是 dayItems，第二個是 sortedPlaces。我們直接把 map 過的 places 當作第二個參數傳進去 (用 as any[] 避開嚴格型別檢查，因為只要有 google_place_id 就能運作)
   const { getThumbUrl } = usePlaceThumbnails([], places as any[]);
 
-  if (isLoading || !data) return <div style={{ padding: 20 }}>載入行程中...</div>;
-  if (error) return <div style={{ padding: 20 }}>無法載入行程或連結已失效</div>;
+  // 等待動畫
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isLoading) {
+      timer = setTimeout(() => setShowLoadingUI(true), 300);
+    } else {
+      setShowLoadingUI(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
+if (isLoading) {
+    if (showLoadingUI) {
+       // 超過 300ms，秀出有質感的 Logo 動畫
+       return <LogoSpinner />;
+    }
+    // 300ms 內防閃爍，回傳與背景同色的空白畫面
+    return <div className="h-[calc(100dvh-72px)] bg-gray-50 w-full" />; 
+  }
+
+  // 錯誤狀態，或是抓不到資料 (稍微美化一下，引導使用者回首頁)
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100dvh-72px)] bg-gray-50 w-full">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+          <span className="text-4xl mb-4">🔗</span>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">無法載入行程</h3>
+          <p className="text-gray-500 mb-6">此分享連結可能已經失效，或是不存在。</p>
+          <Button onClick={() => router.push('/')} variant="primary">
+            回首頁開始規劃
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const { trip, itinerary } = data;
   // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列
