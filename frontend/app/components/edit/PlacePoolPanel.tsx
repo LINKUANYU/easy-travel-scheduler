@@ -101,7 +101,8 @@ export default function PlacePoolPanel({
                           e.stopPropagation();
                           onRemovePlace(p.destination_id);
                         }}
-                        disabled={isRemoving}
+                        disabled={isRemoving || !!scheduled}
+                        title={scheduled ? "此景點已加入行程，請先從行程移除" : "移除景點"}
                         className="h-8 w-8 flex items-center justify-center rounded-full text-gray-500 bg-transparent text-2xl leading-none transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         ×

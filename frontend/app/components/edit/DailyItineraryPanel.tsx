@@ -2,7 +2,7 @@
 "use client";
 
 import React, { Fragment } from "react";
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -92,7 +92,19 @@ export default function DailyItineraryPanel({
   
   // PointerSensor (感應器類型) 這是最通用的感應器，它同時支援滑鼠 (Mouse) 和 觸控螢幕 (Touch)。
   // distance: 當位移 > 6 像素：系統才會確認：「開始動作」這時才會把元件抓起來變透明，進入拖拉狀態。
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8, // 桌機：滑鼠移動 8px 才觸發拖拉
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 手機關鍵：按住 200 毫秒才會觸發拖拉，避免一般上下滑動網頁時誤觸
+        tolerance: 5, // 容忍度：按住的期間，手指稍微偏移 5px 內都不會中斷觸發
+      },
+    })
+  );
 
   const DAY_COLORS = ["#71b5c8", "#82cda4", "#f8cb42", "#e76f51", "#b97ced"];
   const themeColor = DAY_COLORS[(activeDay - 1) % DAY_COLORS.length];
@@ -235,7 +247,7 @@ export default function DailyItineraryPanel({
                                       {...dragAttributes}
                                       {...dragListeners}
                                       onClick={(e) => e.stopPropagation()}
-                                      className="cursor-grab text-black text-2xl leading-none select-none p-1 border border-[#ddd] rounded-[10px]"
+                                      className="cursor-grab text-black text-2xl leading-none select-none p-1 border border-[#ddd] rounded-[10px] touch-none"
                                       title="拖拉排序"
                                     >
                                       ⠿
