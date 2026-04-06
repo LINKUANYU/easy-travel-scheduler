@@ -15,6 +15,8 @@ import { useTripDraft } from "@/app/hooks/useTripDraft";
 import toast from "react-hot-toast";
 import Button from "@/app/components/ui/Button";
 import LogoSpinner from "@/app/components/ui/LogoSpinner";
+import { driver, DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
 
 // 輔助函式：確保從 URL 拿到的字串 tripId 能安全轉成數字
 function normalizeTripId(x: string) {
@@ -28,7 +30,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   //  2 個 Tab，預設手機版顯示pool
   const [mobileTab, setMobileTab] = useState<"pool" | "itinerary">("pool");
   // 控制平板/手機模式下，地圖是否展開
-  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [isMapVisible, setIsMapVisible] = useState(true);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   
   const [showLoadingUI, setShowLoadingUI] = useState(false);
@@ -107,13 +109,142 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   // 等待動畫
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (tripQ.isLoading) {
+    if (tripQ.isPending) {
       timer = setTimeout(() => setShowLoadingUI(true), 300);
     } else {
       setShowLoadingUI(false);
     }
     return () => clearTimeout(timer);
-  }, [tripQ.isLoading]);
+  }, [tripQ.isPending]);
+
+  // 新手導覽
+  useEffect(() => {
+    // 檢查 localStorage，確保使用者只會看到一次導覽
+    const hasSeenTour = localStorage.getItem("hasSeenEditTour");
+    
+    // 如果資料還沒載入好，或是已經看過導覽，就不執行
+    if (!tripQ.data || hasSeenTour) return;
+
+    const width = window.innerWidth;
+    const isMobile = width < 1200;
+    const isPhone = width < 768;
+
+    // 動態建立導覽步驟陣列
+    const steps: DriveStep[] = [];
+
+    // 步驟 1：搜尋景點 (桌機是右側輸入框，平板與手機是地圖左上角圓形按鈕)
+    steps.push({
+      element: isMobile ? '#tour-mobile-search-input' : '#tour-desktop-search-input',
+      popover: {
+        title: '搜尋景點 🔍',
+        description: '從這裡輸入你想去的景點，點擊後會顯示在地圖上喔！',
+        side: isMobile ? "bottom" : "right", 
+        align: 'start'
+      }
+    });
+
+    // 步驟 2：地圖開關 (桌機版因為地圖長駐，所以沒有開關，直接跳過此步驟！)
+    if (isMobile) {
+      steps.push({
+        element: isMobile ? '#tour-mobile-map' : '#tour-desktop-map',
+        popover: {
+          title: '展開／收起地圖 🗺️',
+          description: '展開／收起地圖能隨時確認到底在哪裡哦！',
+          side:  isMobile ? "bottom" : "right",
+          align: 'center'
+        }
+      });
+    }
+
+    // 步驟 3：回上一頁 (手機用左下角 FAB，平板與桌機用右上角 Header)
+    steps.push({
+      element: isMobile ? '#tour-mobile-back' : '#tour-desktop-back',
+      popover: {
+        title: '回搜尋頁 🏠',
+        description: '想探索其他城市？隨時可以點這裡回到上一步。',
+        side:  isMobile ? "right" : "bottom",
+        align: 'center'
+      }
+    });
+
+    // 步驟 4：儲存按鈕 (手機用左下角 FAB，平板與桌機用右上角 Header)
+    steps.push({
+      element:  isMobile ? '#tour-mobile-save' : '#tour-desktop-save',
+      popover: {
+        title: '記得儲存 💾',
+        description: '當你加入新景點或調整順序後，記得點擊這裡儲存進度！',
+        side:  isMobile ? "right" : "bottom",
+        align: 'center'
+      }
+    });
+
+    // 步驟 5：下一步 (手機用左下角 FAB，平板與桌機用右上角 Header)
+    steps.push({
+      element:  isMobile ? '#tour-mobile-next' : '#tour-desktop-next',
+      popover: {
+        title: '完成規劃 ✨',
+        description: '行程安排好之後，點擊這裡就能進入分享頁面，把行程傳給旅伴！',
+        side:  isMobile ? "right" : "bottom",
+        align: 'center'
+      }
+    });
+
+// 步驟 6：待排景點池 (所有裝置都適用)
+    steps.push({
+      element: '#tour-pool-panel', // 指向整個面板
+      popover: {
+        title: '待排景點池 📌',
+        description: '搜尋到的景點會先放在這裡，你可以點擊「＋」將它們加入行程。點擊名稱就可以轉跳地圖！',
+        // 如果是手機，對話框放上面或下面比較不會被切到；桌機則放左邊
+        side: isPhone ? 'top' : 'left', 
+        align: 'center'
+      },
+      onHighlightStarted: () => {
+        // 非桌機版需要「切換」的動作
+        if (isMobile) {
+          setIsMapVisible(false); // 收起地圖
+          setMobileTab("pool");   // 切換到景點池
+        }
+      }
+    });
+
+    // 步驟 7：每日行程 (所有裝置都適用)
+    steps.push({
+      element: '#tour-itinerary-panel', // 指向整個面板
+      popover: {
+        title: '每日行程 🗓️',
+        description: '在這裡，點擊名稱就可以轉跳地圖，可以拖拉排序景點、設定停留時間與交通方式喔！',
+        side: isPhone ? 'top' : 'left',
+        align: 'center'
+      },
+      onHighlightStarted: () => {
+        // 非桌機版需要「切換」的動作
+        if (isMobile) {
+          setIsMapVisible(false); // 收起地圖
+          setMobileTab("itinerary"); // 切換到行程頁
+        }
+      }
+    });
+
+    // 初始化 Driver
+    const driverObj = driver({
+      showProgress: true, // 顯示進度條
+      nextBtnText: '下一步 ➔',
+      prevBtnText: '⬅ 上一步',
+      doneBtnText: '開始規劃！',
+      steps: steps,
+      onDestroyStarted: () => {
+        localStorage.setItem("hasSeenEditTour", "true");
+        driverObj.destroy();
+      }
+    });
+
+    // 延遲執行，確保畫面上的按鈕都已經渲染完畢
+    setTimeout(() => {
+      driverObj.drive();
+    }, 500);
+
+  }, [tripQ.data]);
 
   // 回上一步
   const handleGoBack = () => {
@@ -134,7 +265,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   // ==========================================
   if (tid === null) return <p className="p-4 text-red-500 text-center mt-10">無效的行程 ID</p>;
 
-  if (tripQ.isLoading) {
+  if (tripQ.isPending) {
     if (showLoadingUI) {
        return <LogoSpinner />;
     }
@@ -192,12 +323,14 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
       {/* ========================================= */}
       <div className={`${isMapVisible ? "hidden" : "flex"} md:hidden bg-gray-100 p-1 rounded-xl shrink-0 gap-1`}>
         <button
+          id="tour-mobile-pool-tab"
           onClick={() => setMobileTab("pool")}
           className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors ${mobileTab === "pool" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"}`}
         >
           📌 待排景點
         </button>
         <button
+          id="tour-mobile-itinerary-tab"
           onClick={() => setMobileTab("itinerary")}
           className={`flex-1 py-2 text-[13px] font-bold rounded-lg transition-colors ${mobileTab === "itinerary" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500"}`}
         >
@@ -210,7 +343,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
       <div className="flex flex-col min-[1200px]:grid min-[1200px]:grid-cols-[4fr_6fr] gap-5 flex-1 min-h-0 relative">
 
         {/* --------------------------------- */}
-        {/* 左側 / 上半部：地圖區塊 */}
+        {/* 左側 ：地圖區塊 */}
         {/* --------------------------------- */}
         <div className={`
           ${isMapVisible 
@@ -242,6 +375,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
           {/* 未展開時的圓形搜尋按鈕 */}
           {!isMobileSearchOpen && isMapVisible && (
             <button
+              id="tour-mobile-search-input" 
               onClick={() => setIsMobileSearchOpen(true)}
               className="min-[1200px]:hidden absolute top-1 left-1 z-20 w-11 h-11 bg-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] flex items-center justify-center text-slate-600 border border-slate-100 active:scale-90 transition-transform"
             >
@@ -273,14 +407,16 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             )}
 
             {/* Google Input */}
-            <PlaceAutocompleteInput
-              disabled={data.previewLoading}
-              placeholder="搜尋並選擇地點（Google Places）"
-              onPick={({placeId, label}) => {
-                data.updatePreview(placeId, label);
-                setIsMobileSearchOpen(false); // 選取後自動收起全螢幕
-              }}
-            />
+            <div id="tour-desktop-search-input" className="w-full">
+              <PlaceAutocompleteInput
+                disabled={data.previewLoading}
+                placeholder="搜尋並選擇地點（Google Places）"
+                onPick={({placeId, label}) => {
+                  data.updatePreview(placeId, label);
+                  setIsMobileSearchOpen(false); // 選取後自動收起全螢幕
+                }}
+              />
+            </div>
             
             {/* 預覽載入狀態 */}
             {(data.previewLoading || data.previewErr) && (
@@ -315,6 +451,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             <div className="hidden md:flex gap-3">
               {/* 1. 地圖開關 */}
               <button
+                id="tour-desktop-map"
                 onClick={() => setIsMapVisible(!isMapVisible)}
                 className="min-[1200px]:hidden map-btn-pop w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.3)] active:scale-90 transition-transform"
                 title={isMapVisible ? "收起地圖" : "展開地圖"}
@@ -327,8 +464,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
                   )}
                 </svg>
               </button>
-              {/* 1. 回上一頁 */}
+              {/* 2. 回上一頁 */}
               <button
+                id="tour-desktop-back"
                 onClick={handleGoBack}
                 className="w-10 h-10 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
                 title="回上一頁"
@@ -338,8 +476,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
                 </svg>
               </button>
               
-              {/* 2. 儲存按鈕 */}
+              {/* 3. 儲存按鈕 */}
               <button
+                id="tour-desktop-save"
                 onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
                 disabled={data.saveDayDraftM.isPending}
                 className={`relative w-10 h-10 flex items-center justify-center rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-90 transition-transform 
@@ -356,8 +495,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
                 )}
               </button>
 
-              {/* 3. 下一步 */}
+              {/* 4. 下一步 */}
               <button
+                id="tour-desktop-next"
                 onClick={async () => {
                   try {
                     const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);
@@ -381,9 +521,11 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
           <div className="flex flex-col md:flex-row gap-5 flex-1 min-h-0 w-full">
             
             {/* 景點池 (手機版依據 Tab 切換，平板/桌機版永遠顯示並佔 50%/自訂比例) */}
-            <div className={`
-              ${mobileTab === "pool" ? "flex" : "hidden"} 
-              md:flex flex-col min-h-0 w-full md:w-1/2 min-[1200px]:w-auto min-[1200px]:!flex-[2.5]
+            <div 
+              id="tour-pool-panel"
+              className={`
+                ${mobileTab === "pool" ? "flex" : "hidden"} 
+                md:flex flex-col min-h-0 w-full md:w-1/2 min-[1200px]:w-auto min-[1200px]:!flex-[2.5]
             `}>
               <PlacePoolPanel
                 days={days}
@@ -407,9 +549,11 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
             </div>
 
             {/* 每日行程 (手機版依據 Tab 切換，平板/桌機版永遠顯示並佔 50%/自訂比例) */}
-            <div className={`
-              ${mobileTab === "itinerary" ? "flex" : "hidden"} 
-              md:flex flex-col min-h-0 w-full md:w-1/2 min-[1200px]:w-auto min-[1200px]:!flex-[3.5]
+            <div 
+              id="tour-itinerary-panel"
+              className={`
+                ${mobileTab === "itinerary" ? "flex" : "hidden"} 
+                md:flex flex-col min-h-0 w-full md:w-1/2 min-[1200px]:w-auto min-[1200px]:!flex-[3.5]
             `}>
               <DailyItineraryPanel
                 activeDay={data.activeDay}
@@ -450,6 +594,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
       `}>
         {/* 1. 地圖開關 */}
         <button
+          id="tour-mobile-map"
           onClick={() => setIsMapVisible(!isMapVisible)}
           className="map-btn-pop w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-[0_4px_12px_rgba(37,99,235,0.3)] active:scale-90 transition-transform"
           title={isMapVisible ? "收起地圖" : "展開地圖"}
@@ -465,6 +610,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
 
         {/* 2. 回上一頁 */}
         <button
+          id="tour-mobile-back"
           onClick={handleGoBack}
           className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
           title="回上一頁"
@@ -476,6 +622,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
 
         {/* 3. 儲存變更 */}
         <button
+          id="tour-mobile-save"
           onClick={() => data.saveDayDraftM.mutate(data.activeDay)}
           disabled={data.saveDayDraftM.isPending}
           className={`relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] active:scale-90 transition-transform 
@@ -495,6 +642,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
 
         {/* 4. 下一步 */}
         <button
+          id="tour-mobile-next"
           onClick={async () => {
             try {
               const res = await apiPatch<{ share_token: string }>(`/api/trips/${tid}/share`);

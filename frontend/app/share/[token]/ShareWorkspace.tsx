@@ -14,6 +14,8 @@ import { getTripEditToken } from "@/app/lib/tripIndex";
 import toast from "react-hot-toast";
 import Button from "@/app/components/ui/Button";
 import LogoSpinner from "@/app/components/ui/LogoSpinner";
+import { driver, DriveStep } from "driver.js";
+import "driver.js/dist/driver.css";
 
 
 export default function ShareWorkspace({ token }: { token: string }) {
@@ -35,7 +37,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
   const [showLoadingUI, setShowLoadingUI] = useState(false);
 
   // 讀取資料庫的trip、itinerary 資料
-  const { data, isLoading, error } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: ["shared-trip", token],
     queryFn: () => apiGet<SharedTripDataOut>(`/api/share/${token}`),
   });
@@ -91,49 +93,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
   // 第一個參數是 dayItems，第二個是 sortedPlaces。我們直接把 map 過的 places 當作第二個參數傳進去 (用 as any[] 避開嚴格型別檢查，因為只要有 google_place_id 就能運作)
   const { getThumbUrl } = usePlaceThumbnails([], places as any[]);
-
-  // 等待動畫
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isLoading) {
-      timer = setTimeout(() => setShowLoadingUI(true), 300);
-    } else {
-      setShowLoadingUI(false);
-    }
-    return () => clearTimeout(timer);
-  }, [isLoading]);
-
-if (isLoading) {
-    if (showLoadingUI) {
-       // 超過 300ms，秀出有質感的 Logo 動畫
-       return <LogoSpinner />;
-    }
-    // 300ms 內防閃爍，回傳與背景同色的空白畫面
-    return <div className="h-[calc(100dvh-72px)] bg-gray-50 w-full" />; 
-  }
-
-  // 錯誤狀態，或是抓不到資料 (稍微美化一下，引導使用者回首頁)
-  if (error || !data) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[calc(100dvh-72px)] bg-gray-50 w-full">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
-          <span className="text-4xl mb-4">🔗</span>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">無法載入行程</h3>
-          <p className="text-gray-500 mb-6">此分享連結可能已經失效，或是不存在。</p>
-          <Button onClick={() => router.push('/')} variant="primary">
-            回首頁開始規劃
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const { trip, itinerary } = data;
-  // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列
-  const dayNums = Object.keys(itinerary).map(Number).sort((a, b) => a - b);
-
-
-
+  
   /** 登入狀態邏輯 */
   // 準備攔截函式
   const handleSaveTrip = async () => {
@@ -186,6 +146,115 @@ if (isLoading) {
       topListRef.current.scrollBy({ left: offset, behavior: "smooth" });
     }
   };
+
+
+      // 新手導覽
+  useEffect(() => {
+    // 1. 確保資料已載入
+    if (isPending || !data) return;
+    
+    // 2. 只有「行程擁有者」才看得到這三個按鈕，所以只有他們需要看導覽
+    if (!isOwner) return;
+
+    // 3. 檢查是否看過
+    const hasSeenTour = localStorage.getItem("hasSeenShareTour");
+    if (hasSeenTour) return;
+
+    // 4. 判斷螢幕寬度
+    const isMobile = window.innerWidth < 1200;
+
+    const steps: DriveStep[] = [
+      {
+        // 回上一步
+        element: isMobile ? '#tour-mobile-back' : '#tour-desktop-back',
+        popover: {
+          title: '繼續編輯 ✍️',
+          description: '發現有地方想修改？點這裡隨時回到編輯模式！',
+          side: isMobile ? 'right' : 'bottom',
+          align: 'center'
+        }
+      },
+      {
+        // 保存行程
+        element: isMobile ? '#tour-mobile-save' : '#tour-desktop-save',
+        popover: {
+          title: '綁定帳號 💾',
+          description: '如果您剛才是匿名建立的，記得點擊這裡登入並綁定，行程才不會不見喔！',
+          side: isMobile ? 'right' : 'bottom',
+          align: 'center'
+        }
+      },
+      {
+        // 分享連結
+        element: isMobile ? '#tour-mobile-share' : '#tour-desktop-share',
+        popover: {
+          title: '分享連結 🔗',
+          description: '一鍵複製專屬網址，傳給 Line 上的親朋好友一起看行程！',
+          side: isMobile ? 'right' : 'bottom',
+          align: 'center'
+        }
+      }
+    ];
+
+    const driverObj = driver({
+      showProgress: true,
+      nextBtnText: '下一步 ➔',
+      prevBtnText: '⬅ 上一步',
+      doneBtnText: '太棒了！',
+      steps: steps,
+      onDestroyStarted: () => {
+        localStorage.setItem("hasSeenShareTour", "true");
+        driverObj.destroy();
+      }
+    });
+
+    // 稍微延遲以確保畫面和動畫都就緒
+    setTimeout(() => {
+      driverObj.drive();
+    }, 500);
+
+  }, [isPending, data, isOwner]);
+
+
+  // 等待動畫
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isPending) {
+      timer = setTimeout(() => setShowLoadingUI(true), 300);
+    } else {
+      setShowLoadingUI(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isPending]);
+
+  if (isPending) {
+    if (showLoadingUI) {
+       // 超過 300ms，秀出有質感的 Logo 動畫
+       return <LogoSpinner />;
+    }
+    // 300ms 內防閃爍，回傳與背景同色的空白畫面
+    return <div className="h-[calc(100dvh-72px)] bg-gray-50 w-full" />; 
+  }
+
+  // 錯誤狀態，或是抓不到資料 (稍微美化一下，引導使用者回首頁)
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100dvh-72px)] bg-gray-50 w-full">
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+          <span className="text-4xl mb-4">🔗</span>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">無法載入行程</h3>
+          <p className="text-gray-500 mb-6">此分享連結可能已經失效，或是不存在。</p>
+          <Button onClick={() => router.push('/')} variant="primary">
+            回首頁開始規劃
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const { trip, itinerary } = data;
+  // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列
+  const dayNums = Object.keys(itinerary).map(Number).sort((a, b) => a - b);
 
   return (
     // 最外層容器：滿版高度，隱藏預設捲軸
@@ -316,6 +385,7 @@ if (isLoading) {
                 <>
                   {/* 2. 回上一步 */}
                   <Button
+                    id="tour-desktop-back"
                     onClick={() => router.push(`/edit/${trip.trip_id}`)}
                     variant="secondary"
                     size="md"
@@ -329,6 +399,7 @@ if (isLoading) {
 
                   {/* 3. 保存行程 */}
                   <Button 
+                    id="tour-desktop-save"
                     onClick={handleSaveTrip}
                     variant="secondary"
                     size="md"
@@ -344,6 +415,7 @@ if (isLoading) {
 
                   {/* 4. 分享連結 */}
                   <Button 
+                    id="tour-desktop-share"
                     onClick={() => {
                       navigator.clipboard.writeText(window.location.href)
                         .then(() => toast.success("分享連結已複製！"))
@@ -412,7 +484,6 @@ if (isLoading) {
       </div>
       {/* ========================================= */}
       {/* 手機/平板專屬：右下角浮動操作按鈕 (FAB) 群組 */}
-      {/* 只有在小於 1200px 時才會顯示 */}
       {/* ========================================= */}
       <div className="fixed bottom-6 left-3 gap-2 md:bottom-6 md:left-4 md:gap-4 z-[100] flex flex-col min-[1200px]:hidden">
         
@@ -435,6 +506,7 @@ if (isLoading) {
           <>
             {/* 2. 回上一步 */}
             <button
+              id="tour-mobile-back"
               onClick={() => router.push(`/edit/${trip.trip_id}`)}
               className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
               title="回上一步"
@@ -446,6 +518,7 @@ if (isLoading) {
 
             {/* 3. 保存行程 */}
             <button
+              id="tour-mobile-save"
               onClick={handleSaveTrip}
               className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white text-slate-700 rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.15)] border border-slate-100 active:scale-90 transition-transform"
               title="保存行程"
@@ -459,6 +532,7 @@ if (isLoading) {
 
             {/* 4. 分享連結 */}
             <button
+              id="tour-mobile-share"
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href)
                   .then(() => toast.success("分享連結已複製！"))
