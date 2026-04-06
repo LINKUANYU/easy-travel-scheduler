@@ -139,7 +139,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
        return <LogoSpinner />;
     }
     // 300ms 內防閃爍，回傳空背景
-    return <div className="h-[calc(100vh-72px)] bg-gray-50" />; 
+    return <div className="h-[calc(100dvh-72px)] bg-gray-50" />;
   }
 
   if (!tripQ.data || tripQ.isError) {
@@ -147,7 +147,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   }
 
   return (
-    <div className="flex flex-col w-full md:w-[98%] lg:w-[95%] xl:w-[90%] mx-auto h-[calc(100vh-72px)] overflow-hidden box-border pt-2 pb-4">
+    <div className="flex flex-col w-full md:w-[98%] lg:w-[95%] xl:w-[90%] mx-auto h-[calc(100dvh-72px)] overflow-hidden box-border pt-2 pb-4">
             {/* 隱藏捲軸與按鈕特效的 CSS */}
       <style>{`
         /* 跳一下、停一秒的特效 */

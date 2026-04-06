@@ -113,6 +113,7 @@ export default function TripMap({
           mapTypeControl: false,  // 關閉衛星/地圖切換
           fullscreenControl: false,  // 關閉全螢幕按鈕
           mapTypeControlOptions: { position: 0 as any },
+          gestureHandling: "greedy",  // 強制地圖捕捉所有單指與雙指手勢（for mobile)
         });
 
         mapRef.current = mapInstance;
