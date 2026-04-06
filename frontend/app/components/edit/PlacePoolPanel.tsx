@@ -1,9 +1,9 @@
-// app/edit/[tripId]/components/PlacePoolPanel.tsx
-
 import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
+import { useState, useEffect } from "react";
 
 // 定義這個元件需要對外連接的「管線 (Props)」
 interface PlacePoolPanelProps {
+  days: number;
   isLoading: boolean;
   error: Error | null;
   sortedPlaces: TripPlace[];
@@ -11,13 +11,14 @@ interface PlacePoolPanelProps {
   activeDay: number;
   getThumbUrl: (placeId?: string | null) => string | undefined;
   onUpdatePreview: (placeId: string, displayName?: string) => void;
-  onAddToDay: (destinationId: number) => void;
+  onAddToDay: (destinationId: number, targetDay?: number) => void;
   isAdding: boolean;
   onRemovePlace: (destinationId: number) => void;
   isRemoving: boolean;
 }
 
 export default function PlacePoolPanel({
+  days,
   isLoading,
   error,
   sortedPlaces,
@@ -30,6 +31,16 @@ export default function PlacePoolPanel({
   onRemovePlace,
   isRemoving,
 }: PlacePoolPanelProps) {
+
+  const [openPopoverId, setOpenPopoverId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (openPopoverId === null) return;
+    const closePopover = () => setOpenPopoverId(null);
+    document.addEventListener("click", closePopover);
+    return () => document.removeEventListener("click", closePopover);
+  }, [openPopoverId]);
+
   return (
     <div className="border-2 border-[#4f99f9] rounded-xl p-0 flex flex-col h-full min-h-0 bg-white">
       <div className="shrink-0 pb-[10px]">
@@ -104,20 +115,59 @@ export default function PlacePoolPanel({
                           Day{scheduled.day_index}
                         </div>
                       ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddToDay(p.destination_id);
-                          }}
-                          disabled={isAdding}
-                          className="h-8 w-8 flex items-center justify-center rounded-full text-blue-500 bg-blue-50 transition-colors hover:bg-blue-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                          title="加入行程"
-                        >
-                          {/* 箭頭 SVG 圖示 */}
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-[18px] h-[18px]">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                          </svg>
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (days === 1){
+                                onAddToDay(p.destination_id, 1);
+                              } else {
+                                setOpenPopoverId(openPopoverId === p.destination_id ? null : p.destination_id)
+                              }
+                              
+                            }}
+                            disabled={isAdding}
+                            className="h-8 w-8 flex items-center justify-center rounded-full text-blue-500 bg-blue-50 transition-colors hover:bg-blue-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="加入行程"
+                          >
+                            {/* SVG 圖示 */}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-[18px] h-[18px]">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                          </button>
+                          
+                          {/* 如果有popover有被開啟 */}
+                          {openPopoverId === p.destination_id && days > 1 && (
+                            <div
+                              className="absolute right-[40px] top-0 z-50 w-28 bg-white border border-gray-100 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.12)] p-2"
+                              onClick={(e) => e.stopPropagation()} // 防止點擊選單內部時觸發外部的關閉事件
+                            >
+                              <div className="text-[12px] text-gray-500 mb-1 px-2 font-bold">加入到...</div>
+                              <div className="flex flex-col gap-1 max-h-[150px] overflow-y-auto custom-scrollbar">
+                                {Array.from({ length: days }).map((_, i) => {
+                                  const dayNum = i + 1;
+                                  const isCurrentDay = dayNum === activeDay;
+                                  return (
+                                    <button
+                                      key={dayNum}
+                                      onClick={() => {
+                                        onAddToDay(p.destination_id, dayNum);
+                                        setOpenPopoverId(null); // 加入後關閉 Popover
+                                      }}
+                                      className={`text-left px-3 py-1.5 text-[13px] rounded-lg transition-colors ${
+                                        isCurrentDay 
+                                          ? "font-bold text-blue-600 bg-blue-50" 
+                                          : "text-gray-700 hover:bg-gray-50"
+                                      }`}
+                                    >
+                                      Day {dayNum}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </li>

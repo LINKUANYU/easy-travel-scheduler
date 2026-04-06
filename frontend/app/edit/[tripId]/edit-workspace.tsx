@@ -347,8 +347,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
                 }
                 title="儲存變更"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-[18px] h-[18px]">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-8H7v8M7 3v5h8" />
                 </svg>
                 {!!data.dirtyDayMap[data.activeDay] && (
                   <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full"></span>
@@ -385,6 +386,7 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
               md:flex flex-col min-h-0 w-full md:w-1/2 min-[1200px]:w-auto min-[1200px]:!flex-[2.5]
             `}>
               <PlacePoolPanel
+                days={days}
                 isLoading={data.placesQ.isLoading}
                 error={data.placesQ.error as Error | null}
                 sortedPlaces={data.sortedPlaces}
@@ -395,7 +397,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
                   data.updatePreview(placeId, name);
                   setIsMapVisible(true);
                 }}
-                onAddToDay={(destination_id) => data.addToDayM.mutate({ dayIndex: data.activeDay, destination_id })}
+                onAddToDay={(destination_id, targetDay = data.activeDay) => 
+                  data.addToDayM.mutate({ dayIndex: targetDay, destination_id })
+                }
                 isAdding={data.addToDayM.isPending}
                 onRemovePlace={(destination_id) => data.removePlaceM.mutate(destination_id)}
                 isRemoving={data.removePlaceM.isPending}
@@ -479,8 +483,9 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
           }
           title="儲存變更"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-[18px] h-[18px]">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-8H7v8M7 3v5h8" />
           </svg>
           
           {!!data.dirtyDayMap[data.activeDay] && (
