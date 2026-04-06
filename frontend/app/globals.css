@@ -3,6 +3,7 @@
 :root {
   --background: #f9f9ff; 
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -23,6 +24,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  overscroll-behavior-y: none;
+  /* 阻止 iOS Safari 邊緣回彈與下拉更新，讓手勢完全留給內部元件 */
 }
 
 /* 自定義極簡捲軸 */
