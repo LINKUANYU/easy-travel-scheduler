@@ -1,6 +1,6 @@
-name: Deploy to EC2
+name: Deploy to Web and Worker EC2
 
-# 告訴 GitHub 當有人 push 程式碼到 main 分支時
+# 告訴 GitHub 當有人 push 程式碼到 main 分支時觸發
 on:
   push:
     branches:
@@ -11,24 +11,47 @@ jobs:
     runs-on: ubuntu-latest # GitHub 會開一台暫時的乾淨機器來跑腳本
 
     steps:
-      - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3 # 這是一個寫好的 SSH 登入套件
+      # ==========================================
+      # 階段一：部署到 EC2 A (Web / API 伺服器)
+      # ==========================================
+      - name: Deploy to Web EC2 (Frontend & Backend)
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 以下是機器人登入 EC2 後會自動執行的指令！
             cd ~/easy-travel-scheduler
             
-            # 拉取 GitHub 上最新的程式碼
+            # 1. 拉取最新程式碼
             git pull origin main
             
-            # 讓 Docker 重新編譯有更改的部分，並在背景重啟
-            sudo docker compose up --build -d
-
-            # 強制重啟 Nginx，讓它重新抓取前後端容器的新 IP 🌟 (補上這行！)
+            # 2. 重新編譯並啟動網頁層 (明確指定只啟動這三個)
+            sudo docker compose up --build -d nginx frontend backend
+            
+            # 3. 強制重啟 Nginx，讓它重新抓取前後端容器的新 IP
             sudo docker compose restart nginx
             
-            # 大掃除：順手清除舊的、沒在用的 Docker Image，避免 EC2 硬碟爆滿
+            # 4. 清除舊的 Docker 資源
+            sudo docker system prune -f
+
+      # ==========================================
+      # 階段二：部署到 EC2 B (Celery Worker 伺服器)
+      # ==========================================
+      - name: Deploy to Worker EC2 (Celery Scraper)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_WORKER_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/easy-travel-scheduler
+            
+            # 1. 拉取最新程式碼
+            git pull origin main
+            
+            # 2. 重新編譯並啟動爬蟲層 (🌟 加入 --no-deps 避免啟動其他服務)
+            sudo docker compose up --build -d --no-deps celery_worker
+            
+            # 3. 清除舊的 Docker 資源
             sudo docker system prune -f
