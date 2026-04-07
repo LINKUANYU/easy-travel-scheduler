@@ -100,7 +100,7 @@ export default function DailyItineraryPanel({
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // 手機關鍵：按住 200 毫秒才會觸發拖拉，避免一般上下滑動網頁時誤觸
+        delay: 50, // 手機關鍵：按住 50 毫秒才會觸發拖拉，
         tolerance: 5, // 容忍度：按住的期間，手指稍微偏移 5px 內都不會中斷觸發
       },
     })
