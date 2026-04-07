@@ -278,8 +278,8 @@ export default function EditWorkspace({ tripId }: { tripId: string }) {
   }
 
   return (
-    <div className="flex flex-col w-full md:w-[98%] lg:w-[95%] xl:w-[90%] mx-auto h-[calc(100dvh-72px)] overflow-hidden box-border pt-2 pb-4">
-            {/* 隱藏捲軸與按鈕特效的 CSS */}
+    <div className="flex flex-col w-[95%] md:w-[90%] mx-auto h-[calc(100dvh-72px)] overflow-hidden box-border pt-2 pb-4">
+      {/* 隱藏捲軸與按鈕特效的 CSS */}
       <style>{`
         /* 跳一下、停一秒的特效 */
         @keyframes jump-and-pause {
