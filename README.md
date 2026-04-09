@@ -32,10 +32,21 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
 
 ## Screenshoot
+* **🤖 AI-Powered Attraction Extraction (Gemini API):**
+  * input location
+![Screen Recording 2026-04-09 at 3 10 45 PM](https://github.com/user-attachments/assets/6ba6a5f6-4111-4e03-b578-daf77a628fb1)
+  * background task queues using **Celery** and **Redis**
+![Screen Recording 2026-04-09 at 3 11 53 PM](https://github.com/user-attachments/assets/1da13707-e4ac-407c-9da9-2692061274ff)
 
 * **Dynamic Mapping & Routing (Google Maps Platform)**
-<img width="1201" height="669" alt="Screenshot 2026-04-09 at 2 10 13 PM" src="https://github.com/user-attachments/assets/d877ebf3-9537-4e4a-bcf4-9087cf26dbc0" />
+  * **Places API (Autocomplete) & Maps JavaScript API:** 
+![3](https://github.com/user-attachments/assets/7f817e3d-6c61-45c4-90fe-f1dbef4bdf66)
 
+  * **Routes API:**
+![4](https://github.com/user-attachments/assets/6ac4b0ba-0574-4fcb-bf9c-e9a545d1c291)
+
+  * **Maps JavaScript API:** 
+![5](https://github.com/user-attachments/assets/012350d1-0a95-4593-993b-8acbd3960090)
 
 ## Cloud System Architecture Diagram
 <img width="1778" height="776" alt="diagram-export-4-6-2026-11_40_32-AM" src="https://github.com/user-attachments/assets/e906e5cf-d012-4a47-bb26-9816605e59c5" />
