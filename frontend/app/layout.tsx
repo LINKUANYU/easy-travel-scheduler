@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://easy-travel-scheduler.linkuankuan.com/'),
   title: 'Easy-Travel-scheduler - 你的專屬旅遊規劃助手',
   description: '一站式整合景點、地圖、行程表，輕鬆規劃你的下一趟旅程！',
   openGraph: {
