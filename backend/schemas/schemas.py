@@ -26,15 +26,11 @@ class Attraction(BaseModel):
     images: List[ImageData] = []
 
 
-class TripPlaceIn(BaseModel):
-    google_place_id: str = Field(min_length=1)
-
 class TripCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     days: int = Field(ge=1, le=60)
     start_date: Optional[date] = None
-    places: List[TripPlaceIn] = Field(default_factory=list)  
-    # 如果你在建立這個物件時沒有提供 places 資料，程式會自動幫你建立一個空的列表 []。
+
 
 class TripCreateOut(BaseModel):
     trip_id: int
