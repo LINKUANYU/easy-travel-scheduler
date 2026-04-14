@@ -7,7 +7,7 @@ from services.geo_service import *
 from repositories.destination_repo import get_existing_destinations
 from fastapi.encoders import jsonable_encoder # 幫忙把複雜物件轉成標準 JSON
 import json
-from core.redis import get_redis
+from core.redis import *
 from worker.tasks import celery_app, scrape_and_save_destinations_task
 
 
@@ -141,19 +141,9 @@ def get_task_status(task_id: str):
         return {"status": task_result.state.lower()}
 
 @router.get("/api/popular-searches", response_model=PopularSearchesResponse)
+@redis_cache(cache_key="homepage:popular_search", expire_seconds=3600)
 def get_popular_searches(cur = Depends(get_cur)):
-    redis_client = get_redis()
-
-    # 定義這筆搜尋的專屬快取鑰匙 (Cache Key) Key
-    cache_key = "homepage:popular_search"
-
-    try:
-        cached_data = redis_client.get(cache_key)
-        if cached_data:
-            return {"status": "success", "data": json.loads(cached_data)}
-    except Exception as e:
-        print(f"⚠️ Redis 讀取失敗: {e}")
-
+    # --- 只要進到這裡，就代表快取沒命中，我們專心寫 DB 邏輯 ---
     query = """
         SELECT input_region, COUNT(*)
         FROM destinations 
@@ -168,11 +158,6 @@ def get_popular_searches(cur = Depends(get_cur)):
         rows = cur.fetchall()
 
         popular_regions = [r["input_region"] for r in rows]
-
-        try:
-            redis_client.setex(cache_key, 3600, json.dumps(popular_regions))
-        except Exception as e:
-            print(f"⚠️ Redis 寫入失敗: {e}")
 
         return {"status": "success", "data": popular_regions}
 
