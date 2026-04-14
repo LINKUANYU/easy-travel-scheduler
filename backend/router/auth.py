@@ -7,6 +7,7 @@ import pymysql
 from pymysql.err import IntegrityError
 import secrets
 from datetime import datetime, timezone, timedelta
+from schemas.schemas import OkOut
 
 router = APIRouter()
 
@@ -95,11 +96,11 @@ def login(
     set_session_cookie(response, sid)
     return {"id": user["id"], "email": user["email"], "name": user["name"]}
 
-@router.get("/api/me")
+@router.get("/api/me", response_model=UserOut)
 def me(current_user = Depends(get_optional_user)):
     return current_user
 
-@router.post("/api/logout")
+@router.post("/api/logout", response_model=OkOut)
 def logout(
     request: Request,
     response: Response,
