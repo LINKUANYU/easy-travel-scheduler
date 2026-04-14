@@ -2,30 +2,6 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import date
 
-class SearchRequest(BaseModel):
-    location: str
-    allow_scrape: bool = True
-
-class SearchMore(BaseModel):
-    location: str
-
-class ImageData(BaseModel):
-    url: str
-    source: str
-
-class Attraction(BaseModel):
-    id: int
-    input_region: str
-    city: str
-    attraction: str
-    description: str
-    geo_tags: Optional[str] = Field(default="")
-    google_place_id: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    images: List[ImageData] = []
-
-
 class TripCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     days: int = Field(ge=1, le=60)
@@ -54,6 +30,10 @@ class TripPlaceOut(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
 
+class TripBindOut(BaseModel):
+    message: str
+    trip_id: Optional[int] = None
+
 class AddTripPlaceIn(BaseModel):
     google_place_id: str
     # 先允許前端（Autocomplete）把資訊一起帶來，後端就不用先串 Places Details
@@ -64,10 +44,4 @@ class AddTripPlaceIn(BaseModel):
 
 
 
-
-
-
-
-class OkOut(BaseModel):
-    ok: bool = True
 

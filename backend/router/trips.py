@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 import pymysql
 from core.database import *
 from core.dependencies import *
-from schemas.schemas import *
+from schemas.trip import *
+from schemas.common import OkOut
 from datetime import timedelta
 import secrets
 
@@ -197,7 +198,7 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
     return {"ok": True}
 
 # trip bind user
-@router.patch("/api/trips/{trip_id}/bind")
+@router.patch("/api/trips/{trip_id}/bind", response_model=TripBindOut)
 async def bind_trip_to_user(
     trip_id: int,
     current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API
@@ -271,23 +272,19 @@ def delete_trip(
     cur = Depends(get_cur)
 ):
 
-    # 💡 重點：因為你在 dependencies 放了 Depends(assert_trip_owner)
-    # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」，
-    # 你完全不需要在這裡再寫 if 判斷是不是擁有者！
+    # 因為在 dependencies 放了 Depends(assert_trip_owner)
+    # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」
     
     cur.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
     
-    # ⚠️ 資料庫架構提醒：
-    # 這裡預設你的 MySQL 在建表時，針對 trip_days, trip_places 等子表
-    # 都有設定 Foreign Key 的 `ON DELETE CASCADE`。
+    # 這裡 MySQL 在建表時，針對 trip_days, trip_places 等子表都有設定 Foreign Key 的 `ON DELETE CASCADE`。
     # 這樣刪除 trips 的一筆資料時，底下的行程細節才會連帶被資料庫自動清空。
-    # 如果當初沒設定，記得要先 DELETE 子表，最後再 DELETE trips，否則會報錯。
     
     return {"ok": True}
 
 
 # 取得首頁探索的公開行程 (不需要登入驗證 Depends)
-@router.get("/api/explore/trips")
+@router.get("/api/explore/trips", response_model=list[TripOut])
 def get_explore_trips(cur = Depends(get_cur)):
     try:
         cur.execute("""
