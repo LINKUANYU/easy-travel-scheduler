@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException, Response
-from schemas.schemas import *
+from schemas.common import *
+from schemas.search import *
 from services.ai_scraper import *
 from core.database import *
 from services.geo_service import *
@@ -12,8 +13,8 @@ from worker.tasks import celery_app, scrape_and_save_destinations_task
 
 router = APIRouter()
 
-@router.post("/api/search")
-async def search_destinations_api(
+@router.post("/api/search", response_model=SearchResponse)
+def search_destinations_api(
     payload: SearchRequest,
     cur = Depends(get_cur)
 ):
@@ -107,7 +108,7 @@ async def search_destinations_api(
 
 
 
-@router.post("/api/search-more")
+@router.post("/api/search-more", response_model=SearchMoreResponse)
 def search_more_destinations_api(payload: SearchMore):
     location = payload.location
     redis_client = get_redis()
@@ -123,7 +124,7 @@ def search_more_destinations_api(payload: SearchMore):
     return {"status": "processing", "task_id": task.id}
 
 # 查詢任務進度 API (叫號碼牌)
-@router.get("/api/search/status/{task_id}")
+@router.get("/api/search/status/{task_id}", response_model=TaskStatusResponse)
 def get_task_status(task_id: str):
     # 透過 celery_app 去 Redis 查詢這個任務的狀態
     task_result = celery_app.AsyncResult(task_id)
@@ -132,14 +133,14 @@ def get_task_status(task_id: str):
     if task_result.state == 'PENDING' or task_result.state == 'STARTED':  
         return {"status": "processing"}
     elif task_result.state == 'SUCCESS':
-        return {"status": "completed", "result": task_result.result}
+        return {"status": "completed"}
     elif task_result.state == 'FAILURE':
         return {"status": "failed", "error": str(task_result.info)}
     # 一些冷門的狀態（例如 RETRY 正在重試、REVOKED 任務被強制取消）。
     else:
         return {"status": task_result.state.lower()}
 
-@router.get("/api/popular-searches")
+@router.get("/api/popular-searches", response_model=PopularSearchesResponse)
 def get_popular_searches(cur = Depends(get_cur)):
     redis_client = get_redis()
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.itinerary import *
-from schemas.schemas import OkOut
+from schemas.common import OkOut
 from core.database import get_cur, get_conn
 from pymysql import IntegrityError
 from core.dependencies import assert_trip_owner

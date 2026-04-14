@@ -86,7 +86,7 @@ def scrape_and_save_destinations_task(self, location: str):
     except Exception as e:
         print(f"❌ Celery 任務失敗: {e}")
         conn.rollback()
-        raise e
+        raise Exception("探索景點時發生異常，請稍後再試。")
     finally:
         cur.close()
         conn.close()

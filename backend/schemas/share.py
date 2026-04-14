@@ -2,6 +2,10 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import date
 
+class SharedTokenCreateOut(BaseModel):
+    message: str
+    share_token: str
+
 class SharedTripInfo(BaseModel):
     trip_id: int
     title: str

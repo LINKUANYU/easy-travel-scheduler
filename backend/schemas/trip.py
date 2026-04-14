@@ -2,39 +2,11 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import date
 
-class SearchRequest(BaseModel):
-    location: str
-    allow_scrape: bool = True
-
-class SearchMore(BaseModel):
-    location: str
-
-class ImageData(BaseModel):
-    url: str
-    source: str
-
-class Attraction(BaseModel):
-    id: int
-    input_region: str
-    city: str
-    attraction: str
-    description: str
-    geo_tags: Optional[str] = Field(default="")
-    google_place_id: Optional[str] = None
-    lat: Optional[float] = None
-    lng: Optional[float] = None
-    images: List[ImageData] = []
-
-
-class TripPlaceIn(BaseModel):
-    google_place_id: str = Field(min_length=1)
-
 class TripCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     days: int = Field(ge=1, le=60)
     start_date: Optional[date] = None
-    places: List[TripPlaceIn] = Field(default_factory=list)  
-    # 如果你在建立這個物件時沒有提供 places 資料，程式會自動幫你建立一個空的列表 []。
+
 
 class TripCreateOut(BaseModel):
     trip_id: int
@@ -58,6 +30,10 @@ class TripPlaceOut(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
 
+class TripBindOut(BaseModel):
+    message: str
+    trip_id: Optional[int] = None
+
 class AddTripPlaceIn(BaseModel):
     google_place_id: str
     # 先允許前端（Autocomplete）把資訊一起帶來，後端就不用先串 Places Details
@@ -68,10 +44,4 @@ class AddTripPlaceIn(BaseModel):
 
 
 
-
-
-
-
-class OkOut(BaseModel):
-    ok: bool = True
 

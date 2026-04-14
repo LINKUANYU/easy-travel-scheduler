@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 import pymysql
 from core.database import *
 from core.dependencies import *
-from schemas.schemas import *
+from schemas.trip import *
+from schemas.common import OkOut
 from datetime import timedelta
 import secrets
 
@@ -35,31 +36,6 @@ def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
         
         cur.executemany("INSERT INTO trip_days(trip_id, day_index, date) VALUES(%s, %s, %s)", day_rows)
         
-        # 3) places: google_place_id -> destination_id
-        if payload.places:
-            #    一次查出所有 destination_id（避免 N 次 SQL）
-            gpids = [p.google_place_id for p in payload.places]
-            placeholder = ",".join(["%s"] * len(gpids))
-            # ["%s"] * 3：產生一個包含 3 個字串的列表：['%s', '%s', '%s']。
-            # ",".join(...)：用逗號把列表接起來，變成一個字串："%s,%s,%s"。
-            
-            sql = f"SELECT id, google_place_id FROM destinations WHERE google_place_id IN ({placeholder})"
-            cur.execute(sql, gpids)
-            rows = cur.fetchall()
-            found = {r["google_place_id"]: r["id"] for r in rows}
-            missing = [g for g in gpids if g not in found] # 找出有沒有gpid 是沒有 id的
-            if missing:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Some places not found in DB: {missing[:3]}{'...' if len(missing)>3 else ''}"
-                )
-            
-            insert_rows = [(trip_id, found[g]) for g in gpids]
-            # 去重：trip_places PK (trip_id, destination_id) 會擋，這裡用 INSERT IGNORE 更友善
-            cur.executemany(
-                "INSERT IGNORE INTO trip_places (trip_id, destination_id) VALUES (%s, %s)",
-                insert_rows,
-            )
         return {"trip_id": trip_id, "edit_token": edit_token}
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，trips建立失敗")
@@ -222,8 +198,8 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
     return {"ok": True}
 
 # trip bind user
-@router.patch("/api/trips/{trip_id}/bind")
-async def bind_trip_to_user(
+@router.patch("/api/trips/{trip_id}/bind", response_model=TripBindOut)
+def bind_trip_to_user(
     trip_id: int,
     current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API
     cur = Depends(get_cur)
@@ -296,23 +272,19 @@ def delete_trip(
     cur = Depends(get_cur)
 ):
 
-    # 💡 重點：因為你在 dependencies 放了 Depends(assert_trip_owner)
-    # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」，
-    # 你完全不需要在這裡再寫 if 判斷是不是擁有者！
+    # 因為在 dependencies 放了 Depends(assert_trip_owner)
+    # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」
     
     cur.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
     
-    # ⚠️ 資料庫架構提醒：
-    # 這裡預設你的 MySQL 在建表時，針對 trip_days, trip_places 等子表
-    # 都有設定 Foreign Key 的 `ON DELETE CASCADE`。
+    # 這裡 MySQL 在建表時，針對 trip_days, trip_places 等子表都有設定 Foreign Key 的 `ON DELETE CASCADE`。
     # 這樣刪除 trips 的一筆資料時，底下的行程細節才會連帶被資料庫自動清空。
-    # 如果當初沒設定，記得要先 DELETE 子表，最後再 DELETE trips，否則會報錯。
     
     return {"ok": True}
 
 
 # 取得首頁探索的公開行程 (不需要登入驗證 Depends)
-@router.get("/api/explore/trips")
+@router.get("/api/explore/trips", response_model=list[TripOut])
 def get_explore_trips(cur = Depends(get_cur)):
     try:
         cur.execute("""
