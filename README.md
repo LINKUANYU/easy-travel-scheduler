@@ -51,4 +51,7 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 ## Cloud System Architecture Diagram
 <img width="1778" height="776" alt="diagram-export-4-6-2026-11_40_32-AM" src="https://github.com/user-attachments/assets/e906e5cf-d012-4a47-bb26-9816605e59c5" />
 
-
+ ## test account
+| Account | Password | 
+| ------ | ------ |
+| test@mail.com | 12345678 |
