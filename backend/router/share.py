@@ -7,8 +7,8 @@ from fastapi import BackgroundTasks
 router = APIRouter()
 
 # trip 產生唯一 URL as token
-@router.patch("/api/trips/{trip_id}/share")
-async def enable_trip_sharing(trip_id: int, background_tasks: BackgroundTasks, conn = Depends(get_conn)):
+@router.patch("/api/trips/{trip_id}/share", response_model=SharedTokenCreateOut)
+async def enable_trip_sharing(trip_id: int, conn = Depends(get_conn)):
     # 1. 查詢資料庫確認行程是否存在，並取得目前的 share_token
     cur = conn.cursor()
     cur.execute("SELECT id, share_token FROM trips WHERE id = %s", (trip_id,))
