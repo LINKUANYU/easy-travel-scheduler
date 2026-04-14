@@ -14,7 +14,7 @@ from worker.tasks import celery_app, scrape_and_save_destinations_task
 router = APIRouter()
 
 @router.post("/api/search", response_model=SearchResponse)
-async def search_destinations_api(
+def search_destinations_api(
     payload: SearchRequest,
     cur = Depends(get_cur)
 ):

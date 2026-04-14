@@ -199,7 +199,7 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
 
 # trip bind user
 @router.patch("/api/trips/{trip_id}/bind", response_model=TripBindOut)
-async def bind_trip_to_user(
+def bind_trip_to_user(
     trip_id: int,
     current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API
     cur = Depends(get_cur)
