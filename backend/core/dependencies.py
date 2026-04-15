@@ -1,13 +1,18 @@
 from fastapi import Request, HTTPException, Depends
+from fastapi.security import APIKeyHeader, APIKeyCookie
 from core.database import *
 from core.security import SID_COOKIE_NAME
 
+# 建立 Swagger UI 辨識用的 Security Schemes
+# auto_error=False 代表交給我們自己用 if/else 處理 401/403，不要讓 FastAPI 強制阻擋
+cookie_scheme = APIKeyCookie(name=SID_COOKIE_NAME, auto_error=False)  # 從 cookie 拿出 sid
+edit_token_scheme = APIKeyHeader(name="X-Edit-Token", auto_error=False)  # 從 Header 中拿取前端出示的token
 
 def get_current_user(
     request: Request,
     cur=Depends(get_cur),
+    sid: str = Depends(cookie_scheme)
 ):
-    sid = request.cookies.get(SID_COOKIE_NAME)
     if not sid:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -33,7 +38,13 @@ def get_current_user(
     return row
 
 
-def assert_trip_owner(trip_id: int, request: Request, cur=Depends(get_cur)):
+def assert_trip_owner(
+    trip_id: int, 
+    request: Request, 
+    cur=Depends(get_cur),
+    sid: str = Depends(cookie_scheme),
+    client_token: str = Depends(edit_token_scheme)
+):
     """
     共用的行程權限驗證 Dependency
     """
@@ -47,7 +58,6 @@ def assert_trip_owner(trip_id: int, request: Request, cur=Depends(get_cur)):
     
     # 2. 情境一：這是一個「已認領（有主人）」的trip，要檢查session
     if trip["user_id"] is not None:
-        sid = request.cookies.get(SID_COOKIE_NAME)
         if not sid:
             raise HTTPException(status_code=403, detail="此為私人行程，請先登入")
 
@@ -66,9 +76,6 @@ def assert_trip_owner(trip_id: int, request: Request, cur=Depends(get_cur)):
         
     # 3. 情境二：這是一個「匿名暫存」的無主行程，要檢查edit_token
     else:
-        # 從 Header 中拿取前端出示的token
-        client_token = request.headers.get("X-Edit-Token")
-        
         # 如果前端沒帶token，或是跟資料庫裡的不匹配，就拒絕！
         if not client_token or client_token != trip["edit_token"]:
             raise HTTPException(status_code=403, detail="無效的編輯權限 (缺少或錯誤的token)")
@@ -81,8 +88,8 @@ def assert_trip_owner(trip_id: int, request: Request, cur=Depends(get_cur)):
 def get_optional_user(
     request: Request,
     cur=Depends(get_cur),
+    sid: str = Depends(cookie_scheme)
 ):
-    sid = request.cookies.get(SID_COOKIE_NAME)
     if not sid:
         return None  # 沒帶 Cookie，默默回傳 None
 
