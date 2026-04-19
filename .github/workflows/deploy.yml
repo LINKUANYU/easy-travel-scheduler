@@ -26,8 +26,8 @@ jobs:
             # 1. 拉取最新程式碼
             git pull origin main
             
-            # 2. 重新編譯並啟動網頁層 (明確指定只啟動這三個)
-            sudo docker compose up --build -d nginx frontend backend
+            # 2. 重新編譯並啟動網頁層 (明確指定Celery除外的東西)
+            sudo docker compose up --build -d nginx redis frontend backend
             
             # 3. 強制重啟 Nginx，讓它重新抓取前後端容器的新 IP
             sudo docker compose restart nginx

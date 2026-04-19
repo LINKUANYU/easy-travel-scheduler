@@ -86,19 +86,16 @@ def search_destinations_api(
             return {"status": "blocked", "data": existing_spots_data, "is_exhausted": is_exhausted}
         
         # 發送 Celery 任務！
-        try:
-            print(f"資料不足，派發 Celery 任務進行爬蟲...")
-            # 先測試連線
-            active_workers = celery_app.control.ping(timeout=0.5)
-            if not active_workers:
-                print("❌ 錯誤： Celery Worker 連線失敗")
-                raise HTTPException(status_code=503, detail="錯誤： Celery Worker 連線失敗")
-        except Exception as e:
-            print(f"❌ Celery Ping 失敗: {e}")
-            raise HTTPException(status_code=503, detail="後端伺服器錯誤，請稍後再試")
+        print(f"資料不足，將任務派發至 AWS SQS 排隊...")
         
-        # 使用 .delay() 將任務丟給背景的 Celery Worker
-        task = scrape_and_save_destinations_task.delay(location)
+        try:
+            # 直接使用 .delay() 將任務丟給 SQS
+            task = scrape_and_save_destinations_task.delay(location)
+        except Exception as e:
+            # 如果走到這裡，通常是 AWS IAM 權限錯了，或是 SQS 網址填錯
+            print(f"❌ 任務發送至 SQS 失敗: {e}")
+            raise HTTPException(status_code=503, detail="任務發送失敗，請稍候再試")
+        
 
         return {
             "status": "processing", 
