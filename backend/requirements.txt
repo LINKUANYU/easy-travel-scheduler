@@ -11,5 +11,7 @@ passlib[bcrypt]
 argon2-cffi
 pydantic[email]
 redis
-celery
 pytest
+celery[sqs]
+boto3
+redis

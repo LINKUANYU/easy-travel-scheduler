@@ -8,21 +8,30 @@ from repositories.destination_repo import save_spot_data
 from core.redis import get_redis
 
 
-
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = os.getenv("REDIS_PORT", "6379")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
-
-# 組合 Redis 連線網址 (如果有密碼的話格式會是 redis://:password@host:port/0)
-redis_auth = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
-REDIS_URL = f"redis://{redis_auth}{REDIS_HOST}:{REDIS_PORT}/0"  # Celery 套件的設計規定，它吃的是一整串的 URL 網址格式
+SQS_URL = os.getenv("CELERY_BROKER_URL") # 指向主 AWS SQS
+REDIS_RESULT_URL = os.getenv("REDIS_URL") # 指向主 EC2 的內網 IP
+AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-east-2")
 
 celery_app = Celery(
     "travel_tasks",
-    broker=REDIS_URL,  # 任務佈告欄 / Message Broker
-    backend=REDIS_URL  # 結果儲存區 / Result Backend
+    broker=SQS_URL,  # 任務佈告欄 / Message Broker
+    backend=REDIS_RESULT_URL  # 結果儲存區 / Result Backend
 )
+
+celery_app.conf.update(
+    task_default_queue='easy-travel-celery-queue',
+    broker_transport_options={
+        'region': AWS_REGION,
+        'visibility_timeout': 600,  # 爬蟲任務時間設定10 min
+        'polling_interval': 20       # 降低對 SQS 的 API 請求次數以省錢
+    },
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
+    task_track_started=True
+)
+
 
 # 2. 定義要在背景執行的任務 (把原本 search.py 裡最耗時的邏輯搬過來)
 @celery_app.task(bind=True)

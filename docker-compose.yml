@@ -1,35 +1,48 @@
 services:
-  # 1. FastAPI 後端
+  # 1. Redis
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+
+  # 2. FastAPI 後端
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/${ENV_FILE:-.env.production}  # 讀取正式的環境變數
+      # - ./backend/${ENV_FILE:-.env}
+      - ./backend/${ENV_FILE:-.env.production}
     restart: always
+    depends_on:
+      - redis
 
-  # 2. Celery 背景工頭 (使用跟後端一模一樣的 Image，但執行不同的指令)
+  # 3. Celery 背景工頭 (使用跟後端一模一樣的 Image，但執行不同的指令)
   celery_worker:
     build: ./backend
     command: celery -A worker.tasks worker --loglevel=info
     env_file:
+      # - ./backend/${ENV_FILE:-.env}
       - ./backend/${ENV_FILE:-.env.production}
     depends_on:
       - backend
     restart: always
 
-  # 3. Next.js 前端
+  # 4. Next.js 前端
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
     env_file:
-      - ./frontend/${ENV_FILE:-.env.production}  # 讀取正式的環境變數
+      # - ./frontend/${ENV_FILE:-.env.local}
+      - ./frontend/${ENV_FILE:-.env.production}
     depends_on:
       - backend
     restart: always
 
-  # 4. Nginx
+  # 5. Nginx
   nginx:
     image: nginx:alpine
     ports:
