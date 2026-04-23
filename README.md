@@ -6,14 +6,21 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
 [Live Demo](https://easy-travel-scheduler.linkuankuan.com/) | [API Documentation](https://easy-travel-scheduler.linkuankuan.com/docs)
 
-## 核心功能
-* ⚙️**自動化推薦景點生成管線：** 整合搜尋引擎爬蟲、AI 語意萃取與非同步任務，打造旅遊數據收集系統：
+## Test Account
+| Account | Password | 
+| ------ | ------ |
+| test@mail.com | 12345678 |
 
-  * 🔍 **搜尋目標網址：** 使用 **DuckDuckGo 搜尋引擎**，使用者輸入關鍵字搜尋特定城市的「旅遊攻略」與「懶人包」。並設計過濾與篩選，確保取得高關聯性的目標網頁。
 
-  * 🧠 **AI 語意解析與資料正規化**： 突破傳統依賴 DOM 結構的爬蟲限制，將目標網址匯入 **Gemini API (url_context tool)**，利用大型語言模型直接理解非結構化網頁內容，精準萃取推薦景點的名稱與描述。隨後串接 Google Places API 進行地點正規化、精準去重，確保寫入資料庫的結構化資料具備一致性與正確性。
 
-  * ⚡ **非同步任務：** 考量到網頁搜尋與 AI 運算皆為高耗時操作，導入 **Celery 與 AWS SQS** 建立背景任務佇列。主伺服器接收請求後會立即回傳任務建立狀態，並由前端透過輪詢 (Short Polling) 機制持續追蹤背景執行進度。此設計將長時間任務與主伺服器完全解耦，徹底避免 API 阻塞與逾時問題，確保高併發下的系統穩定度與流暢的使用者體驗。
+## 🌟 核心功能
+* **🔍 自動化推薦景點生成管線：** 整合搜尋引擎爬蟲、AI 語意萃取與非同步任務，打造旅遊數據收集系統：
+
+  *  **搜尋目標網址：** 使用 **DuckDuckGo 搜尋引擎**，使用者輸入關鍵字，搜尋特定城市的「旅遊攻略」與「懶人包」。並設計過濾與篩選，確保取得高關聯性的目標網頁。
+
+  *  **AI 語意解析與景點萃取：** 突破傳統依賴 DOM 結構的爬蟲限制，將目標網址匯入 **Gemini API (url_context tool)**，利用大型語言模型直接理解非結構化網頁內容，萃取推薦景點的名稱與描述，確保景點不存在「幻覺」。隨後串接 Google Places API 進行地點正規化、去重。
+
+  *  **非同步任務：** 導入 Celery 處理高耗時的爬蟲與 AI 運算任務。採用 AWS SQS 作為高可靠性的訊息佇列 (Message Broker) 實現流量削峰，並搭配 Redis 作為結果儲存區 (Result Backend) 與狀態快取，徹底解決 API 阻塞問題。
 
 * 🗺️ **動態地圖與路徑規劃 (Google Maps Platform)：**
 整合多項 Google Maps 服務，打造流暢的行程規劃體驗：
@@ -24,18 +31,19 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
   * Routes API： 動態計算的交通路線，並精確估算已排定景點之間的移動時間與距離。
 
-* ☁️ **雲端部署:** 使用 Docker 將應用程式容器化，並透過 **GitHub Actions** 建置 CI/CD 流程，達成自動化部署至 AWS 雲端環境 (EC2/RDS)。
+* ☁️ **雲端部署 & CI/CD:** 使用 Docker 將應用程式容器化，並透過 **GitHub Actions** 建置 CI/CD 流程，達成自動化部署至 AWS 雲端環境 (EC2/RDS)。
+
 
 ## 🌟 Core Features
 
-* **⚙️ Automated POI Generation Pipeline:**
+* **🔍 Automated Attractions Generation Pipeline:**
   Integrated search engine web scraping, AI semantic extraction, and asynchronous task processing to build a robust travel data collection system:
 
-  * 🔍 **Search target URL:** Utilized the **DuckDuckGo search engine** to programmatically fetch "travel guides" and "itineraries" with location where based on user-input keywords. Implemented filtering keyword to ensure the retrieval of highly relevant target web pages.
+  *  **Search target URL:** Utilized the **DuckDuckGo search engine** to programmatically fetch "travel guides" and "itineraries" with location where based on user-input keywords. Implemented filtering keyword to ensure the retrieval of highly relevant target web pages.
 
-  * 🧠 **AI Semantic Extraction & Data Normalization:** Overcame the limitations of traditional DOM-dependent scrapers by feeding target URLs into the **Gemini API (url_context tool)**. Leveraged the LLM to directly understand unstructured web content, accurately extracting recommended POI (Point of Interest) names and descriptions. Subsequently integrated the Google Places API for location normalization, and precise deduplication, ensuring the consistency and accuracy of the structured data ingested into the database.
+  *  **AI Semantic Parsing & Attraction Extraction:** Overcame the limitations of traditional DOM-dependent scrapers by feeding target URLs into the **Gemini API (url_context tool)**. Leveraged the LLM to directly understand unstructured web content, extracting recommended attraction names and descriptions, eliminating AI hallucinations. Subsequently integrated the Google Places API for location normalization, and deduplication.
 
-  * ⚡ **Asynchronous Processing:** Given that web scraping and AI processing are time-consuming operations, integrated **Celery and AWS SQS** to establish background task queues. The main server immediately returns a task status (HTTP 200) upon receiving a request, while the frontend utilizes a Short Polling mechanism to track execution progress. This architecture completely decouples long-running tasks from the main server, eliminating API blocking and timeouts, thereby ensuring system stability under high concurrency and delivering a seamless user experience.
+  *  **Asynchronous Processing:** Implemented Celery to offload time-consuming web scraping and AI tasks. Leveraged **AWS SQS** as a highly reliable **Message Broker** for traffic leveling, paired with **Redis** as the **Result Backend** for state tracking, entirely eliminating API blocking.
 
 * **🗺️ Dynamic Mapping & Routing (Google Maps Platform):**
   Integrated multiple Google Maps services to deliver a smooth planning experience:
@@ -46,24 +54,82 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 * **☁️ Cloud Deployment & CI/CD:**
   Containerized applications using **Docker** and built a CI/CD pipeline via **GitHub Actions** for automated deployment to the **AWS** cloud environment (EC2/RDS).
 
-## 🛠️ Tech Stack
 
-* **Frontend:** Next.js, React, TypeScript, CSS
-* **Backend:** Python, FastAPI
-* **Background Tasks & Cache:** Celery, Redis
-* **Database:** MySQL
-* **AI & Third-Party APIs:** Google Gemini API, Google Maps Platform
-* **DevOps:** Docker, AWS (EC2, RDS), GitHub Actions
+## **Asynchronous Processing**
+```mermaid
+sequenceDiagram
+    participant U as User (Frontend)
+    participant F as FastAPI (Backend)
+    participant R as Redis (Cache & Backend)
+    participant DB as MySQL (Database)
+    participant SQS as AWS SQS (Broker)
+    participant W as Celery Worker
+
+    U->>F: 1. POST /api/search (location)
+    F->>R: 2. Check Cache (Cache-Aside)
+    R-->>F: Cache Miss
+    F->>DB: 3. Check Database
+    DB-->>F: Insufficient Data (< 5)
+    F->>SQS: 4. Dispatch Scraping Task (task_id)
+    F-->>U: 5. Return HTTP 200 (status: processing, task_id)
+    
+    note over U,F: Enter Polling Phase
+    loop Poll every 3 seconds
+        U->>F: GET /api/search/status/{task_id}
+        F->>R: Query Task Status (AsyncResult)
+        R-->>F: Return PENDING / STARTED
+        F-->>U: Return status: processing
+    end
+
+    note over SQS,W: Background Asynchronous Processing
+    SQS->>W: 6. Consume Task
+    W->>W: 7. Execute Web Scraping & Gemini Parsing
+    W->>DB: 8. Insert Normalized & Deduplicated Attraction Data
+    W->>R: 9. Invalidate Old Cache for Location
+    W->>R: 10. Update Task Status to SUCCESS
+
+    note over U,R: Polling Hit Result
+    U->>F: GET /api/search/status/{task_id}
+    F->>R: Query Task Status
+    R-->>F: Return SUCCESS
+    F-->>U: Return status: completed
+    
+    note over U,DB: Page Refresh & Fetch Data
+    U->>U: 11. router.push (Reload Search Page)
+    U->>F: 12. POST /api/search (location)
+    F->>R: Check Cache (Miss)
+    F->>DB: Fetch Newly Inserted Attraction Data
+    DB-->>F: Return Complete Data List
+    F->>R: 13. Write Result to Cache (For Fast Subsequent Loads)
+    F-->>U: Return Final Attraction Data, End Flow
+```
+
+
+## Cloud System Architecture Diagram
+<img width="1500" height="607" alt="Cloud System Architecture Diagram" src="https://github.com/user-attachments/assets/d52a5f03-5cb5-4d83-8954-4e680912731c" />
+
 
 ## ERD
 <img width="1218" height="670" alt="Screenshot 2026-04-09 at 2 11 32 PM" src="https://github.com/user-attachments/assets/c16270be-b2f4-4474-ae11-2064a7c3d7ad" />
 
 
+
+## 🛠️ Tech Stack
+
+* **Frontend:** Next.js, React, TypeScript, CSS
+* **Backend:** Python, FastAPI
+* **Background Tasks & Cache:** Celery, AWS SQS, Redis
+* **Database:** MySQL
+* **AI & Third-Party APIs:** Google Gemini API, Google Maps Platform
+* **DevOps:** Docker, AWS (EC2, RDS), GitHub Actions
+
+
+
 ## Screenshoot
-* **🤖 AI-Powered Attraction Extraction (Gemini API):**
+* **Automated Attractions Generation Pipeline:**
   * input location
 ![Screen Recording 2026-04-09 at 3 10 45 PM](https://github.com/user-attachments/assets/6ba6a5f6-4111-4e03-b578-daf77a628fb1)
-  * background task queues using **Celery** and **Redis**
+  * background task queues using **Celery, AWS SQS and Redis**
 ![Screen Recording 2026-04-09 at 3 11 53 PM](https://github.com/user-attachments/assets/1da13707-e4ac-407c-9da9-2692061274ff)
 
 * **Dynamic Mapping & Routing (Google Maps Platform)**
@@ -76,11 +142,4 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
   * **Maps JavaScript API:** 
 ![5](https://github.com/user-attachments/assets/012350d1-0a95-4593-993b-8acbd3960090)
 
-## Cloud System Architecture Diagram
-<img width="1500" height="607" alt="Cloud System Architecture Diagram" src="https://github.com/user-attachments/assets/d52a5f03-5cb5-4d83-8954-4e680912731c" />
 
-
- ## test account
-| Account | Password | 
-| ------ | ------ |
-| test@mail.com | 12345678 |
