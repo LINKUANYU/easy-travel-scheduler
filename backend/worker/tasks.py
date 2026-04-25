@@ -11,7 +11,7 @@ from core.redis import get_redis
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
 SQS_URL = os.getenv("CELERY_BROKER_URL") # 指向主 AWS SQS
 REDIS_RESULT_URL = os.getenv("REDIS_URL") # 指向主 EC2 的內網 IP
-AWS_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-east-2")
+
 
 celery_app = Celery(
     "travel_tasks",
@@ -22,7 +22,7 @@ celery_app = Celery(
 celery_app.conf.update(
     task_default_queue='easy-travel-celery-queue',
     broker_transport_options={
-        'region': AWS_REGION,
+        'region': "ap-east-2",
         'visibility_timeout': 600,  # 爬蟲任務時間設定10 min
         'polling_interval': 20       # 降低對 SQS 的 API 請求次數以省錢
     },
