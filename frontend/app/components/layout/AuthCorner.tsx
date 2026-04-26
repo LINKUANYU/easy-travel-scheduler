@@ -13,6 +13,9 @@ import { motion, AnimatePresence } from "framer-motion"; // 引入動畫元件
 import { createPortal } from "react-dom";
 
 
+const TEST_EMAIL = "test@mail.com";
+const TEST_PASSWORD = "12345678";
+
 export default function AuthCorner() {
   const { 
     user, 
@@ -38,16 +41,16 @@ export default function AuthCorner() {
     setPassword("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitLogin = async (emailVal: string, passwordVal: string) => {
     setErrorMsg("");
     setIsSubmitting(true);
 
     const endpoint = authMode === "login" ? "/api/login" : "/api/signup";
-    const payload = authMode === "login" ? { email, password } : { email, password, name };
+    const payload = authMode === "login"
+      ? { email: emailVal, password: passwordVal }
+      : { email: emailVal, password: passwordVal, name };
 
     try {
-      // 執行登入或註冊，只需要這一行！因為你的 api.ts 已經把 error 拋出來了
       await apiPost(endpoint, payload);
       
       // 2. 更新全域使用者狀態
@@ -66,25 +69,33 @@ export default function AuthCorner() {
           
           // 認領成功後，清空 LocalStorage 中的暫存紀錄，因為已經正式存入雲端帳號了
           clearTripIndex();
-          
-          toast.success(`太棒了！您的行程已經儲存於帳號中囉！`); 
+          toast.success(`太棒了！您的行程已經儲存於帳號中囉！`);
         } catch (bindErr) {
           console.error("行程綁定失敗:", bindErr);
           // 不阻斷流程，因為使用者已經成功登入了
         }
       }
-      
+
       // 清空表單
       setEmail("");
       setPassword("");
       setName("");
-
     } catch (err: any) {
-      // 你的 api.ts 已經把後端的 detail 塞進 err.message 裡了
       setErrorMsg(err.message || "發生錯誤，請檢查網路連線");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitLogin(email, password);
+  };
+
+  const handleFillDemo = () => {
+    setEmail(TEST_EMAIL);
+    setPassword(TEST_PASSWORD);
+    setTimeout(() => submitLogin(TEST_EMAIL, TEST_PASSWORD), 300);
   };
 
   const { clear, clearActiveTrip } = useTripDraft();
@@ -252,13 +263,24 @@ export default function AuthCorner() {
                 />
               </div>
 
-              <button 
+              <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 mt-4 font-bold text-white hover:bg-blue-700 transition disabled:bg-blue-300"
               >
                 {isSubmitting ? "處理中..." : (authMode === "login" ? "登入" : "註冊")}
               </button>
+
+              {authMode === "login" && (
+                <button
+                  type="button"
+                  onClick={handleFillDemo}
+                  disabled={isSubmitting}
+                  className="w-full rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition disabled:opacity-40"
+                >
+                  使用測試帳號
+                </button>
+              )}
             </form>
 
             <div className="text-center text-sm text-gray-500 mt-6">
