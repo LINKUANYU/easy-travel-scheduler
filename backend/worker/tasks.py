@@ -3,9 +3,9 @@ import os
 from celery import Celery
 from core.database import POOL, set_utc
 from services.ai_scraper import run_web_scraping_workflow
-from services.geo_service import get_coordinates
 from repositories.destination_repo import save_spot_data
 from core.redis import get_redis
+from celery.exceptions import Reject
 
 
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
@@ -20,16 +20,24 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
+    # 指定 Celery 預設使用的 AWS SQS 佇列名稱
     task_default_queue='easy-travel-celery-queue',
     broker_transport_options={
-        'region': "ap-east-2",
-        'visibility_timeout': 600,  # 爬蟲任務時間設定10 min
-        'polling_interval': 20       # 降低對 SQS 的 API 請求次數以省錢
+        'region': "ap-east-2",        # AWS 部署區域（亞太）
+        'visibility_timeout': 600,    # 爬蟲任務時間設定10 min；超時後 SQS 會讓其他 worker 重新處理該任務
+        'polling_interval': 20,        # 每 20 秒輪詢一次 SQS，降低 API 請求次數以省錢
+        'predefined_queues': {
+            'easy-travel-celery-queue': {
+                'url': 'https://sqs.ap-east-2.amazonaws.com/837497587507/easy-travel-celery-queue'
+            }
+        }
     },
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
-    task_track_started=True
+    task_serializer='json',               # 任務資料以 JSON 格式序列化後傳送
+    accept_content=['json'],              # 只接受 JSON 格式的任務內容
+    result_serializer='json',             # 任務執行結果也以 JSON 格式儲存
+    task_track_started=True,              # 任務開始執行時記錄 STARTED 狀態，便於監控進度
+    task_acks_late=True,                  # 任務成功完成後才 ack（刪除 SQS 訊息），防止 worker crash 導致任務遺失
+    task_reject_on_worker_lost=True       # Worker 意外死亡時，將任務退回佇列而非直接丟棄
 )
 
 
@@ -92,10 +100,18 @@ def scrape_and_save_destinations_task(self, location: str):
         # 任務完成，回傳結果 (這個結果會被存回 Redis 的 Backend 中)
         return {"location": location, "status": "success", "added_count": len(final_new_data)}
         
-    except Exception as e:
-        print(f"❌ Celery 任務失敗: {e}")
+    except ValueError as e:
+        # 永久性失敗（地點無效、AI 額度耗盡）raise 標記 FAILURE，不進 DLQ
+        print(f"❌ 永久性失敗，不重試: {e}")
         conn.rollback()
-        raise Exception("探索景點時發生異常，請稍後再試。")
+        raise
+    except Exception as e:
+        print(f"❌ 暫時性失敗，交給 SQS 重試: {e}")
+        conn.rollback()
+        # 暫時性錯誤（DB 斷線、網路問題）→ 不 ack，讓訊息退回 SQS，超過次數後進 DLQ
+        # 這會告訴 Kombu (Celery 的底層) 發送 visibility timeout = 0 的指令給 SQS
+        # 讓 SQS 的 ReceiveCount +1，並準備下一次重試。
+        raise Reject(str(e), requeue=True)
     finally:
         cur.close()
         conn.close()
