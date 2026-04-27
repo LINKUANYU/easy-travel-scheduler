@@ -43,6 +43,7 @@ jobs:
       - name: Run tests
         working-directory: backend
         env:
+          PYTHONPATH: ${{ github.workspace }}/backend
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
           DB_USER: root
