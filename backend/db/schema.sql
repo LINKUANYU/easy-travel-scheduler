@@ -133,18 +133,3 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `uk_users_email` (`email`)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS `sessions` (
-  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `session_id` CHAR(64) NOT NULL, -- 前面用 secrets.token_hex(32) 產生 32 bytes 隨機值，hex 後會變成 64 個字元，
-  `user_id` INT UNSIGNED NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `expires_at` TIMESTAMP NOT NULL,
-  `revoked_at` TIMESTAMP NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_sessions_session_id` (`session_id`),
-  KEY `idx_sessions_user_id` (`user_id`),
-  KEY `idx_sessions_expires_at` (`expires_at`),
-  CONSTRAINT `fk_sessions_user`
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
-    ON DELETE CASCADE
-) ENGINE=InnoDB;

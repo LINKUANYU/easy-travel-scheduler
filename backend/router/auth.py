@@ -3,14 +3,18 @@ from schemas.auth import *
 from core.database import *
 from core.security import *
 from core.dependencies import *
+from core.redis import redis_client
 import pymysql
 from pymysql.err import IntegrityError
 import secrets
-from datetime import datetime, timezone, timedelta
+import os
 from schemas.common import OkOut
 from typing import Optional
 
 router = APIRouter()
+
+SESSION_TTL = int(os.getenv("SESSION_DAYS", 14)) * 86400
+
 
 @router.post("/api/signup", response_model=UserOut)
 def register(payload: SignupIn, response: Response, cur=Depends(get_cur)):
@@ -26,25 +30,12 @@ def register(payload: SignupIn, response: Response, cur=Depends(get_cur)):
         )
         user_id = cur.lastrowid
 
-        #  註冊成功後直接配發 Session 與 Cookie
         sid = secrets.token_hex(32)
-        expires_at = datetime.now(timezone.utc) + timedelta(days=14)
-        expires_at_db = expires_at.replace(tzinfo=None)
-
-        try:
-            cur.execute("""
-                INSERT INTO sessions (session_id, user_id, expires_at)
-                VALUES (%s, %s, %s)
-            """, (sid, user_id, expires_at_db))
-        except pymysql.MySQLError as e:
-            print(f"Database error: {e}，Session寫入DB失敗")
-            raise HTTPException(status_code=500, detail="註冊成功但Session寫入DB失敗")
-        
+        redis_client.setex(f"session:{sid}", SESSION_TTL, str(user_id))
         set_session_cookie(response, sid)
 
         return {"id": user_id, "email": payload.email, "name": payload.name}
     except IntegrityError as e:
-        # e.args 通常長這樣: (1062, "Duplicate entry 'a@b.com' for key 'uk_users_email'")
         if len(e.args) >= 1 and e.args[0] == 1062:
             raise HTTPException(status_code=409, detail="Email already exists")
         raise
@@ -55,71 +46,43 @@ def login(
     payload: LoginIn,
     request: Request,
     response: Response,
-    cur = Depends(get_cur)
+    cur=Depends(get_cur)
 ):
-    # 1. 查詢使用者
     try:
-        cur.execute("""
-            SELECT id, email, name, password_hash, is_active FROM users WHERE email = %s LIMIT 1
-        """,
-        (payload.email,)
+        cur.execute(
+            "SELECT id, email, name, password_hash, is_active FROM users WHERE email = %s LIMIT 1",
+            (payload.email,),
         )
         user = cur.fetchone()
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，查詢使用者失敗")
         raise HTTPException(status_code=500, detail="查詢使用者失敗")
-    
+
     if not user or user["is_active"] != 1:
         raise HTTPException(status_code=401, detail="帳號或密碼輸入錯誤")
-    
+
     if not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="帳號或密碼輸入錯誤")
-        
-    # Secrets：Python 標準庫，專門用來產生密碼學等級的隨機值
-    # token_hex(...) 會把這 32 bytes 轉成 十六進位字串（hex）
-    # 32 bytes → 64 個 hex 字元，所以才寫 64 chars
+
     sid = secrets.token_hex(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days = 14) # aware UTC
-    expires_at_db = expires_at.replace(tzinfo=None)  # 變成 naive，但語意是 UTC
-
-    # 2. 建立session、插入DB
-    try:
-        cur.execute("""
-            INSERT INTO sessions (session_id, user_id, expires_at)
-            VALUES (%s, %s, %s)
-        """, (sid, user["id"], expires_at_db))
-
-    except pymysql.MySQLError as e:
-        print(f"Database error: {e}，Session寫入DB失敗")
-        raise HTTPException(status_code=500, detail="Session寫入DB失敗")
-    
-    # 3. 設定cookie
+    redis_client.setex(f"session:{sid}", SESSION_TTL, str(user["id"]))
     set_session_cookie(response, sid)
+
     return {"id": user["id"], "email": user["email"], "name": user["name"]}
 
+
 @router.get("/api/me", response_model=Optional[UserOut])
-def me(current_user = Depends(get_optional_user)):
+def me(current_user=Depends(get_optional_user)):
     return current_user
 
+
 @router.post("/api/logout", response_model=OkOut)
-def logout(
-    request: Request,
-    response: Response,
-    cur = Depends(get_cur)
-):
+def logout(request: Request, response: Response):
     sid = request.cookies.get(SID_COOKIE_NAME)
-    
-    # 1.先清 cookie：確保 client 一定登出
+
     clear_session_cookie(response)
 
-    if not sid:
-        return {"ok": True}
-
-    # 2.DB 寫revoked
-    try:
-        cur.execute("UPDATE sessions SET revoked_at = UTC_TIMESTAMP() WHERE session_id = %s AND revoked_at IS NULL", (sid,))
-    except pymysql.MySQLError as e:
-        print(f"Database error: {e}，Session Update revoked_at 失敗")
-        # 這裡不 raise 錯誤，只記log不擋登出
+    if sid:
+        redis_client.delete(f"session:{sid}")
 
     return {"ok": True}
