@@ -12,6 +12,7 @@ argon2-cffi
 pydantic[email]
 redis
 pytest
+httpx
 celery[sqs]
 boto3
 redis

@@ -3,7 +3,7 @@ from datetime import date
 from pydantic import ValidationError
 
 from schemas.auth import SignupIn
-from backend.schemas.common import TripCreateIn
+from schemas.trip import TripCreateIn
 
 def test_signup_schema_valid():
     """測試註冊資料是否能通過"""
