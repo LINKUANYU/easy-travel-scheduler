@@ -31,9 +31,9 @@ jobs:
           - 3306:3306                           # 把容器的 3306 對應到 runner 的 3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -ptestpassword"
-          --health-interval=10s                 # 每 10 秒檢查一次 DB 是否就緒
-          --health-timeout=5s                   # 單次檢查超過 5 秒視為失敗
-          --health-retries=5                    # 失敗 5 次後才放棄（最多等 50 秒）
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       # ======================================================
