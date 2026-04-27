@@ -1,31 +1,51 @@
 name: CI - Run Tests
 
+# ======================================================
+# 觸發條件：任何 branch 的 push 或 PR 都會跑 CI
+# 目的：確保程式碼在合併前先通過測試
+# ======================================================
 on:
-  push:
-  pull_request:
+  push:         # 推送到任何 branch 時觸發
+  pull_request: # 開啟或更新 PR 時觸發
+
+# 強制 GitHub Actions 內建的 JS action 使用 Node.js 24
+# 避免出現「Node.js 20 deprecated」的警告
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # GitHub 開一台乾淨的 Ubuntu 機器來跑
 
+    # ======================================================
+    # 附屬服務：在獨立容器啟動 MySQL，供整合測試使用
+    # GitHub Actions 會等 health check 通過才繼續執行 steps
+    # ======================================================
     services:
       mysql:
-        image: mysql:8.0
+        image: mysql:8.0                        # 使用官方 MySQL 8.0 映像
         env:
-          MYSQL_ROOT_PASSWORD: testpassword
-          MYSQL_DATABASE: easy-travel-scheduler
+          MYSQL_ROOT_PASSWORD: testpassword     # CI 專用密碼，不是 production 密碼
+          MYSQL_DATABASE: easy-travel-scheduler # 自動建立測試用資料庫
         ports:
-          - 3306:3306
+          - 3306:3306                           # 把容器的 3306 對應到 runner 的 3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -ptestpassword"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+          --health-interval=10s                 # 每 10 秒檢查一次 DB 是否就緒
+          --health-timeout=5s                   # 單次檢查超過 5 秒視為失敗
+          --health-retries=5                    # 失敗 5 次後才放棄（最多等 50 秒）
 
     steps:
+      # ======================================================
+      # Step 1：把 repo 程式碼 clone 到 runner 機器上
+      # ======================================================
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ======================================================
+      # Step 2：安裝 Python 3.12，並啟用 pip 快取
+      # cache-dependency-path 讓 requirements.txt 沒變時直接用快取，加速 CI
+      # ======================================================
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -33,18 +53,39 @@ jobs:
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
 
+      # ======================================================
+      # Step 3：安裝 backend 所有 Python 依賴
+      # ======================================================
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
+      # ======================================================
+      # Step 4：將 schema.sql 灌進 CI 的 MySQL
+      # 建立所有 table，讓整合測試可以真的對 DB 做 INSERT/SELECT
+      # ======================================================
       - name: Initialize database schema
         run: |
           mysql -h 127.0.0.1 -u root -ptestpassword easy-travel-scheduler < backend/db/schema.sql
 
+      # ======================================================
+      # Step 5：執行所有測試
+      #
+      # working-directory: backend
+      #   → pytest 從 backend/ 目錄執行，才能正確 import 內部 module
+      #
+      # PYTHONPATH: ${{ github.workspace }}/backend
+      #   → 讓 Python import 系統知道去 backend/ 找 main、core、schemas 等 module
+      #     （working-directory 只改 shell 路徑，不影響 Python 的 sys.path）
+      #
+      # DB_*：連線到上面 services 啟動的 MySQL 容器
+      # MAPS_API_KEY / GEMINI_API_KEY：設為空字串，import 時不會 crash，測試不會真的打 API
+      # SESSION_SECRET_KEY：FastAPI session middleware 需要，給任意值即可
+      # ======================================================
       - name: Run tests
         working-directory: backend
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
-          DB_HOST: 127.0.0.1
+          DB_HOST: 127.0.0.1       # 連到 runner 本機的 MySQL service
           DB_PORT: 3306
           DB_USER: root
           DB_PASSWORD: testpassword
@@ -52,4 +93,4 @@ jobs:
           MAPS_API_KEY: ""
           GEMINI_API_KEY: ""
           SESSION_SECRET_KEY: ci-test-secret-key
-        run: pytest test/ -v
+        run: pytest test/ -v       # -v 印出每個 test case 的名稱與結果
