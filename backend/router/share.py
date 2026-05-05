@@ -1,7 +1,7 @@
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
 from core.database import get_cur, get_conn
-from schemas.share import *
+from schemas.share import SharedTokenCreateOut, SharedTripDataOut
 
 router = APIRouter()
 

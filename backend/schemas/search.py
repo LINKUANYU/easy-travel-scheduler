@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional, Union, Literal
-from .common import *
+from .common import Attraction
 
 
 class SearchRequest(BaseModel):

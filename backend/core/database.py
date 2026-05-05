@@ -3,7 +3,7 @@ import pymysql
 from fastapi import Depends, HTTPException
 import os
 import sys
-from services.geo_service import *
+
 
 
 DB_HOST = os.getenv("DB_HOST")

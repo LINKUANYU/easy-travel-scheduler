@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from core.database import *
+from fastapi import HTTPException
 import re
 import time
 import random

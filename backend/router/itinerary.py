@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from schemas.itinerary import *
+from schemas.itinerary import ItineraryAddIn, ItineraryItemOut, ItinerarySummaryRow, ItinerarySaveDayIn, ItineraryReorderIn
 from schemas.common import OkOut
 from core.database import get_cur, get_conn
 from pymysql import IntegrityError

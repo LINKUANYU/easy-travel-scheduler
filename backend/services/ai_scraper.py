@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 import json
 from ddgs import DDGS
-from core.database import *
+from core.database import get_coordinates
+import requests
 import re
 import time
 import urllib.parse

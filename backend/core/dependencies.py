@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException, Depends
 from fastapi.security import APIKeyHeader, APIKeyCookie
-from core.database import *
+from core.database import get_cur
 from core.security import SID_COOKIE_NAME
 from core.redis import redis_client
 

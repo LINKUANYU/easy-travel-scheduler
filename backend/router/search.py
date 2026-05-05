@@ -1,13 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from schemas.common import *
-from schemas.search import *
-from services.ai_scraper import *
-from core.database import *
-from services.geo_service import *
+from schemas.search import SearchRequest, SearchResponse, SearchMore, SearchMoreResponse, TaskStatusResponse, PopularSearchesResponse
+from core.database import Depends, get_cur
 from repositories.destination_repo import get_existing_destinations
 from fastapi.encoders import jsonable_encoder  # 幫忙把複雜物件轉成標準 JSON
 import json
-from core.redis import *
+from core.redis import get_redis, redis_cache
 from worker.tasks import celery_app, scrape_and_save_destinations_task
 
 

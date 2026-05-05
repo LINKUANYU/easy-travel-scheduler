@@ -1,7 +1,6 @@
 import pymysql
 from pymysql.err import IntegrityError
 from fastapi import HTTPException
-from services.geo_service import *
 
 
 def get_existing_destinations(location, cur):

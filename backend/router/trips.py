@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 import pymysql
-from core.database import *
-from core.dependencies import *
-from schemas.trip import *
+from core.dependencies import get_cur, assert_trip_owner, get_current_user
+from schemas.trip import TripBindOut, TripCreateIn, TripCreateOut, TripOut, TripPlaceOut, AddTripPlaceIn
 from schemas.common import OkOut
 from datetime import timedelta
 import secrets
+from services.geo_service import fetch_place_details_new
 
 router = APIRouter()
 
@@ -73,7 +73,7 @@ def get_trip(trip_id: int, cur=Depends(get_cur)):
 # 讀取 trip 內的景點
 @router.get(
     "/api/trips/{trip_id}/places",
-    response_model=List[TripPlaceOut],
+    response_model=list[TripPlaceOut],
     dependencies=[Depends(assert_trip_owner)],
 )
 def get_trip_places(trip_id: int, cur=Depends(get_cur)):
