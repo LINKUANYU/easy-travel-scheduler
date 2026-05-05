@@ -1,7 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 import pymysql
 from core.dependencies import get_cur, assert_trip_owner, get_current_user
-from schemas.trip import TripBindOut, TripCreateIn, TripCreateOut, TripOut, TripPlaceOut, AddTripPlaceIn
+from schemas.trip import (
+    TripBindOut,
+    TripCreateIn,
+    TripCreateOut,
+    TripOut,
+    TripPlaceOut,
+    AddTripPlaceIn,
+)
 from schemas.common import OkOut
 from datetime import timedelta
 import secrets

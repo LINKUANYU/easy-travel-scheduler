@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
 from schemas.auth import UserOut, SignupIn, LoginIn
-from core.security import hash_password, set_session_cookie, verify_password, clear_session_cookie
+from core.security import (
+    hash_password,
+    set_session_cookie,
+    verify_password,
+    clear_session_cookie,
+)
 from core.dependencies import get_cur, get_optional_user, SID_COOKIE_NAME
 from core.redis import redis_client
 import pymysql

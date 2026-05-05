@@ -4,7 +4,5 @@
 select = ["E", "F"]
 
 ignore = [
-    "F405",  # may be undefined from star import（配合 F403 一起忽略）
-    "E501",  # line too long（不強制行寬限制）
     "E402",
 ]

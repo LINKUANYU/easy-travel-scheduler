@@ -1,5 +1,12 @@
 from fastapi import APIRouter, HTTPException
-from schemas.search import SearchRequest, SearchResponse, SearchMore, SearchMoreResponse, TaskStatusResponse, PopularSearchesResponse
+from schemas.search import (
+    SearchRequest,
+    SearchResponse,
+    SearchMore,
+    SearchMoreResponse,
+    TaskStatusResponse,
+    PopularSearchesResponse,
+)
 from core.database import Depends, get_cur
 from repositories.destination_repo import get_existing_destinations
 from fastapi.encoders import jsonable_encoder  # 幫忙把複雜物件轉成標準 JSON
