@@ -110,8 +110,56 @@ sequenceDiagram
 
 
 ## ERD
-<img width="1218" height="670" alt="Screenshot 2026-04-09 at 2 11 32 PM" src="https://github.com/user-attachments/assets/c16270be-b2f4-4474-ae11-2064a7c3d7ad" />
+```mermaid
+erDiagram
+    USERS ||--o{ TRIPS : "Create Trip (1:N)"
+    TRIPS ||--o{ TRIP_PLACES : "Contains Places"
+    DESTINATIONS ||--o{ TRIP_PLACES : "Included in"
+    TRIPS ||--o{ ITINERARY_ITEMS : "Itinerary Details (1:N)"
+    DESTINATIONS ||--o{ ITINERARY_ITEMS : "Associated Destinations (1:N)"
+    TRIPS ||--o{ TRIP_DAYS : "Contains Days (1:N)"
+    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route Start (1:1)"
+    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route End (1:1)"
 
+    USERS {
+        int id PK
+        string email
+        string name
+    }
+
+    DESTINATIONS {
+        int id PK
+        string place_name
+        string geo_tags
+    }
+
+    TRIPS {
+        int id PK
+        int user_id FK
+    }
+
+    TRIP_PLACES {
+        int trip_id PK
+        int destination_id PK
+    }
+
+    ITINERARY_ITEMS {
+        int id PK
+        int trip_id FK
+        int destination_id FK
+    }
+
+    TRIP_DAYS {
+        int id PK
+        int trip_id FK
+    }
+
+    ITINERARY_LEGS {
+        int id PK
+        int from_item_id FK
+        int to_item_id FK
+    }
+```
 
 
 ## 🛠️ Tech Stack
