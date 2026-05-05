@@ -60,7 +60,15 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       # ======================================================
-      # Step 4：將 schema.sql 灌進 CI 的 MySQL
+      # Step 4：用 Ruff 檢查語法與邏輯錯誤
+      # 在跑測試之前先做，語法有問題就提早失敗，不需要等 DB 啟動
+      # ======================================================
+      - name: Lint with Ruff
+        working-directory: backend
+        run: ruff check .
+
+      # ======================================================
+      # Step 5：將 schema.sql 灌進 CI 的 MySQL
       # 建立所有 table，讓整合測試可以真的對 DB 做 INSERT/SELECT
       # ======================================================
       - name: Initialize database schema
@@ -79,7 +87,6 @@ jobs:
       #
       # DB_*：連線到上面 services 啟動的 MySQL 容器
       # MAPS_API_KEY / GEMINI_API_KEY：設為空字串，import 時不會 crash，測試不會真的打 API
-      # SESSION_SECRET_KEY：FastAPI session middleware 需要，給任意值即可
       # ======================================================
       - name: Run tests
         working-directory: backend
@@ -92,5 +99,4 @@ jobs:
           DB_NAME: easy-travel-scheduler
           MAPS_API_KEY: ""
           GEMINI_API_KEY: ""
-          SESSION_SECRET_KEY: ci-test-secret-key
         run: pytest test/ -v       # -v 印出每個 test case 的名稱與結果

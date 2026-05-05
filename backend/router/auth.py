@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, Request, Response, HTTPException
-from schemas.auth import *
-from core.database import *
-from core.security import *
-from core.dependencies import *
+from schemas.auth import UserOut, SignupIn, LoginIn
+from core.security import (
+    hash_password,
+    set_session_cookie,
+    verify_password,
+    clear_session_cookie,
+)
+from core.dependencies import get_cur, get_optional_user, SID_COOKIE_NAME
 from core.redis import redis_client
 import pymysql
 from pymysql.err import IntegrityError
@@ -42,12 +46,7 @@ def register(payload: SignupIn, response: Response, cur=Depends(get_cur)):
 
 
 @router.post("/api/login", response_model=UserOut)
-def login(
-    payload: LoginIn,
-    request: Request,
-    response: Response,
-    cur=Depends(get_cur)
-):
+def login(payload: LoginIn, request: Request, response: Response, cur=Depends(get_cur)):
     try:
         cur.execute(
             "SELECT id, email, name, password_hash, is_active FROM users WHERE email = %s LIMIT 1",

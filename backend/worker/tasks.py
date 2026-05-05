@@ -9,35 +9,35 @@ from celery.exceptions import Reject
 
 
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
-SQS_URL = os.getenv("CELERY_BROKER_URL") # 指向主 AWS SQS
-REDIS_RESULT_URL = os.getenv("REDIS_URL") # 指向主 EC2 的內網 IP
+SQS_URL = os.getenv("CELERY_BROKER_URL")  # 指向主 AWS SQS
+REDIS_RESULT_URL = os.getenv("REDIS_URL")  # 指向主 EC2 的內網 IP
 
 
 celery_app = Celery(
     "travel_tasks",
     broker=SQS_URL,  # 任務佈告欄 / Message Broker
-    backend=REDIS_RESULT_URL  # 結果儲存區 / Result Backend
+    backend=REDIS_RESULT_URL,  # 結果儲存區 / Result Backend
 )
 
 celery_app.conf.update(
     # 指定 Celery 預設使用的 AWS SQS 佇列名稱
-    task_default_queue='easy-travel-celery-queue',
+    task_default_queue="easy-travel-celery-queue",
     broker_transport_options={
-        'region': "ap-east-2",        # AWS 部署區域（亞太）
-        'visibility_timeout': 600,    # 爬蟲任務時間設定10 min；超時後 SQS 會讓其他 worker 重新處理該任務
-        'polling_interval': 20,        # 每 20 秒輪詢一次 SQS，降低 API 請求次數以省錢
-        'predefined_queues': {
-            'easy-travel-celery-queue': {
-                'url': 'https://sqs.ap-east-2.amazonaws.com/837497587507/easy-travel-celery-queue'
+        "region": "ap-east-2",  # AWS 部署區域（亞太）
+        "visibility_timeout": 600,  # 爬蟲任務時間設定10 min；超時後 SQS 會讓其他 worker 重新處理該任務
+        "polling_interval": 20,  # 每 20 秒輪詢一次 SQS，降低 API 請求次數以省錢
+        "predefined_queues": {
+            "easy-travel-celery-queue": {
+                "url": "https://sqs.ap-east-2.amazonaws.com/837497587507/easy-travel-celery-queue"
             }
-        }
+        },
     },
-    task_serializer='json',               # 任務資料以 JSON 格式序列化後傳送
-    accept_content=['json'],              # 只接受 JSON 格式的任務內容
-    result_serializer='json',             # 任務執行結果也以 JSON 格式儲存
-    task_track_started=True,              # 任務開始執行時記錄 STARTED 狀態，便於監控進度
-    task_acks_late=True,                  # 任務成功完成後才 ack（刪除 SQS 訊息），防止 worker crash 導致任務遺失
-    task_reject_on_worker_lost=True       # Worker 意外死亡時，將任務退回佇列而非直接丟棄
+    task_serializer="json",  # 任務資料以 JSON 格式序列化後傳送
+    accept_content=["json"],  # 只接受 JSON 格式的任務內容
+    result_serializer="json",  # 任務執行結果也以 JSON 格式儲存
+    task_track_started=True,  # 任務開始執行時記錄 STARTED 狀態，便於監控進度
+    task_acks_late=True,  # 任務成功完成後才 ack（刪除 SQS 訊息），防止 worker crash 導致任務遺失
+    task_reject_on_worker_lost=True,  # Worker 意外死亡時，將任務退回佇列而非直接丟棄
 )
 
 
@@ -49,11 +49,11 @@ def scrape_and_save_destinations_task(self, location: str):
     注意：因為它在另一個獨立的 Process 執行，所以必須「自己重新建立資料庫連線」！
     """
     print(f"👨‍🍳 Celery 廚師開始處理「{location}」的爬蟲任務...")
-    
+
     conn = POOL.connection()
     set_utc(conn)
     cur = conn.cursor()
-    
+
     try:
         # 1. 執行最耗時的爬蟲
         new_search_data = run_web_scraping_workflow(location)
@@ -64,42 +64,50 @@ def scrape_and_save_destinations_task(self, location: str):
         if new_place_ids:
             # 3. 用 WHERE IN 語法，精準找出資料庫已經存在的 ID
             # 產生對應數量的 %s (例如 '%s, %s, %s')
-            format_strings = ','.join(['%s'] * len(new_place_ids))
+            format_strings = ",".join(["%s"] * len(new_place_ids))
             query = f"SELECT google_place_id FROM destinations WHERE google_place_id IN ({format_strings})"
-            
+
             cur.execute(query, tuple(new_place_ids))
             # 將資料庫已存在的 ID 存進 Set 裡面，查詢速度最快 O(1)
-            existing_ids = {row['google_place_id'] for row in cur.fetchall()}
-            
+            existing_ids = {row["google_place_id"] for row in cur.fetchall()}
+
         # 4. 進行去重篩選
         final_new_data = []
         for spot in new_search_data:
-            place_id = spot.get('google_place_id')
-            
+            place_id = spot.get("google_place_id")
+
             # 如果這個 ID 存在，且不在資料庫已有的名單內
             if place_id and place_id not in existing_ids:
                 final_new_data.append(spot)
                 # 🌟 重要：加進去後要立刻更新 existing_ids 集合！
                 # 這是為了防止這一次爬蟲結果「自己內部」就有重複的景點
                 existing_ids.add(place_id)
-        
+
         # 5. 寫入資料庫
         if final_new_data:
             save_spot_data(final_new_data, cur)
             conn.commit()
-            print(f"✅ Celery 任務完成！爬蟲回來{len(new_search_data)}筆資料，去重後成功寫入 {len(final_new_data)} 筆新景點。")
-            
+            print(
+                f"✅ Celery 任務完成！爬蟲回來{len(new_search_data)}筆資料，去重後成功寫入 {len(final_new_data)} 筆新景點。"
+            )
+
             # 將快取記錄清空，讓新資料可以被抓到
             redis_client = get_redis()
             redis_client.delete(f"search:location:{location}")
         # 6. 如果抓到的資料數量 < 3 就認定該地點已經沒有更多景點
         if len(final_new_data) < 3:
-            print(f"❄️ 新增景點小於 3 ({len(final_new_data)})，觸發「{location}」冷卻機制 1 天")
+            print(
+                f"❄️ 新增景點小於 3 ({len(final_new_data)})，觸發「{location}」冷卻機制 1 天"
+            )
             redis_client.setex(f"exhausted:location:{location}", 86400, "1")
-            
+
         # 任務完成，回傳結果 (這個結果會被存回 Redis 的 Backend 中)
-        return {"location": location, "status": "success", "added_count": len(final_new_data)}
-        
+        return {
+            "location": location,
+            "status": "success",
+            "added_count": len(final_new_data),
+        }
+
     except ValueError as e:
         # 永久性失敗（地點無效、AI 額度耗盡）raise 標記 FAILURE，不進 DLQ
         print(f"❌ 永久性失敗，不重試: {e}")
@@ -115,4 +123,3 @@ def scrape_and_save_destinations_task(self, location: str):
     finally:
         cur.close()
         conn.close()
-

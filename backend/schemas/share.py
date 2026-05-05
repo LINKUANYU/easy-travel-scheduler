@@ -1,10 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
-from datetime import date
+from pydantic import BaseModel
+from typing import Optional
+
 
 class SharedTokenCreateOut(BaseModel):
     message: str
     share_token: str
+
 
 class SharedTripInfo(BaseModel):
     trip_id: int
@@ -12,6 +13,7 @@ class SharedTripInfo(BaseModel):
     days: int
     start_date: Optional[str] = None
     user_id: Optional[int] = None  # 讓前端知道誰是擁有者
+
 
 class SharedItineraryItem(BaseModel):
     item_id: int
@@ -27,6 +29,7 @@ class SharedItineraryItem(BaseModel):
     travel_mode: Optional[str] = None
     duration_millis: Optional[int] = None
     distance_meters: Optional[int] = None
+
 
 class SharedTripDataOut(BaseModel):
     trip: SharedTripInfo

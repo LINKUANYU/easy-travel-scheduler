@@ -1,13 +1,17 @@
 from fastapi import Request, HTTPException, Depends
 from fastapi.security import APIKeyHeader, APIKeyCookie
-from core.database import *
+from core.database import get_cur
 from core.security import SID_COOKIE_NAME
 from core.redis import redis_client
 
 # 建立 Swagger UI 辨識用的 Security Schemes
 # auto_error=False 代表交給我們自己用 if/else 處理 401/403，不要讓 FastAPI 強制阻擋
-cookie_scheme = APIKeyCookie(name=SID_COOKIE_NAME, auto_error=False)  # 從 cookie 拿出 sid
-edit_token_scheme = APIKeyHeader(name="X-Edit-Token", auto_error=False)  # 從 Header 中拿取前端出示的token
+cookie_scheme = APIKeyCookie(
+    name=SID_COOKIE_NAME, auto_error=False
+)  # 從 cookie 拿出 sid
+edit_token_scheme = APIKeyHeader(
+    name="X-Edit-Token", auto_error=False
+)  # 從 Header 中拿取前端出示的token
 
 
 def _resolve_session(sid: str, cur) -> dict | None:
@@ -23,9 +27,7 @@ def _resolve_session(sid: str, cur) -> dict | None:
 
 
 def get_current_user(
-    request: Request,
-    cur=Depends(get_cur),
-    sid: str = Depends(cookie_scheme)
+    request: Request, cur=Depends(get_cur), sid: str = Depends(cookie_scheme)
 ):
     if not sid:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -42,7 +44,7 @@ def assert_trip_owner(
     request: Request,
     cur=Depends(get_cur),
     sid: str = Depends(cookie_scheme),
-    client_token: str = Depends(edit_token_scheme)
+    client_token: str = Depends(edit_token_scheme),
 ):
     """
     共用的行程權限驗證 Dependency
@@ -67,16 +69,16 @@ def assert_trip_owner(
     # 3. 情境二：這是一個「匿名暫存」的無主行程，要檢查edit_token
     else:
         if not client_token or client_token != trip["edit_token"]:
-            raise HTTPException(status_code=403, detail="無效的編輯權限 (缺少或錯誤的token)")
+            raise HTTPException(
+                status_code=403, detail="無效的編輯權限 (缺少或錯誤的token)"
+            )
 
     return True
 
 
 # 非強制的登入檢查（只回傳資料或 None，不拋出 401 錯誤）
 def get_optional_user(
-    request: Request,
-    cur=Depends(get_cur),
-    sid: str = Depends(cookie_scheme)
+    request: Request, cur=Depends(get_cur), sid: str = Depends(cookie_scheme)
 ):
     if not sid:
         return None  # 沒帶 Cookie，默默回傳 None

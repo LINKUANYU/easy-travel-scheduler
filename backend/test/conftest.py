@@ -15,8 +15,10 @@ FastAPI 有一個 dependency_overrides 字典，
 """
 
 import os
+
 # 在 import main 之前先補好 .env，確保連線池能初始化
 from dotenv import load_dotenv
+
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # .env 裡 DB_HOST=host.docker.internal 是 Docker 環境專用的 hostname。
@@ -33,6 +35,7 @@ from core.database import get_cur
 
 class MockCursor:
     """模擬資料庫 cursor，固定回傳 None（代表查無資料）"""
+
     def execute(self, *args, **kwargs):
         pass
 
@@ -58,7 +61,7 @@ def client_no_db():
     cursor 固定回傳 None，適合測試「找不到資料 → 404」的情境。
     不需要真實資料庫連線。
     """
-    app.dependency_overrides[get_cur] = mock_get_cur_no_data # 替換成假的 cursor
+    app.dependency_overrides[get_cur] = mock_get_cur_no_data  # 替換成假的 cursor
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

@@ -1,10 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import date
+
 
 class ImageData(BaseModel):
     url: str
     source: str
+
 
 class Attraction(BaseModel):
     id: int
@@ -18,6 +19,6 @@ class Attraction(BaseModel):
     lng: Optional[float] = None
     images: List[ImageData] = []
 
+
 class OkOut(BaseModel):
     ok: bool = True
-

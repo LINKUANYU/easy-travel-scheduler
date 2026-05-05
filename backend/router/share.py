@@ -1,34 +1,37 @@
 import secrets
 from fastapi import APIRouter, Depends, HTTPException
-from core.database import get_cur,get_conn
-from schemas.share import *
-from fastapi import BackgroundTasks
+from core.database import get_cur, get_conn
+from schemas.share import SharedTokenCreateOut, SharedTripDataOut
 
 router = APIRouter()
 
+
 # trip 產生唯一 URL as token
 @router.patch("/api/trips/{trip_id}/share", response_model=SharedTokenCreateOut)
-def enable_trip_sharing(trip_id: int, conn = Depends(get_conn)):
+def enable_trip_sharing(trip_id: int, conn=Depends(get_conn)):
     # 1. 查詢資料庫確認行程是否存在，並取得目前的 share_token
     cur = conn.cursor()
     cur.execute("SELECT id, share_token FROM trips WHERE id = %s", (trip_id,))
     trip = cur.fetchone()
-    
+
     if not trip:
         raise HTTPException(status_code=404, detail="找不到該行程")
 
-    share_token = trip['share_token']
-    
+    share_token = trip["share_token"]
+
     # 2. 如果還沒有 token，才產生並寫入資料庫
     if not share_token:
-        share_token = secrets.token_urlsafe(16) 
+        share_token = secrets.token_urlsafe(16)
         try:
             # 這裡只更新 share_token，不需要管 is_public 了 (因為預設已是 1)
-            cur.execute("""
+            cur.execute(
+                """
                 UPDATE trips 
                 SET share_token = %s 
                 WHERE id = %s
-            """, (share_token, trip_id))
+            """,
+                (share_token, trip_id),
+            )
 
             # 🔥 解決死結的關鍵：提前手動 Commit！
             # 讓資料庫正式寫入 share_token，釋放 Row Lock。
@@ -41,33 +44,32 @@ def enable_trip_sharing(trip_id: int, conn = Depends(get_conn)):
         finally:
             cur.close()
 
-
-
     # 3. 回傳 token 給前端
-    return {
-        "message": "分享連結已獲取",
-        "share_token": share_token
-    }
+    return {"message": "分享連結已獲取", "share_token": share_token}
 
 
 # 透過token as URL 讀取 trip、itinerary 內容
 @router.get("/api/share/{token}", response_model=SharedTripDataOut)
-def get_shared_trip_data(token: str, cur = Depends(get_cur)):
+def get_shared_trip_data(token: str, cur=Depends(get_cur)):
     # 1. 透過 token 取得行程基本資訊
-    cur.execute("""
+    cur.execute(
+        """
         SELECT id AS trip_id, user_id, title, days, DATE_FORMAT(start_date, '%%Y-%%m-%%d') AS start_date
         FROM trips 
         WHERE share_token = %s
-    """, (token,))
+    """,
+        (token,),
+    )
     trip = cur.fetchone()
-    
+
     if not trip:
         raise HTTPException(status_code=404, detail="找不到該分享行程或連結已失效")
-        
-    trip_id = trip['trip_id']
-    
+
+    trip_id = trip["trip_id"]
+
     # 2. 取得該行程「所有」已排入的景點資料
-    cur.execute("""
+    cur.execute(
+        """
         SELECT
             ii.id AS item_id,
             ii.day_index,
@@ -87,17 +89,19 @@ def get_shared_trip_data(token: str, cur = Depends(get_cur)):
         LEFT JOIN itinerary_legs l ON ii.id = l.from_item_id
         WHERE ii.trip_id = %s
         ORDER BY ii.day_index ASC, ii.position ASC
-    """, (trip_id,))
-    
+    """,
+        (trip_id,),
+    )
+
     items = cur.fetchall() or []
-    
+
     # 3. 格式化時間 (與你 itinerary.py 的處理邏輯一致)
     for row in items:
         if row.get("arrival_time") is not None:
             seconds = int(row["arrival_time"].total_seconds())
             h, m = seconds // 3600, (seconds % 3600) // 60
             row["arrival_time"] = f"{h:02d}:{m:02d}"
-            
+
         if row.get("departure_time") is not None:
             seconds = int(row["departure_time"].total_seconds())
             h, m = seconds // 3600, (seconds % 3600) // 60
@@ -106,14 +110,11 @@ def get_shared_trip_data(token: str, cur = Depends(get_cur)):
     # 4. 將景點依照 day_index 進行分組，方便前端直接渲染成多個欄位
     # 建立一個字典：{ 1: [], 2: [], 3: [] ... }
     days_data = {i: [] for i in range(1, trip["days"] + 1)}
-    
+
     for item in items:
-        day_idx = item["day_index"]    # item 是哪一天的景點
-        if day_idx in days_data:    # 對應到的天數存在
-            days_data[day_idx].append(item)    # 把資料插進去 { 第一天： item }
+        day_idx = item["day_index"]  # item 是哪一天的景點
+        if day_idx in days_data:  # 對應到的天數存在
+            days_data[day_idx].append(item)  # 把資料插進去 { 第一天： item }
 
     # 5. 回傳整理好的聚合資料
-    return {
-        "trip": trip,
-        "itinerary": days_data
-    }
+    return {"trip": trip, "itinerary": days_data}
