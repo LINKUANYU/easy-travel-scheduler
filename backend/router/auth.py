@@ -42,12 +42,7 @@ def register(payload: SignupIn, response: Response, cur=Depends(get_cur)):
 
 
 @router.post("/api/login", response_model=UserOut)
-def login(
-    payload: LoginIn,
-    request: Request,
-    response: Response,
-    cur=Depends(get_cur)
-):
+def login(payload: LoginIn, request: Request, response: Response, cur=Depends(get_cur)):
     try:
         cur.execute(
             "SELECT id, email, name, password_hash, is_active FROM users WHERE email = %s LIMIT 1",

@@ -1,6 +1,7 @@
 import pytest
 from services.ai_scraper import clean_and_slice_text
 
+
 # ---------------------------------------------------------
 # 1. 測試：是否能正確移除圖片與超連結語法
 # ---------------------------------------------------------
@@ -12,6 +13,7 @@ def test_clean_links_and_images():
     assert "https://example.com" not in result
     assert "![風景圖]" not in result
     assert "這是一張圖片和一個點我前往的連結。" in result
+
 
 # ---------------------------------------------------------
 # 2. 測試：防線一（導覽列雜訊過濾）
@@ -32,6 +34,7 @@ def test_remove_mega_menu_noise():
 
     assert "超過二十個字的正常列表項目" in result
 
+
 # ---------------------------------------------------------
 # 3. 測試：防線二（尋找文章重心與字數裁切）
 # ---------------------------------------------------------
@@ -39,7 +42,7 @@ def test_find_article_center_and_slice():
     # 模擬一篇很長的文章
     # 前面塞入 400 個字的廢話前言 (400 > 300)
     prefix_text = "廢話" * 200
-    
+
     # 文章重心在這裡
     main_content = "\n## 東京必去景點推薦\n這裡是文章精華區！"
 
@@ -52,6 +55,6 @@ def test_find_article_center_and_slice():
     assert len(result) <= 8000
 
     assert "東京必去景點推薦" in result
-    
+
     # 抓到重點後往前推300字，所以廢話應該會有150個，代表不是從頭開始抓字
     assert result.count("廢話") == 150

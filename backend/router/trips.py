@@ -9,9 +9,10 @@ import secrets
 
 router = APIRouter()
 
+
 # 建立 trip
 @router.post("/api/trips", response_model=TripCreateOut)
-def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
+def create_trip(payload: TripCreateIn, cur=Depends(get_cur)):
     try:
         # 產生 64 字元的 token
         edit_token = secrets.token_hex(32)
@@ -21,28 +22,33 @@ def create_trip(payload: TripCreateIn, cur = Depends(get_cur)):
             """
             INSERT INTO trips(user_id, title, days, start_date, edit_token)
             VALUES(NULL, %s, %s, %s, %s)
-            """
-            , (payload.title, payload.days, payload.start_date, edit_token)
+            """,
+            (payload.title, payload.days, payload.start_date, edit_token),
         )
         trip_id = cur.lastrowid
-        
+
         # 2) 建立 trip_days（有 start_date 才填 date）
         day_rows = []
         for i in range(1, payload.days + 1):
             date = None
             if payload.start_date:
-                date = payload.start_date + timedelta(days = i - 1) # 拿每天的日期
+                date = payload.start_date + timedelta(days=i - 1)  # 拿每天的日期
             day_rows.append((trip_id, i, date))
-        
-        cur.executemany("INSERT INTO trip_days(trip_id, day_index, date) VALUES(%s, %s, %s)", day_rows)
-        
+
+        cur.executemany(
+            "INSERT INTO trip_days(trip_id, day_index, date) VALUES(%s, %s, %s)",
+            day_rows,
+        )
+
         return {"trip_id": trip_id, "edit_token": edit_token}
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，trips建立失敗")
 
+
 # 讀取 trip_id 拿 trip 的資訊
-@router.get("/api/trips/{trip_id}", 
-    response_model=TripOut, 
+@router.get(
+    "/api/trips/{trip_id}",
+    response_model=TripOut,
     dependencies=[Depends(assert_trip_owner)],
 )
 def get_trip(trip_id: int, cur=Depends(get_cur)):
@@ -63,8 +69,10 @@ def get_trip(trip_id: int, cur=Depends(get_cur)):
     # start_date 可能是 None，OK
     return row
 
+
 # 讀取 trip 內的景點
-@router.get("/api/trips/{trip_id}/places",
+@router.get(
+    "/api/trips/{trip_id}/places",
     response_model=List[TripPlaceOut],
     dependencies=[Depends(assert_trip_owner)],
 )
@@ -95,6 +103,7 @@ def get_trip_places(trip_id: int, cur=Depends(get_cur)):
     rows = cur.fetchall()
     return rows
 
+
 # 新增景點到 trip
 @router.post(
     "/api/trips/{trip_id}/places",
@@ -105,7 +114,6 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
     gpid = payload.google_place_id.strip()
     if not gpid:
         raise HTTPException(status_code=400, detail="google_place_id is required")
-
 
     # 1) 確認 trip 存在
     cur.execute("SELECT 1 FROM trips WHERE id=%s", (trip_id,))
@@ -175,6 +183,7 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
 
     return row
 
+
 # 刪除 trip 的景點
 @router.delete(
     "/api/trips/{trip_id}/places/{destination_id}",
@@ -197,12 +206,13 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
     # 刪不到也回 ok（前端 UX 比較順）
     return {"ok": True}
 
+
 # trip bind user
 @router.patch("/api/trips/{trip_id}/bind", response_model=TripBindOut)
 def bind_trip_to_user(
     trip_id: int,
-    current_user: dict = Depends(get_current_user), # 必須有 Session 才能打這支 API
-    cur = Depends(get_cur)
+    current_user: dict = Depends(get_current_user),  # 必須有 Session 才能打這支 API
+    cur=Depends(get_cur),
 ):
     # 1. 查詢該行程的當前擁有者
     cur.execute("SELECT user_id FROM trips WHERE id = %s", (trip_id,))
@@ -210,31 +220,36 @@ def bind_trip_to_user(
 
     if not trip:
         raise HTTPException(status_code=404, detail="找不到行程")
-    
+
     # 2. 判斷綁定邏輯
     if trip["user_id"] is not None:
         if trip["user_id"] == current_user["id"]:
             return {"message": "此行程已在您帳號下"}
         else:
-            raise HTTPException(status_code=403, detail="認領失敗，此行程已被其他帳號綁定")
+            raise HTTPException(
+                status_code=403, detail="認領失敗，此行程已被其他帳號綁定"
+            )
 
     # 3. 執行綁定(寫入user_id)
     try:
-        cur.execute("UPDATE trips SET user_id = %s WHERE id = %s", (current_user["id"], trip_id))
-        
+        cur.execute(
+            "UPDATE trips SET user_id = %s WHERE id = %s", (current_user["id"], trip_id)
+        )
+
         return {"message": "行程認領成功", "trip_id": trip_id}
     except Exception as e:
-        print(f'Database error: {e}')
+        print(f"Database error: {e}")
         raise HTTPException(status_code=500, detail="資料庫寫入失敗（行程認領）")
-    
+
 
 # 讀取 user 下所有 trip
 @router.get("/api/trips", response_model=list[TripOut])
 def get_user_trips(
-    current_user: dict = Depends(get_current_user), # 擋下未登入的請求
-    cur = Depends(get_cur)
+    current_user: dict = Depends(get_current_user),  # 擋下未登入的請求
+    cur=Depends(get_cur),
 ):
-    cur.execute("""
+    cur.execute(
+        """
         SELECT
             id AS trip_id,
             title,
@@ -253,39 +268,43 @@ def get_user_trips(
         FROM trips 
         WHERE user_id = %s 
         ORDER BY id DESC
-    """, (current_user["id"],))
+    """,
+        (current_user["id"],),
+    )
 
     trips = cur.fetchall()
-    
+
     # 資料庫拿出來的 start_date 可能是 datetime.date 型別，
     # 為了符合 Pydantic 的 str 要求，做個簡單的轉型
     for trip in trips:
         if trip["start_date"]:
             trip["start_date"] = str(trip["start_date"])
-            
+
     return trips
 
+
 # 刪除特定 trip
-@router.delete("/api/trips/{trip_id}", response_model=OkOut, dependencies=[Depends(assert_trip_owner)])
-def delete_trip(
-    trip_id: int, 
-    cur = Depends(get_cur)
-):
+@router.delete(
+    "/api/trips/{trip_id}",
+    response_model=OkOut,
+    dependencies=[Depends(assert_trip_owner)],
+)
+def delete_trip(trip_id: int, cur=Depends(get_cur)):
 
     # 因為在 dependencies 放了 Depends(assert_trip_owner)
     # 所以只要能進到這個 Function 內部，就代表「該使用者絕對有權限刪除」
-    
+
     cur.execute("DELETE FROM trips WHERE id = %s", (trip_id,))
-    
+
     # 這裡 MySQL 在建表時，針對 trip_days, trip_places 等子表都有設定 Foreign Key 的 `ON DELETE CASCADE`。
     # 這樣刪除 trips 的一筆資料時，底下的行程細節才會連帶被資料庫自動清空。
-    
+
     return {"ok": True}
 
 
 # 取得首頁探索的公開行程 (不需要登入驗證 Depends)
 @router.get("/api/explore/trips", response_model=list[TripOut])
-def get_explore_trips(cur = Depends(get_cur)):
+def get_explore_trips(cur=Depends(get_cur)):
     try:
         cur.execute("""
             SELECT
@@ -309,14 +328,14 @@ def get_explore_trips(cur = Depends(get_cur)):
             ORDER BY id DESC 
             LIMIT 6
         """)
-        
+
         trips = cur.fetchall()
-        
+
         # 格式化日期
         for trip in trips:
             if trip["start_date"]:
                 trip["start_date"] = str(trip["start_date"])
-                
+
         return trips
     except Exception as e:
         print(f"撈取探索行程失敗: {e}")

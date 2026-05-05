@@ -3,6 +3,7 @@ from pymysql.err import IntegrityError
 from fastapi import HTTPException
 from services.geo_service import *
 
+
 def get_existing_destinations(location, cur):
     try:
         sql_search = """
@@ -27,32 +28,38 @@ def get_existing_destinations(location, cur):
         """
 
         search_patten = f"%{location}%"
-        cur.execute(sql_search, (location, search_patten, search_patten,))
+        cur.execute(
+            sql_search,
+            (
+                location,
+                search_patten,
+                search_patten,
+            ),
+        )
         rows = cur.fetchall()
 
         final_data = []
         for row in rows:
-                final_data.append({
-                    "id": row['id'],
-                    "input_region": row['input_region'],
-                    "city": row['city'],
-                    "attraction": row['attraction'],
-                    "description": row['description'],
-                    "geo_tags": row['geo_tags'],
-                    "google_place_id": row['google_place_id'],
+            final_data.append(
+                {
+                    "id": row["id"],
+                    "input_region": row["input_region"],
+                    "city": row["city"],
+                    "attraction": row["attraction"],
+                    "description": row["description"],
+                    "geo_tags": row["geo_tags"],
+                    "google_place_id": row["google_place_id"],
                     # 轉為 float 以匹配 Pydantic 模型
-                    "lat": float(row['lat']) if row['lat'] else None,
-                    "lng": float(row['lng']) if row['lng'] else None,
-                })
+                    "lat": float(row["lat"]) if row["lat"] else None,
+                    "lng": float(row["lng"]) if row["lng"] else None,
+                }
+            )
 
         return final_data
 
     except pymysql.MySQLError as e:
         print(f"Database error: {e}，查詢資料庫既有景點失敗")
         raise HTTPException(status_code=500, detail="查詢資料庫既有景點失敗")
-
-
-
 
 
 def save_spot_data(data, cur):
@@ -67,18 +74,18 @@ def save_spot_data(data, cur):
         try:
             cur.execute(
                 dest_sql,
-                    (
-                        item.get('input_region'),
-                        item.get('city'),
-                        item.get('attraction'),
-                        item.get('description'),
-                        item.get('geo_tags'),
-                        item.get('google_place_id'),
-                        item.get('lat'),
-                        item.get('lng'),
-                        item.get('address')
-                    )
-                )
+                (
+                    item.get("input_region"),
+                    item.get("city"),
+                    item.get("attraction"),
+                    item.get("description"),
+                    item.get("geo_tags"),
+                    item.get("google_place_id"),
+                    item.get("lat"),
+                    item.get("lng"),
+                    item.get("address"),
+                ),
+            )
             dest_id = cur.lastrowid  # ✅ 只有成功 INSERT 才會有有效 id
 
             # 將新增過item['id']的資料回傳
@@ -98,7 +105,3 @@ def save_spot_data(data, cur):
 
     print(f"成功寫入 {len(insert_data)} 筆景點")
     return insert_data
-
-
-
-

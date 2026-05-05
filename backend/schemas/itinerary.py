@@ -6,6 +6,7 @@ from datetime import date
 class ItineraryAddIn(BaseModel):
     destination_id: int
 
+
 class ItineraryItemOut(BaseModel):
     item_id: int
     trip_id: int
@@ -22,11 +23,13 @@ class ItineraryItemOut(BaseModel):
     duration_millis: Optional[int] = None
     distance_meters: Optional[int] = None
 
+
 class ItinerarySummaryRow(BaseModel):
     destination_id: int
     day_index: int
     position: int
     item_id: int
+
 
 class ItineraryReorderIn(BaseModel):
     ordered_item_ids: List[int]

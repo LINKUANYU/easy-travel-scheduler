@@ -6,8 +6,8 @@
 - Case 2/3：token 由 fixture 自動建立與清除（自給自足，CI 環境安全）
 """
 
-class TestGetSharedTrip:
 
+class TestGetSharedTrip:
     # ── Case 1：token 不存在 → 404 ────────────────────────
     def test_invalid_token_returns_404(self, client_no_db):
         """

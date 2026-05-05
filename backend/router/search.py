@@ -5,7 +5,7 @@ from services.ai_scraper import *
 from core.database import *
 from services.geo_service import *
 from repositories.destination_repo import get_existing_destinations
-from fastapi.encoders import jsonable_encoder # 幫忙把複雜物件轉成標準 JSON
+from fastapi.encoders import jsonable_encoder  # 幫忙把複雜物件轉成標準 JSON
 import json
 from core.redis import *
 from worker.tasks import celery_app, scrape_and_save_destinations_task
@@ -13,16 +13,14 @@ from worker.tasks import celery_app, scrape_and_save_destinations_task
 
 router = APIRouter()
 
+
 @router.post("/api/search", response_model=SearchResponse)
-def search_destinations_api(
-    payload: SearchRequest,
-    cur = Depends(get_cur)
-):
+def search_destinations_api(payload: SearchRequest, cur=Depends(get_cur)):
     location = payload.location
     allow_scrape = payload.allow_scrape
 
     redis_client = get_redis()
-    
+
     # 定義這筆搜尋的專屬快取鑰匙 (Cache Key) Key: "search:location:台北"
     cache_key = f"search:location:{location}"
     # 檢查該地點是否已經耗盡景點
@@ -42,7 +40,6 @@ def search_destinations_api(
     except Exception as e:
         # 容錯機制：就算 Redis 掛了，我們也不要中斷程式，繼續往資料庫找
         print(f"⚠️ Redis 讀取失敗: {e}")
-    
 
     # ==========================================
     # 二、 查閱資料庫有資料 - 快取未命中
@@ -50,9 +47,9 @@ def search_destinations_api(
 
     # 1.【搜尋】階段：多欄位模糊比對 (向上支援與向下支援的關鍵)
     # 我們同時找：輸入區域、城市名稱、以及標籤內是否包含關鍵字
-    
+
     existing_spots_data = get_existing_destinations(location, cur)
-    
+
     # 2. 【門檻檢查】：如果有 5 個以上就先回傳，如果小於 5 個就觸發爬蟲，自動幫使用者搜尋
     if len(existing_spots_data) >= 5:
         # 組合資料回給前端
@@ -61,33 +58,49 @@ def search_destinations_api(
         try:
             # 寫入快取
             # 使用 jsonable_encoder 確保格式安全，有時候我們從資料庫拿出來的資料，裡面會混雜一些奇怪的格式（例如時間格式 datetime、或是特殊的資料庫物件），這個工具會像濾網一樣，把它們全部「淨化」成最標準、乾淨的 Python 字典和陣列。
-            redis_client.setex(cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data)))
+            redis_client.setex(
+                cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data))
+            )
         except Exception:
             print(f"⚠️ Redis 讀取失敗: {e}")
-            
-        return {"status": "completed", "data": existing_spots_data, "is_exhausted": is_exhausted}
-    
+
+        return {
+            "status": "completed",
+            "data": existing_spots_data,
+            "is_exhausted": is_exhausted,
+        }
+
     # ==========================================
-    # 三、【資料不足】 交給Celery (DB 查詢與爬蟲) 
+    # 三、【資料不足】 交給Celery (DB 查詢與爬蟲)
     # ==========================================
     else:
         # # 資料不足，但是地點已在cooldown 中，檢查是否是is_exhausted
         if is_exhausted:
             print(f"⚠️ 資料不足，「{location}」處於冷卻期 (枯竭狀態)，不觸發背景爬蟲。")
             try:
-                redis_client.setex(cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data)))
-                return {"status": "completed", "data": existing_spots_data, "is_exhausted": True}
+                redis_client.setex(
+                    cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data))
+                )
+                return {
+                    "status": "completed",
+                    "data": existing_spots_data,
+                    "is_exhausted": True,
+                }
             except Exception:
                 print(f"⚠️ Redis 讀取失敗: {e}")
-            
+
         # 資料不足，但是前端已在爬蟲中
         if not allow_scrape:
             print(f"⚠️ 阻擋多重爬蟲：「{location}」只回傳現有資料。")
-            return {"status": "blocked", "data": existing_spots_data, "is_exhausted": is_exhausted}
-        
+            return {
+                "status": "blocked",
+                "data": existing_spots_data,
+                "is_exhausted": is_exhausted,
+            }
+
         # 發送 Celery 任務！
         print(f"資料不足，將任務派發至 AWS SQS 排隊...")
-        
+
         try:
             # 直接使用 .delay() 將任務丟給 SQS
             task = scrape_and_save_destinations_task.delay(location)
@@ -95,14 +108,12 @@ def search_destinations_api(
             # 如果走到這裡，通常是 AWS IAM 權限錯了，或是 SQS 網址填錯
             print(f"❌ 任務發送至 SQS 失敗: {e}")
             raise HTTPException(status_code=503, detail="任務發送失敗，請稍候再試")
-        
 
         return {
-            "status": "processing", 
+            "status": "processing",
             "task_id": task.id,  # 自動產生
-            "is_exhausted": is_exhausted
+            "is_exhausted": is_exhausted,
         }
-
 
 
 @router.post("/api/search-more", response_model=SearchMoreResponse)
@@ -113,33 +124,35 @@ def search_more_destinations_api(payload: SearchMore):
     exhausted_key = f"exhausted:location:{location}"
     if redis_client.get(exhausted_key):
         return {"status": "failed", "error": "目前此地點已無更多推薦景點。"}
-    
+
     # 觸發爬蟲任務
     print(f"🔄 觸發再次搜尋：「{location}」")
     task = scrape_and_save_destinations_task.delay(location)
-    
+
     return {"status": "processing", "task_id": task.id}
+
 
 # 查詢任務進度 API (叫號碼牌)
 @router.get("/api/search/status/{task_id}", response_model=TaskStatusResponse)
 def get_task_status(task_id: str):
     # 透過 celery_app 去 Redis 查詢這個任務的狀態
     task_result = celery_app.AsyncResult(task_id)
-    
+
     # started：celery 正在處理，pending：還沒處理，還在上一單
-    if task_result.state == 'PENDING' or task_result.state == 'STARTED':  
+    if task_result.state == "PENDING" or task_result.state == "STARTED":
         return {"status": "processing"}
-    elif task_result.state == 'SUCCESS':
+    elif task_result.state == "SUCCESS":
         return {"status": "completed"}
-    elif task_result.state == 'FAILURE':
+    elif task_result.state == "FAILURE":
         return {"status": "failed", "error": str(task_result.info)}
     # 一些冷門的狀態（例如 RETRY 正在重試、REVOKED 任務被強制取消）。
     else:
         return {"status": task_result.state.lower()}
 
+
 @router.get("/api/popular-searches", response_model=PopularSearchesResponse)
 @redis_cache(cache_key="homepage:popular_search", expire_seconds=3600)
-def get_popular_searches(cur = Depends(get_cur)):
+def get_popular_searches(cur=Depends(get_cur)):
     # --- 只要進到這裡，就代表快取沒命中，我們專心寫 DB 邏輯 ---
     query = """
         SELECT input_region, COUNT(*)
@@ -150,7 +163,7 @@ def get_popular_searches(cur = Depends(get_cur)):
         LIMIT 6
     """
 
-    try: 
+    try:
         cur.execute(query)
         rows = cur.fetchall()
 
@@ -163,4 +176,3 @@ def get_popular_searches(cur = Depends(get_cur)):
         # 如果真的出錯，至少給幾個預設值墊檔
         fallback_data = ["東京", "上海", "巴黎", "沖繩", "紐約", "首爾"]
         return {"status": "success", "data": fallback_data}
-    

@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from router import auth, trips, itinerary,share, search
+from router import auth, trips, itinerary, share, search
 import os
 
 
@@ -24,6 +25,3 @@ app.include_router(auth.router)
 app.include_router(trips.router)
 app.include_router(itinerary.router)
 app.include_router(share.router)
-
-
-

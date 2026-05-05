@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import date
 
+
 class TripCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=100)
     days: int = Field(ge=1, le=60)
@@ -22,6 +23,7 @@ class TripOut(BaseModel):
     cover_url: Optional[str] = None  # 保留未來擴充
     first_place_id: Optional[str] = None
 
+
 class TripPlaceOut(BaseModel):
     destination_id: int
     place_name: Optional[str] = None
@@ -30,9 +32,11 @@ class TripPlaceOut(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
 
+
 class TripBindOut(BaseModel):
     message: str
     trip_id: Optional[int] = None
+
 
 class AddTripPlaceIn(BaseModel):
     google_place_id: str
@@ -41,7 +45,3 @@ class AddTripPlaceIn(BaseModel):
     city_name: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
-
-
-
-

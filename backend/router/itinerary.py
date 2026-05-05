@@ -7,17 +7,26 @@ from core.dependencies import assert_trip_owner
 
 router = APIRouter()
 
+
 # 確保這個 天數 有在這份 trip 之中
 def _ensure_trip_day(cur, trip_id: int, day_index: int):
-    cur.execute("SELECT 1 FROM trip_days WHERE trip_id=%s AND day_index=%s", (trip_id, day_index))
+    cur.execute(
+        "SELECT 1 FROM trip_days WHERE trip_id=%s AND day_index=%s",
+        (trip_id, day_index),
+    )
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="Day not found")
 
+
 # 確保這個景點有在這份 trip 之中
 def _ensure_trip_place(cur, trip_id: int, destination_id: int):
-    cur.execute("SELECT 1 FROM trip_places WHERE trip_id=%s AND destination_id=%s", (trip_id, destination_id))
+    cur.execute(
+        "SELECT 1 FROM trip_places WHERE trip_id=%s AND destination_id=%s",
+        (trip_id, destination_id),
+    )
     if not cur.fetchone():
         raise HTTPException(status_code=400, detail="Place is not in trip_places")
+
 
 def _repack_day_position(cur, trip_id: int, day_index: int):
     cur.execute(
@@ -27,12 +36,16 @@ def _repack_day_position(cur, trip_id: int, day_index: int):
         WHERE trip_id = %s
         AND day_index = %s
         ORDER BY position ASC
-    """, (trip_id, day_index)
+    """,
+        (trip_id, day_index),
     )
     rows = cur.fetchall()
 
     for pos, r in enumerate(rows):
-        cur.execute("UPDATE itinerary_items SET position = %s WHERE id = %s", (pos, r["id"]))
+        cur.execute(
+            "UPDATE itinerary_items SET position = %s WHERE id = %s", (pos, r["id"])
+        )
+
 
 # 讀：該份trip的某一天的行程
 @router.get(
@@ -40,7 +53,7 @@ def _repack_day_position(cur, trip_id: int, day_index: int):
     response_model=list[ItineraryItemOut],
     dependencies=[Depends(assert_trip_owner)],
 )
-def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
+def get_day_itinerary(trip_id: int, day_index: int, cur=Depends(get_cur)):
     _ensure_trip_day(cur, trip_id, day_index)
 
     cur.execute(
@@ -66,7 +79,7 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
         WHERE ii.trip_id=%s AND ii.day_index=%s
         ORDER BY ii.position ASC
         """,
-        (trip_id, day_index)
+        (trip_id, day_index),
     )
     rows = cur.fetchall() or []
 
@@ -76,13 +89,14 @@ def get_day_itinerary(trip_id: int, day_index: int, cur = Depends(get_cur)):
             seconds = int(row["arrival_time"].total_seconds())
             h, m = seconds // 3600, (seconds % 3600) // 60
             row["arrival_time"] = f"{h:02d}:{m:02d}"
-            
+
         if row.get("departure_time") is not None:
             seconds = int(row["departure_time"].total_seconds())
             h, m = seconds // 3600, (seconds % 3600) // 60
             row["departure_time"] = f"{h:02d}:{m:02d}"
 
     return rows
+
 
 # 讀：Trip 行程 summary（用來讓景點池按鈕變成「已加入」）
 @router.get(
@@ -112,9 +126,15 @@ def get_itinerary_summary(trip_id: int, cur=Depends(get_cur)):
 @router.post(
     "/api/trips/{trip_id}/days/{day_index}/itinerary",
     response_model=ItineraryItemOut,
-    dependencies=[Depends(assert_trip_owner)]
+    dependencies=[Depends(assert_trip_owner)],
 )
-def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, cur=Depends(get_cur), conn = Depends(get_conn)):
+def add_to_day_itinerary(
+    trip_id: int,
+    day_index: int,
+    payload: ItineraryAddIn,
+    cur=Depends(get_cur),
+    conn=Depends(get_conn),
+):
 
     destination_id = payload.destination_id
     _ensure_trip_day(cur, trip_id, day_index)
@@ -137,7 +157,7 @@ def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, 
         # FOR UPDATE：這會在地圖執行 SELECT 時，強行鎖住符合條件的資料列。
         # 效果：如果 A 請求正在計算位置，B 請求必須在旁邊「排隊」，直到 A 請求完成 INSERT 並 commit 後，B 才會讀到最新的 position 並接下去算。
         # 這確保了行程的順序 (position) 永遠是連續的 0, 1, 2...，不會出現重複或跳號。
-        
+
         last = cur.fetchone()
         new_pos = (last["position"] + 1) if last else 0
 
@@ -178,20 +198,25 @@ def add_to_day_itinerary(trip_id: int, day_index: int, payload: ItineraryAddIn, 
     except IntegrityError as e:
         # Duplicate key（UNIQUE(trip_id,destination_id)）
         if len(e.args) >= 1 and e.args[0] == 1062:
-            raise HTTPException(status_code=409, detail="Place already scheduled in this trip")
+            raise HTTPException(
+                status_code=409, detail="Place already scheduled in this trip"
+            )
         raise
-
 
 
 # 寫：刪除行程內的景點 id
 @router.delete(
     "/api/trips/{trip_id}/itinerary/{item_id}",
     response_model=OkOut,
-    dependencies=[Depends(assert_trip_owner)]
+    dependencies=[Depends(assert_trip_owner)],
 )
-def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur), conn=Depends(get_conn)):
+def remove_itinerary_item(
+    trip_id: int, item_id: int, cur=Depends(get_cur), conn=Depends(get_conn)
+):
 
-    cur.execute("SELECT trip_id, day_index FROM itinerary_items WHERE id=%s", (item_id,))
+    cur.execute(
+        "SELECT trip_id, day_index FROM itinerary_items WHERE id=%s", (item_id,)
+    )
     row = cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -211,9 +236,11 @@ def remove_itinerary_item(trip_id: int, item_id: int, cur=Depends(get_cur), conn
 @router.put(
     "/api/trips/{trip_id}/days/{day_index}/itinerary/reorder",
     response_model=OkOut,
-    dependencies=[Depends(assert_trip_owner)]
+    dependencies=[Depends(assert_trip_owner)],
 )
-def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorderIn, cur=Depends(get_cur)):
+def reorder_day_itinerary(
+    trip_id: int, day_index: int, payload: ItineraryReorderIn, cur=Depends(get_cur)
+):
     # ordered 前端送進來已排序好的item_id
     ordered = payload.ordered_item_ids
     if not ordered:
@@ -227,16 +254,17 @@ def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorde
             WHERE trip_id =%s AND day_index = %s
             FOR UPDATE
         """,
-        (trip_id, day_index)
+            (trip_id, day_index),
         )
         rows = cur.fetchall() or []
         existing_ids = [r["id"] for r in rows]
 
         # 防呆：前端送來的 ids 必須與目前 day 的 ids 完全一致（不多不少）
-        if set(existing_ids) != set(ordered):  # set集合，裡面的元素不能重複（會自動去重）。
+        if set(existing_ids) != set(
+            ordered
+        ):  # set集合，裡面的元素不能重複（會自動去重）。
             raise HTTPException(status_code=400, detail="ordered_item_ids mismatch")
-        
-        
+
         update_rows = []
         # 依照每個item_id 的位置 更新他們的position
         for pos, item_id in enumerate(ordered):
@@ -248,7 +276,7 @@ def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorde
             SET position = %s
             WHERE id = %s AND trip_id = %s AND day_index = %s
             """,
-            [(pos, item_id, trip_id, day_index) for (pos, item_id) in update_rows]
+            [(pos, item_id, trip_id, day_index) for (pos, item_id) in update_rows],
         )
 
         return {"ok": True}
@@ -258,11 +286,10 @@ def reorder_day_itinerary(trip_id: int, day_index: int, payload: ItineraryReorde
         raise
 
 
-
 @router.put(
     "/api/trips/{trip_id}/days/{day_index}/itinerary/save",
     response_model=OkOut,
-    dependencies=[Depends(assert_trip_owner)]
+    dependencies=[Depends(assert_trip_owner)],
 )
 def save_day_itinerary(
     trip_id: int,
@@ -306,13 +333,15 @@ def save_day_itinerary(
     # 4) 更新 item 時間
     time_rows = []
     for row in payload.item_times:
-        time_rows.append((
-            row.arrival_time,
-            row.departure_time,
-            row.item_id,
-            trip_id,
-            day_index,
-        ))
+        time_rows.append(
+            (
+                row.arrival_time,
+                row.departure_time,
+                row.item_id,
+                trip_id,
+                day_index,
+            )
+        )
 
     if time_rows:
         cur.executemany(
@@ -336,15 +365,17 @@ def save_day_itinerary(
     # 6) 重建 legs
     leg_rows = []
     for leg in payload.legs:
-        leg_rows.append((
-            trip_id,
-            day_index,
-            leg.from_item_id,
-            leg.to_item_id,
-            leg.travel_mode,
-            leg.duration_millis,
-            leg.distance_meters,
-        ))
+        leg_rows.append(
+            (
+                trip_id,
+                day_index,
+                leg.from_item_id,
+                leg.to_item_id,
+                leg.travel_mode,
+                leg.duration_millis,
+                leg.distance_meters,
+            )
+        )
 
     if leg_rows:
         cur.executemany(
