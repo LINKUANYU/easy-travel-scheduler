@@ -54,7 +54,7 @@ def mock_get_cur_no_data():
     yield MockCursor()
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function")  # "function" 每個測試函數都會執行一次。
 def client_no_db():
     """
     使用假 cursor 的 TestClient。
@@ -67,7 +67,7 @@ def client_no_db():
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session")  # "session" 整個測試過程只會執行一次。
 def client_with_db():
     """
     使用真實 DB 的 TestClient。
