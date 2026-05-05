@@ -112,52 +112,79 @@ sequenceDiagram
 ## ERD
 ```mermaid
 erDiagram
-    USERS ||--o{ TRIPS : "Create Trip (1:N)"
-    TRIPS ||--o{ TRIP_PLACES : "Contains Places"
-    DESTINATIONS ||--o{ TRIP_PLACES : "Included in"
-    TRIPS ||--o{ ITINERARY_ITEMS : "Itinerary Details (1:N)"
-    DESTINATIONS ||--o{ ITINERARY_ITEMS : "Associated Destinations (1:N)"
-    TRIPS ||--o{ TRIP_DAYS : "Contains Days (1:N)"
-    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route Start (1:1)"
-    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route End (1:1)"
+    %% Soft Link (No strict FK, allows guest users to operate via edit_token)
+    USERS |o--o{ TRIPS : "Create Trip (Soft Link)"
+    
+    %% Hard Link (FOREIGN KEY CASCADE enabled)
+    TRIPS ||--o{ TRIP_DAYS : "Contains Days (FK)"
+    TRIPS ||--o{ TRIP_PLACES : "Saved Places (FK)"
+    DESTINATIONS ||--o{ TRIP_PLACES : "Included In (FK)"
+    
+    TRIPS ||--o{ ITINERARY_ITEMS : "Itinerary Details (FK)"
+    DESTINATIONS ||--o{ ITINERARY_ITEMS : "Associated Destinations (FK)"
+    
+    TRIPS ||--o{ ITINERARY_LEGS : "Route Legs (FK)"
+    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route Start (FK)"
+    ITINERARY_ITEMS ||--o{ ITINERARY_LEGS : "Route End (FK)"
 
     USERS {
         int id PK
-        string email
-        string name
+        varchar email
+        varchar name
+        varchar password_hash
+        tinyint is_active
     }
 
     DESTINATIONS {
         int id PK
-        string place_name
-        string geo_tags
+        varchar google_place_id "UNIQUE"
+        varchar place_name
+        varchar city_name
+        varchar geo_tags "Fulltext Index"
+        decimal lat
+        decimal lng
     }
 
     TRIPS {
         int id PK
-        int user_id FK
+        int user_id "NULLABLE (For Guests)"
+        varchar edit_token
+        varchar share_token "UNIQUE"
+        varchar title
+        int days
+    }
+
+    TRIP_DAYS {
+        int id PK
+        int trip_id FK
+        int day_index
+        date date
     }
 
     TRIP_PLACES {
-        int trip_id PK
-        int destination_id PK
+        int trip_id PK,FK
+        int destination_id PK,FK
     }
 
     ITINERARY_ITEMS {
         int id PK
         int trip_id FK
         int destination_id FK
-    }
-
-    TRIP_DAYS {
-        int id PK
-        int trip_id FK
+        int day_index
+        int position
+        time arrival_time
+        time departure_time
     }
 
     ITINERARY_LEGS {
         int id PK
+        int trip_id FK
         int from_item_id FK
         int to_item_id FK
+        int day_index
+        varchar travel_mode
+        int duration_millis
+        int distance_meters
     }
 ```
 
