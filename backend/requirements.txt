@@ -13,6 +13,7 @@ pydantic[email]
 redis
 pytest
 httpx
+ruff
 celery[sqs]
 boto3
 redis
