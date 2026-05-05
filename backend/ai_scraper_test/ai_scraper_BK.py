@@ -1,7 +1,6 @@
 import os
 from google import genai
-from google.genai import types
-from google.genai.types import Tool, GenerateContentConfig
+from google.genai.types import GenerateContentConfig
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,8 +8,8 @@ import json
 from ddgs import DDGS
 from core.database import *
 import re
-import json
-import time, random
+import time
+import random
 
 
 def get_travel_blog_urls(location):
@@ -154,11 +153,11 @@ def extract_spots_from_urls(urls, location):
     except json.JSONDecodeError as e:
         print(f"❌ JSON 解析失敗，Gemini 回傳格式不正確: {e}")
         raise HTTPException(
-            status_code=500, detail=f"JSON 解析失敗，Gemini 回傳格式不正確"
+            status_code=500, detail="JSON 解析失敗，Gemini 回傳格式不正確"
         )
     except Exception as e:
         print(f"🚨 Gemini發生非預期錯誤: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail=f"Gemini發生未預期錯誤，請重試")
+        raise HTTPException(status_code=500, detail="Gemini發生未預期錯誤，請重試")
 
 
 def fetch_attraction_images(ai_gen_data):

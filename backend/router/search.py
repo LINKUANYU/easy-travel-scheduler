@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from schemas.common import *
 from schemas.search import *
 from services.ai_scraper import *
@@ -61,7 +61,7 @@ def search_destinations_api(payload: SearchRequest, cur=Depends(get_cur)):
             redis_client.setex(
                 cache_key, 86400, json.dumps(jsonable_encoder(existing_spots_data))
             )
-        except Exception:
+        except Exception as e:
             print(f"⚠️ Redis 讀取失敗: {e}")
 
         return {
@@ -86,7 +86,7 @@ def search_destinations_api(payload: SearchRequest, cur=Depends(get_cur)):
                     "data": existing_spots_data,
                     "is_exhausted": True,
                 }
-            except Exception:
+            except Exception as e:
                 print(f"⚠️ Redis 讀取失敗: {e}")
 
         # 資料不足，但是前端已在爬蟲中
@@ -99,7 +99,7 @@ def search_destinations_api(payload: SearchRequest, cur=Depends(get_cur)):
             }
 
         # 發送 Celery 任務！
-        print(f"資料不足，將任務派發至 AWS SQS 排隊...")
+        print("資料不足，將任務派發至 AWS SQS 排隊...")
 
         try:
             # 直接使用 .delay() 將任務丟給 SQS

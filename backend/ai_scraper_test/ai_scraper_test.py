@@ -1,14 +1,12 @@
 import os
 from google import genai
-from google.genai import types
-from google.genai.types import Tool, GenerateContentConfig
+from google.genai.types import GenerateContentConfig
 from dotenv import load_dotenv
 
 load_dotenv()
 import json
 from ddgs import DDGS
 import re
-import json
 import time
 import urllib.parse
 import requests

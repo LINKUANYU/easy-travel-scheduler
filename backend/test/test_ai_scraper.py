@@ -1,4 +1,3 @@
-import pytest
 from services.ai_scraper import clean_and_slice_text
 
 

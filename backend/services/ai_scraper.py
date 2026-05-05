@@ -1,7 +1,6 @@
 import os
 from google import genai
-from google.genai import types
-from google.genai.types import Tool, GenerateContentConfig
+from google.genai.types import GenerateContentConfig
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,8 +8,7 @@ import json
 from ddgs import DDGS
 from core.database import *
 import re
-import json
-import time, random
+import time
 import urllib.parse
 
 
@@ -404,7 +402,7 @@ def run_web_scraping_workflow(location):
 
     # 提早呼叫 Google API 進行資料清洗、正名與跨區驗證
     valid_spots = []
-    print(f"\n🔍 開始進行 Google Places API 驗證與正名...")
+    print("\n🔍 開始進行 Google Places API 驗證與正名...")
 
     for item in ai_gen_data:
         original_name = item.get("attraction")

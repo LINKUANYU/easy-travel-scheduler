@@ -4,7 +4,6 @@ from fastapi import Depends, HTTPException
 import os
 import sys
 from services.geo_service import *
-from pymysql.err import IntegrityError
 
 
 DB_HOST = os.getenv("DB_HOST")

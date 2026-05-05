@@ -4,8 +4,8 @@
 select = ["E", "F"]
 
 ignore = [
-    "F401",  # unused import（現有程式碼很多，先忽略，之後再逐步清理）
     "F403",  # star import（現有程式碼大量使用 from module import *）
     "F405",  # may be undefined from star import（配合 F403 一起忽略）
     "E501",  # line too long（不強制行寬限制）
+    "E402",
 ]

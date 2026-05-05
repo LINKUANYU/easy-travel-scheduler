@@ -1,6 +1,8 @@
 from core.database import POOL, set_utc
 from ddgs import DDGS
-import time, random, json
+import time
+import random
+import json
 
 
 def generate_trip_cover_task(trip_id: int):

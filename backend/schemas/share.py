@@ -1,6 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import List, Optional
-from datetime import date
+from pydantic import BaseModel
+from typing import Optional
 
 
 class SharedTokenCreateOut(BaseModel):

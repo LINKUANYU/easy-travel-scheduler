@@ -1,5 +1,5 @@
 from passlib.context import CryptContext
-from fastapi import Request, Response, HTTPException, Depends
+from fastapi import Response
 from core.database import *
 import os
 from dotenv import load_dotenv

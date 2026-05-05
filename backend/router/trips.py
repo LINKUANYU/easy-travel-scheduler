@@ -159,7 +159,7 @@ def add_trip_place(trip_id: int, payload: AddTripPlaceIn, cur=Depends(get_cur)):
             """,
             (trip_id, destination_id),
         )
-    except Exception as e:
+    except Exception:
         # 如果你有設 unique，重複插入會在這裡炸；我們轉成「已存在也算成功」
         # PyMySQL 的 IntegrityError 你也可以精準抓 (pymysql.err.IntegrityError)
         pass
@@ -201,7 +201,6 @@ def remove_trip_place(trip_id: int, destination_id: int, cur=Depends(get_cur)):
         "DELETE FROM trip_places WHERE trip_id=%s AND destination_id=%s",
         (trip_id, destination_id),
     )
-    affected = cur.rowcount
 
     # 刪不到也回 ok（前端 UX 比較順）
     return {"ok": True}

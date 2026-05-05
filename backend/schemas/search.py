@@ -1,6 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel
 from typing import List, Optional, Union, Literal
-from datetime import date
 from .common import *
 
 
