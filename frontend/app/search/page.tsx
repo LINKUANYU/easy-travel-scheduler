@@ -75,14 +75,17 @@ function SearchContent() {
     // 防護網：攔截「上一頁」與「F5 重新整理」
     // ==========================================
     const existingTaskId = sessionStorage.getItem(`crawling_task_${location}`);
-    
+
     if (existingTaskId) {
-      // 重新啟動背景輪詢 (就算使用者按 F5 把 TaskContext 的計時器刷掉了，這裡也能瞬間把它救回來)
+      // 重新啟動 SSE 連線（就算使用者按 F5 把 TaskContext 的 EventSource 刷掉了，這裡也能瞬間把它救回來）
+      // return 防止繼續執行 fetchResults()，避免 POST /api/search 又派發一個新任務蓋掉現有連線
       startBackgroundPolling(existingTaskId, location, (errmsg) => {
         toast.error(errmsg);
         setError(errmsg);
         setIsLoading(false);
       });
+      setIsLoading(false);
+      return;
     }
 
     // 用來記錄「已經發送過 API 的地點」的紀錄本，為了阻止 React Strict Mode 「掛載 ➔ 卸載 ➔ 重新掛載」的第二次執行
