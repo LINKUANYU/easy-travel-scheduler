@@ -24,6 +24,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // 使用 useRef 而非 useState 的原因：我們只需要「記住它以便關閉」，不需要觸發重新渲染
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // ── 頁面卸載旗標（beforeunload 用）────────────────────────────────
+  // onerror 無法區分「頁面重新整理」與「真正的網路錯誤」，兩者都會觸發 onerror。
+  // beforeunload 一定在頁面卸載時、onerror 之前觸發，所以用這個旗標來區分：
+  // true = 是重新整理/關閉造成的斷線，onerror 應該忽略，不清除 sessionStorage
+  // false = 是真正的伺服器錯誤或網路中斷，onerror 應該正常處理
+  const isUnloadingRef = useRef(false);
+
   const router = useRouter();
 
   const [taskState, setTaskState] = useState<TaskState>("idle");
@@ -47,6 +54,35 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
+  }, []);
+
+  // ── 頁面載入時恢復 SSE 連線的旗標 ──────────────────────────────────
+  // 用 useRef 記錄「是否已恢復過」，防止 startBackgroundPolling 更新時重複觸發恢復
+  const hasRestoredRef = useRef(false);
+
+  // ── 從 sessionStorage 讀取待恢復的任務資訊（只在掛載時算一次）────────
+  // 不放進 useEffect 是因為要讓下面的 useEffect 能拿到，且只需要算一次
+  const pendingRestore = useRef<{ taskId: string; location: string } | null>(null);
+  if (pendingRestore.current === null) {
+    for (let i = 0; i < (typeof window !== "undefined" ? sessionStorage.length : 0); i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith("crawling_task_")) {
+        const location = key.replace("crawling_task_", "");
+        const taskId = sessionStorage.getItem(key);
+        if (taskId) {
+          pendingRestore.current = { taskId, location };
+        }
+        break;
+      }
+    }
+  }
+
+  // ── beforeunload：頁面卸載前設旗標，讓 onerror 知道這次斷線是重新整理造成的 ──
+  // 必須獨立一個 useEffect，確保 listener 在整個 Provider 生命週期都存在
+  useEffect(() => {
+    const handleBeforeUnload = () => { isUnloadingRef.current = true; };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
   // ── 頁面卸載時自動清除，防止記憶體洩漏 ────────────────────────────
@@ -123,12 +159,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       };
 
       // ── 連線發生錯誤 ─────────────────────────────────────────────────
-      // 時機：網路中斷、後端重啟、或後端回傳非 200 的狀態碼
-      // 注意：EventSource 預設會「自動重連」，onerror 不代表連線永久中斷
-      // 但在這個場景（等待爬蟲完成），我們不需要重連，直接視為失敗
+      // 時機：網路中斷、後端重啟、後端回傳非 200、或頁面重新整理（瀏覽器強制斷線）
+      // 注意：這四種情況在 onerror 裡無法直接區分，所以用 isUnloadingRef 旗標來判斷：
+      // - 重新整理 → beforeunload 先設 true → onerror 直接 return，不清除 sessionStorage
+      //             → 下一頁載入時 sessionStorage 還在，可以恢復 SSE 連線
+      // - 真正錯誤 → isUnloadingRef 維持 false → 正常清除並顯示錯誤
       es.onerror = () => {
         // 避免對已經主動關閉的連線再次處理
         if (!eventSourceRef.current) return;
+
+        // 頁面卸載（重新整理 / 關閉）造成的斷線，忽略，不視為錯誤
+        if (isUnloadingRef.current) return;
 
         console.error("[SSE] 連線發生錯誤，task_id:", taskId);
         closeSSE();
@@ -141,6 +182,18 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [closeSSE, router]
   );
+
+  // ── 頁面載入時恢復 SSE 連線 ──────────────────────────────────────────
+  // startBackgroundPolling 定義完後才能呼叫，所以放在這裡（定義之後）。
+  // hasRestoredRef 確保只恢復一次，即使 startBackgroundPolling 因 router 更新而重新建立也不會重複觸發。
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    if (!pendingRestore.current) return;
+
+    hasRestoredRef.current = true;
+    const { taskId, location } = pendingRestore.current;
+    startBackgroundPolling(taskId, location);
+  }, [startBackgroundPolling]);
 
 /*
 router 其實已經設計得相對穩定了，不常發生變化。但 React 的檢查工具 (ESLint) 有一個鐵板紀律：「只要你的護貝函數裡面，

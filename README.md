@@ -77,19 +77,19 @@ sequenceDiagram
     U->>F: GET /api/search/stream/{task_id} (EventSource)
     note over F: Connection kept open — server pushes events
 
-    note over SQS,W: Background Asynchronous Processing
-    SQS->>W: 6. Consume Task
-    W->>W: 7. Execute Web Scraping & Gemini Parsing
-    W->>DB: 8. Insert Normalized & Deduplicated Attraction Data
-    W->>R: 9. Invalidate Old Cache for Location
-    W->>R: 10. Update Task Status to SUCCESS
-
     note over F,R: Server-side polling (every 3s, invisible to client)
     loop Every 3 seconds until done
         F->>R: Query Task Status (AsyncResult)
         R-->>F: Return PENDING / STARTED
         F-->>U: Push {status: processing} heartbeat
     end
+
+    note over SQS,W: Background Asynchronous Processing
+    SQS->>W: 6. Consume Task
+    W->>W: 7. Execute Web Scraping & Gemini Parsing
+    W->>DB: 8. Insert Normalized & Deduplicated Attraction Data
+    W->>R: 9. Invalidate Old Cache for Location
+    W->>R: 10. Update Task Status to SUCCESS
 
     F->>R: Query Task Status
     R-->>F: Return SUCCESS
