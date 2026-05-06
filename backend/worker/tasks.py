@@ -9,26 +9,34 @@ from celery.exceptions import Reject
 
 
 # 1. 初始化 Celery，指定 Redis 作為 Broker (任務佈告欄) 與 Backend (結果儲存區)
-SQS_URL = os.getenv("CELERY_BROKER_URL")  # 指向主 AWS SQS
-REDIS_RESULT_URL = os.getenv("REDIS_URL")  # 指向主 EC2 的內網 IP
+# CELERY_BROKER_URL="sqs://" 只是宣告用 SQS 協定，真正的 queue 網址由 SQS_QUEUE_URL 提供
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")  # "sqs://"，告訴 Celery 使用 SQS 協定
+SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL")          # 完整的 https:// queue 網址（dev/prod 各不同）
+REDIS_RESULT_URL = os.getenv("REDIS_URL")            # 結果儲存區，指向本地或 EC2 的 Redis
 
+# 從 SQS_QUEUE_URL 末段取出 queue 名稱（例如 "easy-travel-celery-queue-dev"）
+# 這樣切換 dev/prod queue 時只需改 .env，不用動 code
+SQS_QUEUE_NAME = SQS_QUEUE_URL.rsplit("/", 1)[-1] if SQS_QUEUE_URL else "easy-travel-celery-queue"
 
+# 協定層：告訴 Celery 用哪種 Message Broker。
+# 當 Celery 看到 sqs://，它就去載入 SQS 的驅動程式（底層是 kombu 函式庫）。這裡不需要完整 URL，因為 SQS 不像 Redis 是一台固定 IP 的伺服器，
 celery_app = Celery(
     "travel_tasks",
-    broker=SQS_URL,  # 任務佈告欄 / Message Broker
+    broker=CELERY_BROKER_URL,  # 任務佈告欄 / Message Broker
     backend=REDIS_RESULT_URL,  # 結果儲存區 / Result Backend
 )
 
+# 路由層：告訴 Celery 這個 queue 的完整網址在哪。
 celery_app.conf.update(
-    # 指定 Celery 預設使用的 AWS SQS 佇列名稱
-    task_default_queue="easy-travel-celery-queue",
+    task_default_queue=SQS_QUEUE_NAME,
     broker_transport_options={
         "region": "ap-east-2",  # AWS 部署區域（亞太）
         "visibility_timeout": 600,  # 爬蟲任務時間設定10 min；超時後 SQS 會讓其他 worker 重新處理該任務
         "polling_interval": 20,  # 每 20 秒輪詢一次 SQS，降低 API 請求次數以省錢
         "predefined_queues": {
-            "easy-travel-celery-queue": {
-                "url": "https://sqs.ap-east-2.amazonaws.com/837497587507/easy-travel-celery-queue"
+            # key 必須與 task_default_queue 一致，url 才是真正的 queue 完整網址
+            SQS_QUEUE_NAME: {
+                "url": SQS_QUEUE_URL
             }
         },
     },

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from schemas.search import (
     SearchRequest,
     SearchResponse,
@@ -11,6 +12,7 @@ from core.database import Depends, get_cur
 from repositories.destination_repo import get_existing_destinations
 from fastapi.encoders import jsonable_encoder  # 幫忙把複雜物件轉成標準 JSON
 import json
+import asyncio
 from core.redis import get_redis, redis_cache
 from worker.tasks import celery_app, scrape_and_save_destinations_task
 
@@ -136,7 +138,9 @@ def search_more_destinations_api(payload: SearchMore):
     return {"status": "processing", "task_id": task.id}
 
 
-# 查詢任務進度 API (叫號碼牌)
+# ==========================================
+# 【保留】原本的 Polling endpoint（暫時保留，不予刪除）
+# ==========================================
 @router.get("/api/search/status/{task_id}", response_model=TaskStatusResponse)
 def get_task_status(task_id: str):
     # 透過 celery_app 去 Redis 查詢這個任務的狀態
@@ -154,16 +158,80 @@ def get_task_status(task_id: str):
         return {"status": task_result.state.lower()}
 
 
+# ==========================================
+# 【新增】SSE endpoint，前端建立連線後，後端主動推送任務進度
+# ==========================================
+@router.get("/api/search/stream/{task_id}")
+async def stream_task_status(task_id: str, request: Request):
+    """
+    SSE (Server-Sent Events) endpoint。
+    前端建立一條長連線後，後端在這裡每 3 秒查詢一次 Redis 的 Celery 任務狀態，
+    直到任務完成、失敗、逾時、或使用者斷線為止。
+    """
+
+    async def generator():
+        # 最多等 10 分鐘（600秒 / 每次間隔 3 秒 = 最多 200 次查詢）
+        MAX_RETRIES = 200
+        POLL_INTERVAL = 3  # 秒
+
+        for _ in range(MAX_RETRIES):
+
+            # ── 防護一：偵測使用者是否已關閉瀏覽器或離開頁面 ──
+            # 如果使用者斷線，就不需要繼續維持長連線，直接清除
+            if await request.is_disconnected():
+                print(f"[SSE] task_id={task_id} 使用者斷線，清除連線")
+                return  # 直接結束 generator，StreamingResponse 自動關閉
+
+            # ── 查詢 Celery 任務狀態（從 Redis Result Backend 取得）──
+            task_result = celery_app.AsyncResult(task_id)
+            state = task_result.state
+
+            if state == "SUCCESS":
+                # 任務完成，推送 completed 事件給前端，然後結束
+                print(f"[SSE] task_id={task_id} 任務完成，推送 completed")
+                yield f"data: {json.dumps({'status': 'completed'})}\n\n"
+                return
+
+            elif state == "FAILURE":
+                # 任務失敗，推送 failed 事件給前端，然後結束
+                error_msg = str(task_result.info)
+                print(f"[SSE] task_id={task_id} 任務失敗：{error_msg}")
+                yield f"data: {json.dumps({'status': 'failed', 'error': error_msg})}\n\n"
+                return
+
+            # ── 還在處理中（PENDING / STARTED），推送 processing 心跳，等 3 秒後再查 ──
+            # await 讓出控制權，Event Loop 可以去處理其他請求，不會塞住伺服器
+            yield f"data: {json.dumps({'status': 'processing'})}\n\n"
+            await asyncio.sleep(POLL_INTERVAL)
+
+        # ── for 迴圈跑完都沒有 return，代表逾時 ──
+        print(f"[SSE] task_id={task_id} 等待逾時（超過 10 分鐘）")
+        yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
+
+    return StreamingResponse(
+        generator(),
+        media_type="text/event-stream",
+        headers={
+            # 告訴瀏覽器不要快取這個回應
+            "Cache-Control": "no-cache",
+            # 告訴 Nginx 不要對這條連線套用 proxy buffering
+            # 這是 X-Accel-Buffering header，Nginx 會讀到它並自動關閉 buffering
+            # 效果等同於在 nginx.conf 設定 proxy_buffering off，但這邊保險起見雙重確保
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/api/popular-searches", response_model=PopularSearchesResponse)
 @redis_cache(cache_key="homepage:popular_search", expire_seconds=3600)
 def get_popular_searches(cur=Depends(get_cur)):
     # --- 只要進到這裡，就代表快取沒命中，我們專心寫 DB 邏輯 ---
     query = """
         SELECT input_region, COUNT(*)
-        FROM destinations 
+        FROM destinations
         WHERE input_region IS NOT NULL AND input_region != ''
-        GROUP BY input_region 
-        ORDER BY COUNT(*) DESC 
+        GROUP BY input_region
+        ORDER BY COUNT(*) DESC
         LIMIT 6
     """
 
