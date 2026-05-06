@@ -20,7 +20,7 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
   *  **AI 語意解析與景點萃取：** 突破傳統依賴 DOM 結構的爬蟲限制，將目標網址匯入 **Gemini API (url_context tool)**，利用大型語言模型直接理解非結構化網頁內容，萃取推薦景點的名稱與描述，確保景點不存在「幻覺」。隨後串接 Google Places API 進行地點正規化、去重。
 
-  *  **非同步任務：** 導入 Celery 處理高耗時的爬蟲與 AI 運算任務。採用 AWS SQS 作為高可靠性的訊息佇列 (Message Broker) 實現流量削峰，並搭配 Redis 作為結果儲存區 (Result Backend) 與狀態快取，徹底解決 API 阻塞問題。
+  *  **非同步任務與即時進度推送：** 導入 Celery 處理高耗時的爬蟲與 AI 運算任務。採用 AWS SQS 作為高可靠性的訊息佇列 (Message Broker) 實現流量削峰，並搭配 Redis 作為結果儲存區 (Result Backend) 與狀態快取，徹底解決 API 阻塞問題。以 **SSE (Server-Sent Events)** 由後端主動推送任務進度，即時通知前端任務完成。
 
 * 🗺️ **動態地圖與路徑規劃 (Google Maps Platform)：**
 整合多項 Google Maps 服務，打造流暢的行程規劃體驗：
@@ -43,7 +43,7 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
   *  **AI Semantic Parsing & Attraction Extraction:** Overcame the limitations of traditional DOM-dependent scrapers by feeding target URLs into the **Gemini API (url_context tool)**. Leveraged the LLM to directly understand unstructured web content, extracting recommended attraction names and descriptions, eliminating AI hallucinations. Subsequently integrated the Google Places API for location normalization, and deduplication.
 
-  *  **Asynchronous Processing:** Implemented Celery to offload time-consuming web scraping and AI tasks. Leveraged **AWS SQS** as a highly reliable **Message Broker** for traffic leveling, paired with **Redis** as the **Result Backend** for state tracking, entirely eliminating API blocking.
+  *  **Asynchronous Processing & Real-time Progress Streaming:** Implemented Celery to offload time-consuming web scraping and AI tasks. Leveraged **AWS SQS** as a highly reliable **Message Broker** for traffic leveling, paired with **Redis** as the **Result Backend** for state tracking, entirely eliminating API blocking. Using **SSE (Server-Sent Events)**, enabling the backend to proactively push task progress, delivering instant completion notifications to the frontend.
 
 * **🗺️ Dynamic Mapping & Routing (Google Maps Platform):**
   Integrated multiple Google Maps services to deliver a smooth planning experience:
@@ -55,7 +55,7 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
   Containerized applications using **Docker** and built a CI/CD pipeline via **GitHub Actions** for automated deployment to the **AWS** cloud environment (EC2/RDS).
 
 
-## **Asynchronous Processing**
+## **Asynchronous Processing with SSE**
 ```mermaid
 sequenceDiagram
     participant U as User (Frontend)
@@ -72,14 +72,10 @@ sequenceDiagram
     DB-->>F: Insufficient Data (< 5)
     F->>SQS: 4. Dispatch Scraping Task (task_id)
     F-->>U: 5. Return HTTP 200 (status: processing, task_id)
-    
-    note over U,F: Enter Polling Phase
-    loop Poll every 3 seconds
-        U->>F: GET /api/search/status/{task_id}
-        F->>R: Query Task Status (AsyncResult)
-        R-->>F: Return PENDING / STARTED
-        F-->>U: Return status: processing
-    end
+
+    note over U,F: Establish SSE Long-lived Connection
+    U->>F: GET /api/search/stream/{task_id} (EventSource)
+    note over F: Connection kept open — server pushes events
 
     note over SQS,W: Background Asynchronous Processing
     SQS->>W: 6. Consume Task
@@ -88,19 +84,24 @@ sequenceDiagram
     W->>R: 9. Invalidate Old Cache for Location
     W->>R: 10. Update Task Status to SUCCESS
 
-    note over U,R: Polling Hit Result
-    U->>F: GET /api/search/status/{task_id}
+    note over F,R: Server-side polling (every 3s, invisible to client)
+    loop Every 3 seconds until done
+        F->>R: Query Task Status (AsyncResult)
+        R-->>F: Return PENDING / STARTED
+        F-->>U: Push {status: processing} heartbeat
+    end
+
     F->>R: Query Task Status
     R-->>F: Return SUCCESS
-    F-->>U: Return status: completed
-    
+    F-->>U: 11. Push {status: completed}, close SSE stream
+
     note over U,DB: Page Refresh & Fetch Data
-    U->>U: 11. router.push (Reload Search Page)
-    U->>F: 12. POST /api/search (location)
+    U->>U: 12. router.push (Reload Search Page)
+    U->>F: 13. POST /api/search (location)
     F->>R: Check Cache (Miss)
     F->>DB: Fetch Newly Inserted Attraction Data
     DB-->>F: Return Complete Data List
-    F->>R: 13. Write Result to Cache (For Fast Subsequent Loads)
+    F->>R: 14. Write Result to Cache (For Fast Subsequent Loads)
     F-->>U: Return Final Attraction Data, End Flow
 ```
 
