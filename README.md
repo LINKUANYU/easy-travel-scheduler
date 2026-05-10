@@ -60,7 +60,7 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 sequenceDiagram
     participant U as User (Frontend)
     participant F as FastAPI (Backend)
-    participant R as Redis (Cache & Backend)
+    participant R as Redis (Cache & Pub/Sub)
     participant DB as MySQL (Database)
     participant SQS as AWS SQS (Broker)
     participant W as Celery Worker
@@ -75,35 +75,33 @@ sequenceDiagram
 
     note over U,F: Establish SSE Long-lived Connection
     U->>F: GET /api/search/stream/{task_id} (EventSource)
-    note over F: Connection kept open — server pushes events
+    F->>R: 6. SUBSCRIBE task:{task_id} channel
+    note over F: Coroutine suspended — waiting for Pub/Sub signal
 
-    note over F,R: Server-side polling (every 3s, invisible to client)
-    loop Every 3 seconds until done
-        F->>R: Query Task Status (AsyncResult)
-        R-->>F: Return PENDING / STARTED
-        F-->>U: Push {status: processing} heartbeat
+    loop Every 30 seconds (heartbeat)
+        F-->>U: Push heartbeat to keep connection alive
     end
 
     note over SQS,W: Background Asynchronous Processing
-    SQS->>W: 6. Consume Task
-    W->>W: 7. Execute Web Scraping & Gemini Parsing
-    W->>DB: 8. Insert Normalized & Deduplicated Attraction Data
-    W->>R: 9. Invalidate Old Cache for Location
-    W->>R: 10. Update Task Status to SUCCESS
+    SQS->>W: 7. Consume Task
+    W->>W: 8. Execute Web Scraping & Gemini Parsing
+    W->>DB: 9. Insert Normalized & Deduplicated Attraction Data
+    W->>R: 10. Invalidate Old Cache for Location
+    W->>R: 11. PUBLISH {status: completed} to task:{task_id} channel
 
-    F->>R: Query Task Status
-    R-->>F: Return SUCCESS
-    F-->>U: 11. Push {status: completed}, close SSE stream
+    R-->>F: 12. Signal received — coroutine wakes up
+    F-->>U: 13. Push {status: completed}, close SSE stream
 
     note over U,DB: Page Refresh & Fetch Data
-    U->>U: 12. router.push (Reload Search Page)
-    U->>F: 13. POST /api/search (location)
+    U->>U: 14. router.push (Reload Search Page)
+    U->>F: 15. POST /api/search (location)
     F->>R: Check Cache (Miss)
     F->>DB: Fetch Newly Inserted Attraction Data
     DB-->>F: Return Complete Data List
-    F->>R: 14. Write Result to Cache (For Fast Subsequent Loads)
+    F->>R: 16. Write Result to Cache (For Fast Subsequent Loads)
     F-->>U: Return Final Attraction Data, End Flow
 ```
+
 
 
 ## Cloud System Architecture Diagram
