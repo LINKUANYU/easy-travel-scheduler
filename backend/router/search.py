@@ -209,14 +209,14 @@ async def stream_task_status(task_id: str, request: Request):
                     return
 
         # ── Task B：heartbeat_task ──
-        # 每 3 秒執行一次：先 sleep 再檢查，確保不會一啟動就立刻觸發。
+        # 每 30 秒執行一次：先 sleep 再檢查，確保不會一啟動就立刻觸發。
         # 負責：心跳推送（避免中間層切斷靜默連線）、斷線偵測、逾時保護。
         async def heartbeat_task():
             deadline = time.monotonic() + 600  # 10 分鐘逾時上限
 
             while True:
-                # 先等 3 秒，讓出 Event Loop 給其他 coroutine
-                await asyncio.sleep(3)
+                # 先等 30 秒，讓出 Event Loop 給其他 coroutine
+                await asyncio.sleep(30)
 
                 # 檢查 10 分鐘總逾時
                 if time.monotonic() > deadline:
