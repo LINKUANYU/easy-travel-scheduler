@@ -12,8 +12,9 @@ from core.database import Depends, get_cur
 from repositories.destination_repo import get_existing_destinations
 from fastapi.encoders import jsonable_encoder  # 幫忙把複雜物件轉成標準 JSON
 import json
+import time
 import asyncio
-from core.redis import get_redis, redis_cache
+from core.redis import get_redis, get_async_redis, redis_cache
 from worker.tasks import celery_app, scrape_and_save_destinations_task
 
 
@@ -164,49 +165,120 @@ def get_task_status(task_id: str):
 @router.get("/api/search/stream/{task_id}")
 async def stream_task_status(task_id: str, request: Request):
     """
-    SSE (Server-Sent Events) endpoint。
-    前端建立一條長連線後，後端在這裡每 3 秒查詢一次 Redis 的 Celery 任務狀態，
-    直到任務完成、失敗、逾時、或使用者斷線為止。
+    SSE (Server-Sent Events) endpoint — Redis Pub/Sub 事件驅動版本。
+    - 訂閱 Redis 頻道 task_done:{task_id}，掛起等待 Celery Worker 主動 PUBLISH，
+            Worker 完成後訊號立刻到達，連線掛起期間不消耗 CPU。
     """
 
     async def generator():
-        # 最多等 10 分鐘（600秒 / 每次間隔 3 秒 = 最多 200 次查詢）
-        MAX_RETRIES = 200
-        POLL_INTERVAL = 3  # 秒
+        # ── 初始化：建立非同步 Redis 連線並訂閱頻道 ──
+        redis_conn = await get_async_redis()
+        pubsub = redis_conn.pubsub()
+        channel_name = f"task_done:{task_id}"
+        await pubsub.subscribe(channel_name)
+        print(f"[SSE] task_id={task_id} 已訂閱頻道 {channel_name}")
 
-        for _ in range(MAX_RETRIES):
+        # 共用輸出管道：兩個 task 都透過這個 queue 把訊號傳給主 generator
+        # Queue item 格式：
+        #   {"type": "heartbeat"}                                             → 心跳
+        #   {"type": "done", "status": "completed"|"failed"|"timeout"|"disconnected"}
+        queue: asyncio.Queue = asyncio.Queue()
 
-            # ── 防護一：偵測使用者是否已關閉瀏覽器或離開頁面 ──
-            # 如果使用者斷線，就不需要繼續維持長連線，直接清除
-            if await request.is_disconnected():
-                print(f"[SSE] task_id={task_id} 使用者斷線，清除連線")
-                return  # 直接結束 generator，StreamingResponse 自動關閉
+        # ── Task A：listen_task ──
+        # 使用 pubsub.listen() 讓 asyncio 把 socket 交給 epoll 監控，
+        # 真正做到「訊息到才喚醒」，連線掛起期間不做任何事，不消耗 CPU。
+        async def listen_task():
+            async for message in pubsub.listen():
+                # 過濾系統訊息（訂閱確認等 type != "message" 的訊息），只處理 PUBLISH 的內容
+                if message["type"] != "message":
+                    continue
 
-            # ── 查詢 Celery 任務狀態（從 Redis Result Backend 取得）──
-            task_result = celery_app.AsyncResult(task_id)
-            state = task_result.state
+                payload = message.get("data", "")
+                print(f"[SSE][listen_task] task_id={task_id} 收到訊息：{payload}")
 
-            if state == "SUCCESS":
-                # 任務完成，推送 completed 事件給前端，然後結束
-                print(f"[SSE] task_id={task_id} 任務完成，推送 completed")
-                yield f"data: {json.dumps({'status': 'completed'})}\n\n"
-                return
+                try:
+                    data = json.loads(payload)
+                    status = data.get("status", "")
+                except (json.JSONDecodeError, AttributeError):
+                    print(f"⚠️ [SSE][listen_task] task_id={task_id} 非預期格式，跳過")
+                    continue
 
-            elif state == "FAILURE":
-                # 任務失敗，推送 failed 事件給前端，然後結束
-                error_msg = str(task_result.info)
-                print(f"[SSE] task_id={task_id} 任務失敗：{error_msg}")
-                yield f"data: {json.dumps({'status': 'failed', 'error': error_msg})}\n\n"
-                return
+                if status in ("completed", "failed"):
+                    # 收到明確結束訊號，放入 queue 通知主 generator，然後結束
+                    await queue.put({"type": "done", "status": status})
+                    return
 
-            # ── 還在處理中（PENDING / STARTED），推送 processing 心跳，等 3 秒後再查 ──
-            # await 讓出控制權，Event Loop 可以去處理其他請求，不會塞住伺服器
-            yield f"data: {json.dumps({'status': 'processing'})}\n\n"
-            await asyncio.sleep(POLL_INTERVAL)
+        # ── Task B：heartbeat_task ──
+        # 每 3 秒執行一次：先 sleep 再檢查，確保不會一啟動就立刻觸發。
+        # 負責：心跳推送（避免中間層切斷靜默連線）、斷線偵測、逾時保護。
+        async def heartbeat_task():
+            deadline = time.monotonic() + 600  # 10 分鐘逾時上限
 
-        # ── for 迴圈跑完都沒有 return，代表逾時 ──
-        print(f"[SSE] task_id={task_id} 等待逾時（超過 10 分鐘）")
-        yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
+            while True:
+                # 先等 3 秒，讓出 Event Loop 給其他 coroutine
+                await asyncio.sleep(3)
+
+                # 檢查 10 分鐘總逾時
+                if time.monotonic() > deadline:
+                    print(f"[SSE][heartbeat_task] task_id={task_id} 超過 10 分鐘，逾時")
+                    await queue.put({"type": "done", "status": "timeout"})
+                    return
+
+                # 檢查前端是否已關閉瀏覽器或離開頁面
+                if await request.is_disconnected():
+                    print(f"[SSE][heartbeat_task] task_id={task_id} 使用者斷線")
+                    await queue.put({"type": "done", "status": "disconnected"})
+                    return
+
+                # 使用者仍在線且未逾時，推送心跳
+                # 讓前端知道任務還在跑；同時讓 Nginx / ALB 知道連線還活著，不要切斷
+                await queue.put({"type": "heartbeat"})
+
+        # 同時啟動兩個背景 task，讓它們並行執行
+        task_a = asyncio.create_task(listen_task())
+        task_b = asyncio.create_task(heartbeat_task())
+
+        try:
+            # 主 generator 從 queue 取出訊號，決定 yield 什麼給前端
+            while True:
+                item = await queue.get()
+
+                if item["type"] == "heartbeat":
+                    # 推送心跳，讓前端知道任務仍在進行中
+                    yield f"data: {json.dumps({'status': 'processing'})}\n\n"
+
+                elif item["type"] == "done":
+                    status = item["status"]
+
+                    if status == "disconnected":
+                        # 使用者已斷線，不需要推送任何東西，靜默結束
+                        print(f"[SSE] task_id={task_id} 靜默結束（使用者斷線）")
+                        break
+
+                    # 其他結束狀態（completed / failed / timeout）推送給前端後結束
+                    print(f"[SSE] task_id={task_id} 推送最終狀態：{status}")
+                    yield f"data: {json.dumps({'status': status})}\n\n"
+                    break
+
+        finally:
+            # ── 清理：無論正常結束或例外，依序釋放所有資源 ──
+
+            # 步驟一：取消兩個背景 task，避免它們繼續跑造成資源洩漏
+            # cancel() 發出取消請求，await 等待它真正停下來
+            # CancelledError 是 cancel 後的預期行為，必須捕捉否則會往上傳播
+            for t in (task_a, task_b):
+                t.cancel()
+                try:
+                    await t
+                except asyncio.CancelledError:
+                    pass
+
+            # 步驟二：取消 Redis 頻道訂閱，釋放 Redis 伺服器端的資源
+            await pubsub.unsubscribe(channel_name)
+
+            # 步驟三：關閉這條獨立的非同步 Redis 連線
+            await redis_conn.close()
+            print(f"[SSE] task_id={task_id} 已取消訂閱並關閉 Redis 連線")
 
     return StreamingResponse(
         generator(),
@@ -215,8 +287,7 @@ async def stream_task_status(task_id: str, request: Request):
             # 告訴瀏覽器不要快取這個回應
             "Cache-Control": "no-cache",
             # 告訴 Nginx 不要對這條連線套用 proxy buffering
-            # 這是 X-Accel-Buffering header，Nginx 會讀到它並自動關閉 buffering
-            # 效果等同於在 nginx.conf 設定 proxy_buffering off，但這邊保險起見雙重確保
+            # 效果等同於在 nginx.conf 設定 proxy_buffering off，這裡雙重確保
             "X-Accel-Buffering": "no",
         },
     )

@@ -1,4 +1,5 @@
 import redis
+import redis.asyncio as aioredis  # 非同步 Redis 客戶端，專給 Pub/Sub 的 SUBSCRIBE 使用
 import os
 import json
 from functools import wraps
@@ -19,6 +20,25 @@ redis_client = redis.Redis(
 
 def get_redis():
     return redis_client
+
+
+async def get_async_redis():
+    """
+    建立一條獨立的非同步 Redis 連線，專門給 Pub/Sub 的 SUBSCRIBE 使用。
+
+    注意：不能用現有的同步連線池（redis_client），原因有兩個：
+    1. SUBSCRIBE 指令會讓連線進入「訂閱模式」，此後這條連線只能收訊息，不能做其他操作。
+       若共用連線池，其他功能（快取查詢）就會被卡住。
+    2. 同步連線的 .read() 是阻塞式（blocking），會卡住 FastAPI 的 Event Loop，
+       導致整個伺服器無法處理其他請求。非同步客戶端則是 await，讓 Event Loop 自由切換。
+
+    每次 SSE 連線建立時呼叫此函式取得獨立連線，連線結束時記得呼叫 await conn.close()。
+    """
+    return await aioredis.from_url(
+        f"redis://{REDIS_HOST}:{REDIS_PORT}",
+        password=REDIS_PASSWORD,
+        decode_responses=True,  # 自動將 bytes 解碼為字串，方便直接比對訊息內容
+    )
 
 
 def redis_cache(cache_key: str, expire_seconds: int = 3600):
