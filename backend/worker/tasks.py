@@ -1,5 +1,6 @@
 # tasks.py
 import os
+import json
 from celery import Celery
 from core.database import POOL, set_utc
 from services.ai_scraper import run_web_scraping_workflow
@@ -109,6 +110,15 @@ def scrape_and_save_destinations_task(self, location: str):
             )
             redis_client.setex(f"exhausted:location:{location}", 86400, "1")
 
+        # 任務完成後，主動 PUBLISH 到 Redis 頻道，通知 SSE 端點立刻推送結果給前端。
+        # 頻道名稱格式：task_done:{task_id}，SSE 端點訂閱同一個頻道名稱來等待通知。
+        redis_client = get_redis()
+        redis_client.publish(
+            f"task_done:{self.request.id}",
+            json.dumps({"status": "completed"}),  # payload 為 JSON 字串，前端可直接解析
+        )
+        print(f"[Pub/Sub] task_id={self.request.id} 已 PUBLISH completed")
+
         # 任務完成，回傳結果 (這個結果會被存回 Redis 的 Backend 中)
         return {
             "location": location,
@@ -120,6 +130,20 @@ def scrape_and_save_destinations_task(self, location: str):
         # 永久性失敗（地點無效、AI 額度耗盡）raise 標記 FAILURE，不進 DLQ
         print(f"❌ 永久性失敗，不重試: {e}")
         conn.rollback()
+
+        # 永久失敗也要 PUBLISH，讓 SSE 端點知道任務已確定結束，不需要繼續等待。
+        # 注意：只有「確定不會再重試」的情況才 PUBLISH，避免前端提前放棄還在重試的任務。
+        try:
+            redis_client = get_redis()
+            redis_client.publish(
+                f"task_done:{self.request.id}",
+                json.dumps({"status": "failed"}),
+            )
+            print(f"[Pub/Sub] task_id={self.request.id} 已 PUBLISH failed")
+        except Exception as pub_err:
+            # PUBLISH 失敗不應影響主流程，只記錄 log
+            print(f"⚠️ PUBLISH failed 訊息失敗: {pub_err}")
+
         raise
     except Exception as e:
         print(f"❌ 暫時性失敗，交給 SQS 重試: {e}")
