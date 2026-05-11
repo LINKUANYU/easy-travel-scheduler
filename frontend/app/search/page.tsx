@@ -6,7 +6,7 @@ import { apiPost, apiGet } from "@/app/lib/api";
 import ResultsSection from "@/app/components/search/ResultsSection";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import { useQuery } from "@tanstack/react-query";
-import type { Attraction } from "@/app/types/all-types";
+import type { Attraction } from "@/app/types/attraction";
 import { useTask } from "../context/TaskContext";
 import AddPlacesToTripBtn from "@/app/components/home/AddPlacesToTripBtn";
 import toast from "react-hot-toast";

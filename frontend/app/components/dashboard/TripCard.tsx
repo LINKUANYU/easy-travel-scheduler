@@ -4,17 +4,18 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import { useQuery } from "@tanstack/react-query";
+import type { TripData } from "@/app/types/trip";
 // ==========================================
 // 1. 獨立出來的單一卡片元件 (負責自己的圖片容錯與渲染)
 // ==========================================
-export default function TripCard({ 
-  trip, 
-  onDelete, 
-  isDeleting 
-}: { 
-  trip: any; 
-  onDelete: () => void; 
-  isDeleting: boolean; 
+export default function TripCard({
+  trip,
+  onDelete,
+  isDeleting
+}: {
+  trip: TripData;
+  onDelete: () => void;
+  isDeleting: boolean;
 }) {
   // 1. 嘗試解析舊有的/自訂的 cover_url(保留未來新增給上傳封面功能)
   const urls = useMemo<string[]>(() => {
@@ -33,7 +34,7 @@ export default function TripCard({
   // 透過 first_place_id 向 Google 拿圖片 (結合 Session Storage 快取)
   const { data: thumb } = useQuery({
     queryKey: ["placeThumb", trip.first_place_id],
-    queryFn: () => fetchPlaceThumb(trip.first_place_id),
+    queryFn: () => fetchPlaceThumb(trip.first_place_id!),
     enabled: !!trip.first_place_id, // 只有在有 place_id 的情況下才發出請求
     staleTime: Infinity, // 照片不常變動，盡量不重抓
   });

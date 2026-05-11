@@ -1,16 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiDelete } from "../lib/api";
-
-// 定義後端回傳的資料型別
-export interface TripData {
-  trip_id: number;
-  title: string;
-  days: number;
-  start_date: string | null;
-  share_token?: string | null;
-  cover_url?: string | null;
-  first_place_id?: string | null;
-}
+import type { TripData } from "@/app/types/trip";
 
 // 1. 撈取會員所有行程
 export function useUserTrips() {

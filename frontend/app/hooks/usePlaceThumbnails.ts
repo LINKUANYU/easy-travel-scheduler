@@ -1,7 +1,8 @@
 // app/edit/[tripId]/hooks/usePlaceThumbnails.ts
 import { useState, useEffect, useMemo } from "react";
 import { fetchPlaceThumb, type PlaceThumb } from "@/app/lib/edit/placeThumb";
-import type { TripPlace, ItineraryItem } from "@/app/types/all-types";
+import type { TripPlace } from "@/app/types/trip";
+import type { ItineraryItem } from "@/app/types/itinerary";
 import { useQueries } from "@tanstack/react-query";
 
 export function usePlaceThumbnails(

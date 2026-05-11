@@ -1,4 +1,5 @@
-import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
+import type { TripPlace } from "@/app/types/trip";
+import type { ItinerarySummaryRow } from "@/app/types/itinerary";
 import { useState, useEffect } from "react";
 
 // 定義這個元件需要對外連接的「管線 (Props)」

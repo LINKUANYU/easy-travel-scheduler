@@ -2,13 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { apiGet, apiPost } from "../lib/api";
-
-
-export interface User {
-  id: number;
-  email: string;
-  name: string;
-}
+import type { User } from "@/app/types/user";
 
 // 定義 Context 的資料結構
 interface AuthContextType {

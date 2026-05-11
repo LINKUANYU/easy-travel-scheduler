@@ -8,7 +8,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 import TimePopover from "@/app/components/edit/TimePopover";
 import { makeLegKey, formatDistance, formatDuration } from "@/app/lib/edit/itinerary-route-leg";
-import type { ItineraryItem, LegRouteState, TravelMode } from "@/app/types/all-types";
+import type { ItineraryItem } from "@/app/types/itinerary";
+import type { LegRouteState, TravelMode } from "@/app/types/map";
 import type { TimeField } from "@/app/lib/edit/itinerary-time";
 
 // ==========================================

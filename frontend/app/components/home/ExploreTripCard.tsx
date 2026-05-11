@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
+import type { TripData } from "@/app/types/trip";
 
-export default function ExploreTripCard({ trip }: { trip: any }) {
+export default function ExploreTripCard({ trip }: { trip: TripData }) {
   // 1. 嘗試解析舊有的/自訂的 cover_url(保留未來新增給上傳封面功能)
   const urls = useMemo<string[]>(() => {
     if (!trip.cover_url) return [];
@@ -23,7 +24,7 @@ export default function ExploreTripCard({ trip }: { trip: any }) {
   // 透過 first_place_id 向 Google 拿圖片 (結合 Session Storage 快取)
   const { data: thumb } = useQuery({
     queryKey: ["placeThumb", trip.first_place_id],
-    queryFn: () => fetchPlaceThumb(trip.first_place_id),
+    queryFn: () => fetchPlaceThumb(trip.first_place_id!),
     enabled: !!trip.first_place_id, // 只有在有 place_id 的情況下才發出請求
     staleTime: Infinity, // 照片不常變動，盡量不重抓
   });

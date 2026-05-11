@@ -5,7 +5,9 @@ import { arrayMove } from "@dnd-kit/sortable";
 import { apiGet, apiPost, apiPut, apiDelete } from "@/app/lib/api";
 import { getDraftTimeValue, upsertItemTimeDraft, type TimeField, type ItemTimeDraft } from "@/app/lib/edit/itinerary-time";
 import { makeLegKey } from "@/app/lib/edit/itinerary-route-leg";
-import type { TripPlace, ItineraryItem, ItinerarySummaryRow, TravelMode, LegRouteState } from "@/app/types/all-types";
+import type { TripPlace } from "@/app/types/trip";
+import type { ItineraryItem, ItinerarySummaryRow } from "@/app/types/itinerary";
+import type { TravelMode, LegRouteState } from "@/app/types/map";
 import { useRouteCalculator } from "./useRouteCalculator";
 import { usePlacePreview } from "./usePlacePreview";
 
