@@ -6,12 +6,6 @@ A one-stop travel platform integrating AI-driven parsing and dynamic maps, enabl
 
 [Live Demo](https://easy-travel-scheduler.linkuankuan.com/) | [API Documentation](https://easy-travel-scheduler.linkuankuan.com/docs)
 
-## Test Account
-| Account | Password | 
-| ------ | ------ |
-| test@mail.com | 12345678 |
-
-
 
 ## 🌟 核心功能
 * **🔍 自動化推薦景點生成管線：** 整合搜尋引擎爬蟲、AI 語意萃取與非同步任務，打造旅遊數據收集系統：
@@ -105,7 +99,7 @@ sequenceDiagram
 
 
 ## Cloud System Architecture Diagram
-<img width="1500" height="607" alt="Cloud System Architecture Diagram" src="https://github.com/user-attachments/assets/d52a5f03-5cb5-4d83-8954-4e680912731c" />
+<img width="4322" height="2248" alt="image" src="https://github.com/user-attachments/assets/d320f769-6b7f-4572-8079-5f51fb9336f9" />
 
 
 ## ERD
