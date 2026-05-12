@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useIsRestoring } from "@tanstack/react-query";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import type { TripData } from "@/app/types/trip";
 
 export default function ExploreTripCard({ trip }: { trip: TripData }) {
   const [imgError, setImgError] = useState(false);
+  // PersistQueryClientProvider 從 sessionStorage 還原快取是非同步的。
+  // 還原期間 isRestoring = true，此時 thumb 還是 undefined。
+  // 若直接 render img，快取還原完後 staleTime:Infinity 不會觸發重新 render，圖片永遠是預設圖。
+  // 解法：還原期間顯示 Skeleton，還原完成後 React 重新 render，圖片才能正確顯示。
+  const isRestoring = useIsRestoring();
 
   // 透過 first_place_id 向 Google 拿圖片 (結合 Session Storage 快取)
   const { data: thumb } = useQuery({
@@ -26,12 +31,16 @@ export default function ExploreTripCard({ trip }: { trip: TripData }) {
         
         {/* 1. 圖片容器 - 佔滿整個卡片高度 */}
         <div className="absolute inset-0 w-full h-full bg-slate-100 overflow-hidden">
-          <img 
-            src={currentImageSrc} 
-            alt={trip.title}
-            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
-            onError={() => setImgError(true)}
-          />
+          {isRestoring ? (
+            <div className="w-full h-full bg-slate-200 animate-pulse" />
+          ) : (
+            <img
+              src={currentImageSrc}
+              alt={trip.title}
+              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+              onError={() => setImgError(true)}
+            />
+          )}
           
           {/* 2. 漸層遮罩 (Gradient Overlay) - 確保文字清晰的核心 */}
           {/* 從透明 (to-transparent) 漸變到半透明黑 (from-black/70) */}
