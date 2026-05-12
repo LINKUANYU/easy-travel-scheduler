@@ -1,25 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import type { TripData } from "@/app/types/trip";
 
 export default function ExploreTripCard({ trip }: { trip: TripData }) {
-  // 1. 嘗試解析舊有的/自訂的 cover_url(保留未來新增給上傳封面功能)
-  const urls = useMemo<string[]>(() => {
-    if (!trip.cover_url) return [];
-    try {
-      const parsed = JSON.parse(trip.cover_url);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [trip.cover_url];
-    }
-  }, [trip.cover_url]);
-
-  // 狀態管理：目前嘗試到第幾張圖片
-  const [imgIndex, setImgIndex] = useState(0);
+  const [imgError, setImgError] = useState(false);
 
   // 透過 first_place_id 向 Google 拿圖片 (結合 Session Storage 快取)
   const { data: thumb } = useQuery({
@@ -29,12 +17,7 @@ export default function ExploreTripCard({ trip }: { trip: TripData }) {
     staleTime: Infinity, // 照片不常變動，盡量不重抓
   });
 
-  // 決定最終要顯示的圖片來源 (資料庫圖片庫 -> Google 圖 -> 預設圖)
-  const currentImageSrc = urls.length > 0 && imgIndex < urls.length
-    ? urls[imgIndex] 
-    : thumb?.url 
-    ? thumb.url 
-    : "/default-trip-cover.png";
+  const currentImageSrc = !imgError && thumb?.url ? thumb.url : "/default-trip-cover.png";
 
   return (
     <Link href={`/share/${trip.share_token}`} className="block group">
@@ -47,11 +30,7 @@ export default function ExploreTripCard({ trip }: { trip: TripData }) {
             src={currentImageSrc} 
             alt={trip.title}
             className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110" 
-            onError={() => {
-              if (imgIndex < urls.length) {
-                setImgIndex((prev) => prev + 1);
-              }
-            }}
+            onError={() => setImgError(true)}
           />
           
           {/* 2. 漸層遮罩 (Gradient Overlay) - 確保文字清晰的核心 */}
