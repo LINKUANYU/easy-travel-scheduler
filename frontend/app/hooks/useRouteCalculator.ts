@@ -67,7 +67,8 @@ export function useRouteCalculator(
           }
         },
         enabled: isReady,
-        staleTime: 1000 * 60 * 60 * 1, // 1 小時
+        staleTime: 1000 * 60 * 60,
+        gcTime: 1000 * 60 * 60,
         retry: false, // 因為預期有時就是沒路線，不需要浪費額度重試 3 次
         // 🌟 如果後端已經有資料，直接餵給快取，完全不用發出任何網路請求！
         initialData: hasServerData ? {

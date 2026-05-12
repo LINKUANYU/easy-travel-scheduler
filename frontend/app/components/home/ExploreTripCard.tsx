@@ -19,7 +19,8 @@ export default function ExploreTripCard({ trip }: { trip: TripData }) {
     queryKey: ["placeThumb", trip.first_place_id],
     queryFn: () => fetchPlaceThumb(trip.first_place_id!),
     enabled: !!trip.first_place_id, // 只有在有 place_id 的情況下才發出請求
-    staleTime: Infinity, // 照片不常變動，盡量不重抓
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
   });
 
   const currentImageSrc = !imgError && thumb?.url ? thumb.url : "/default-trip-cover.png";

@@ -23,7 +23,8 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
   const { data: thumbData, isLoading } = useQuery({
     queryKey: ["placeThumb", item.google_place_id],
     queryFn: () => fetchPlaceThumb(item.google_place_id),
-    staleTime: 1000 * 60 * 60 * 24 * 7, // 快取一週
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
     enabled: !!item.google_place_id,
   });
 
