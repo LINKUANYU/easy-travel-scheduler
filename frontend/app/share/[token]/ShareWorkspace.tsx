@@ -6,7 +6,7 @@ import TripMap from "@/app/components/edit/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
 import { usePlacePreview } from "@/app/hooks/usePlacePreview";
-import type { SharedTripDataOut } from "@/app/types/trip";
+import type { SharedTripDataOut } from "@/app/lib/schemas";
 import DayScheduleCard from "@/app/components/share/DayScheduleCard";
 import { useAuth } from "@/app/context/AuthContext";
 import { getTripEditToken } from "@/app/lib/tripIndex";

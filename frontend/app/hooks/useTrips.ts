@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiDelete } from "../lib/api";
-import type { TripData } from "@/app/types/trip";
+import { type TripData, TripDataListSchema } from "@/app/lib/schemas";
 
 // 1. 撈取會員所有行程
 export function useUserTrips() {
   return useQuery({
     queryKey: ["userTrips"], // 這是這包資料的專屬快取標籤
-    queryFn: () => apiGet<TripData[]>("/api/trips"),
+    queryFn: () => apiGet("/api/trips", { schema: TripDataListSchema }),
   });
 }
 

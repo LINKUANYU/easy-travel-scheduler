@@ -51,7 +51,7 @@ export default function AuthCorner() {
       : { email: emailVal, password: passwordVal, name };
 
     try {
-      await apiPost(endpoint, payload);
+      await apiPost<void>(endpoint, payload);
       
       // 2. 更新全域使用者狀態
       await checkAuth();  // 打 api/me
@@ -64,7 +64,7 @@ export default function AuthCorner() {
         try {
           // 使用 Promise.all 同時發送所有認領請求
           await Promise.all(
-            localTrips.map(trip => apiPatch(`/api/trips/${trip.trip_id}/bind`))
+            localTrips.map(trip => apiPatch<void>(`/api/trips/${trip.trip_id}/bind`))
           );
           
           // 認領成功後，清空 LocalStorage 中的暫存紀錄，因為已經正式存入雲端帳號了

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { apiGet, apiPost } from "../lib/api";
-import type { User } from "@/app/types/user";
+import { type User, MeResponseSchema } from "@/app/lib/schemas";
 
 // 定義 Context 的資料結構
 interface AuthContextType {
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     try {
       // apiGet 已經內建 credentials: "include"
-      const data = await apiGet<User>("/api/me");
+      const data = await apiGet("/api/me", { schema: MeResponseSchema });
       setUser(data);
     } catch (error) {
       // 若後端回傳 401 (未登入)，apiGet 會 throw error 跑到這裡
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 2. 登出 (使用 apiPost)
   const logout = async () => {
     try {
-      await apiPost("/api/logout");
+      await apiPost<void>("/api/logout");
       setUser(null);
     } catch (error) {
       console.error("Logout failed:", error);

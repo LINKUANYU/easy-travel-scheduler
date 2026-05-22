@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useIsRestoring } from "@tanstack/react-query";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
-import type { TripData } from "@/app/types/trip";
+import type { TripData } from "@/app/lib/schemas";
 
 export default function ExploreTripCard({ trip }: { trip: TripData }) {
   const [imgError, setImgError] = useState(false);

@@ -1,8 +1,7 @@
 // 職責：封裝三個行程相關的 useQuery，對外回傳完整 Query 物件
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/app/lib/api";
-import type { TripPlace } from "@/app/types/trip";
-import type { ItineraryItem, ItinerarySummaryRow } from "@/app/types/itinerary";
+import type { TripPlace, ItineraryItem, ItinerarySummaryRow } from "@/app/lib/schemas";
 
 // 將後端回傳的各種格式統一轉成陣列
 function normalizeArrayPayload<T>(payload: any): T[] {

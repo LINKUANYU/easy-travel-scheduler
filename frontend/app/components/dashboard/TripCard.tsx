@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import { useQuery } from "@tanstack/react-query";
-import type { TripData } from "@/app/types/trip";
+import type { TripData } from "@/app/lib/schemas";
 // ==========================================
 // 1. 獨立出來的單一卡片元件 (負責自己的圖片容錯與渲染)
 // ==========================================

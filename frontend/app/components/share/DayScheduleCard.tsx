@@ -1,4 +1,4 @@
-import type { SharedItineraryItem } from "@/app/types/itinerary";
+import type { SharedItineraryItem } from "@/app/lib/schemas";
 import { formatDuration } from "@/app/lib/edit/itinerary-route-leg";
 
 

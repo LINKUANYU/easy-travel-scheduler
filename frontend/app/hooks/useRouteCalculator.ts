@@ -2,8 +2,7 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { hasLatLng, makeLegKey, computeLegRoute } from "@/app/lib/edit/itinerary-route-leg";
-import type { ItineraryItem } from "@/app/types/itinerary";
-import type { TripPlace } from "@/app/types/trip";
+import type { ItineraryItem, TripPlace } from "@/app/lib/schemas";
 import type { TravelMode, LegRouteState } from "@/app/types/map";
 
 export function useRouteCalculator(

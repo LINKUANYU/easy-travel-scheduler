@@ -1,4 +1,4 @@
-import type { TripPlace } from "@/app/types/trip";
+import type { TripPlace } from "@/app/lib/schemas";
 import type { TravelMode } from "@/app/types/map";
 import { loadRoutesLibrary } from "../googleMapsLoader";
 

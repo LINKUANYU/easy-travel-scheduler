@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { Attraction } from "@/app/types/attraction";
+import type { Attraction } from "@/app/lib/schemas";
 import { useState, useMemo, useEffect } from "react"; // 要在卡片內記住目前第幾張圖
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import { useQuery } from "@tanstack/react-query";

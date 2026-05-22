@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { SharedTripDataOut } from "@/app/types/trip";
+import type { SharedTripDataOut } from "@/app/lib/schemas";
 import ShareWorkspace from "./ShareWorkspace";
 
 async function fetchSharedTrip(token: string): Promise<SharedTripDataOut | null> {

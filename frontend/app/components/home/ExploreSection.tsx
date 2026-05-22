@@ -1,4 +1,4 @@
-import type { TripData } from "@/app/types/trip";
+import type { TripData } from "@/app/lib/schemas";
 import ExploreTripCard from "@/app/components/home/ExploreTripCard";
 
 async function fetchExploreTrips(): Promise<TripData[]> {

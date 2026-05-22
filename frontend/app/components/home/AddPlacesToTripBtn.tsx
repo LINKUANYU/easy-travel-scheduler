@@ -48,7 +48,7 @@ export default function AddPlacesToTripBtn(){
       // 對應你 trips.py 裡面的 add_trip_place (POST /api/trips/{trip_id}/places)
       await Promise.all(
         placeIds.map(gpid => 
-          apiPost(`/api/trips/${activeTripId}/places`, { google_place_id: gpid })
+          apiPost<void>(`/api/trips/${activeTripId}/places`, { google_place_id: gpid })
         )
       );
 

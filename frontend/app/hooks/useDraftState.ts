@@ -1,6 +1,6 @@
 // 職責：管理四個本地草稿狀態（景點順序、交通方式、時間、髒標記）
 import { useState } from "react";
-import type { ItineraryItem } from "@/app/types/itinerary";
+import type { ItineraryItem } from "@/app/lib/schemas";
 import type { TravelMode } from "@/app/types/map";
 import type { ItemTimeDraft } from "@/app/lib/edit/itinerary-time";
 
