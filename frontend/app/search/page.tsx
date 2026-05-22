@@ -6,7 +6,7 @@ import { apiPost, apiGet } from "@/app/lib/api";
 import ResultsSection from "@/app/components/search/ResultsSection";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import { useQuery } from "@tanstack/react-query";
-import type { Attraction } from "@/app/types/all-types";
+import { type Attraction, TripPlaceListSchema } from "@/app/lib/schemas";
 import { useTask } from "../context/TaskContext";
 import AddPlacesToTripBtn from "@/app/components/home/AddPlacesToTripBtn";
 import toast from "react-hot-toast";
@@ -37,13 +37,13 @@ function SearchContent() {
   const activeTripPlacesQ = useQuery({
     queryKey: ["activeTripPlaces", activeTripId],
     enabled: activeTripId !== null,
-    queryFn: async () => apiGet<any[]>(`/api/trips/${activeTripId}/places`),
+    queryFn: async () => apiGet(`/api/trips/${activeTripId}/places`, { schema: TripPlaceListSchema }),
   });
 
   const scheduledIds = useMemo(() => {
     const set = new Set<string>();
     if (activeTripPlacesQ.data) {
-      activeTripPlacesQ.data.forEach((p: any) => {
+      activeTripPlacesQ.data.forEach((p) => {
         if (p.google_place_id) set.add(p.google_place_id);
       });
     }

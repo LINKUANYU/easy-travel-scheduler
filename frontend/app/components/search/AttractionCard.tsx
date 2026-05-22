@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { Attraction } from "@/app/types/all-types";
+import type { Attraction } from "@/app/lib/schemas";
 import { useState, useMemo, useEffect } from "react"; // 要在卡片內記住目前第幾張圖
 import { fetchPlaceThumb } from "@/app/lib/edit/placeThumb";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +23,8 @@ export default function AttractionCard({ item, index, inDraft, onToggleDraft, is
   const { data: thumbData, isLoading } = useQuery({
     queryKey: ["placeThumb", item.google_place_id],
     queryFn: () => fetchPlaceThumb(item.google_place_id),
-    staleTime: 1000 * 60 * 60 * 24 * 7, // 快取一週
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
     enabled: !!item.google_place_id,
   });
 

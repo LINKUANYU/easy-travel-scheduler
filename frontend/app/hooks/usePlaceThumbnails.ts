@@ -1,7 +1,7 @@
 // app/edit/[tripId]/hooks/usePlaceThumbnails.ts
 import { useState, useEffect, useMemo } from "react";
 import { fetchPlaceThumb, type PlaceThumb } from "@/app/lib/edit/placeThumb";
-import type { TripPlace, ItineraryItem } from "@/app/types/all-types";
+import type { TripPlace, ItineraryItem } from "@/app/lib/schemas";
 import { useQueries } from "@tanstack/react-query";
 
 export function usePlaceThumbnails(
@@ -29,8 +29,7 @@ export function usePlaceThumbnails(
       queryKey: ["placeThumb", placeId],
       // queryFn 是真的要去呼叫 Google API 的動作
       queryFn: () => fetchPlaceThumb(placeId),
-      // staleTime 雖然我們在 Provider 有設預設值，但這裡可以個別強調：1 週內絕對不要重抓
-      staleTime: 1000 * 60 * 60 * 24 * 7,
+      staleTime: Infinity,
       gcTime: 1000 * 60 * 60 * 24 * 7,
       // 避免因為沒有 placeId 而發出無效請求
       enabled: !!placeId,

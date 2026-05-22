@@ -8,7 +8,8 @@ import { CSS } from "@dnd-kit/utilities";
 
 import TimePopover from "@/app/components/edit/TimePopover";
 import { makeLegKey, formatDistance, formatDuration } from "@/app/lib/edit/itinerary-route-leg";
-import type { ItineraryItem, LegRouteState, TravelMode } from "@/app/types/all-types";
+import type { ItineraryItem } from "@/app/lib/schemas";
+import type { LegRouteState, TravelMode } from "@/app/types/map";
 import type { TimeField } from "@/app/lib/edit/itinerary-time";
 
 // ==========================================
@@ -197,7 +198,7 @@ export default function DailyItineraryPanel({
                                   {/* --- 圖片區塊 --- */}
                                   <div className="w-[80px] h-[80px] rounded-lg bg-gray-200 shrink-0 overflow-hidden relative">
                                     {thumbUrl ? (
-                                      <img src={thumbUrl} alt={it.place_name} className="w-full h-full object-cover" />
+                                      <img src={thumbUrl} alt={it.place_name ?? undefined} className="w-full h-full object-cover" />
                                     ) : (
                                       <div className="flex items-center justify-center h-full text-sm text-gray-400">載入中</div>
                                     )}
@@ -207,7 +208,7 @@ export default function DailyItineraryPanel({
                                   <div className="min-w-0 py-1">
                                     <div 
                                       className="font-bold text-[1.1rem] leading-tight overflow-hidden text-ellipsis cursor-pointer" 
-                                      onClick={() => onUpdatePreview(it.google_place_id, it.place_name)}
+                                      onClick={() => onUpdatePreview(it.google_place_id, it.place_name ?? undefined)}
                                     >
                                       {it.place_name ?? `#${it.destination_id}`}
                                     </div>

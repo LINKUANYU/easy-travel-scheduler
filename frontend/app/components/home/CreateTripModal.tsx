@@ -5,8 +5,7 @@ import { apiPost, apiPatch } from "@/app/lib/api";
 import { useAuth } from "@/app/context/AuthContext";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 import { upsertTripIndex } from "@/app/lib/tripIndex";
-
-type CreateTripRes = { trip_id: number; edit_token: string };
+import { CreateTripResSchema } from "@/app/lib/schemas";
 
 type Props = {
   isOpen: boolean;
@@ -50,7 +49,7 @@ export default function CreateTripModal({ isOpen, onClose, onSuccess }: Props) {
         start_date: startDate ? startDate : null,
       };
 
-      const out = await apiPost<CreateTripRes>("/api/trips", payload);
+      const out = await apiPost("/api/trips", payload, { schema: CreateTripResSchema });
 
       // 有登入就綁定，沒登入就存本機
       if (user) {

@@ -18,7 +18,8 @@ export default function PopularSearches({ onSelect }: Props) {
       return res.data;
     },
     // 設定 staleTime 瀏覽器快取，避免頻繁切換頁面時重複發 Request
-    staleTime: 1000 * 60 * 60, 
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60,
   });
 
   // 如果正在載入、發生錯誤，或是沒資料，就給一個固定高度的空白，防止畫面跳動

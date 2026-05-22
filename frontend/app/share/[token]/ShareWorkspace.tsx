@@ -1,24 +1,22 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { apiGet, apiPatch } from "@/app/lib/api";
+import { apiPatch } from "@/app/lib/api";
 import { useState, useMemo, useRef, useEffect } from "react";
 import TripMap from "@/app/components/edit/TripMap";
 import { usePlaceThumbnails } from "@/app/hooks/usePlaceThumbnails";
 import { useRouter } from "next/navigation";
 import { usePlacePreview } from "@/app/hooks/usePlacePreview";
-import { SharedTripDataOut } from "@/app/types/all-types";
+import type { SharedTripDataOut } from "@/app/lib/schemas";
 import DayScheduleCard from "@/app/components/share/DayScheduleCard";
 import { useAuth } from "@/app/context/AuthContext";
 import { getTripEditToken } from "@/app/lib/tripIndex";
 import toast from "react-hot-toast";
 import Button from "@/app/components/ui/Button";
-import LogoSpinner from "@/app/components/ui/LogoSpinner";
 import { driver, DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 
 
-export default function ShareWorkspace({ token }: { token: string }) {
+export default function ShareWorkspace({ data }: { data: SharedTripDataOut }) {
   const router = useRouter();
 
   // 取得全域 Auth 狀態
@@ -29,18 +27,10 @@ export default function ShareWorkspace({ token }: { token: string }) {
   const [isMapVisible, setIsMapVisible] = useState(false); // 用來控制地圖開關
 
   /** 畫面資料顯示邏輯 */
-  
+
   const [activeDay, setActiveDay] = useState<number | null>(1);
   // 地圖 preview 視窗 Hook 呼叫
   const { preview, setPreview, updatePreview } = usePlacePreview();
-
-  const [showLoadingUI, setShowLoadingUI] = useState(false);
-
-  // 讀取資料庫的trip、itinerary 資料
-  const { data, isPending, error } = useQuery({
-    queryKey: ["shared-trip", token],
-    queryFn: () => apiGet<SharedTripDataOut>(`/api/share/${token}`),
-  });
 
   // 將後端的行程資料，轉換成 TripMap 需要的 places 和 scheduleSummary
   const { places, scheduleSummary } = useMemo(() => {
@@ -150,10 +140,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
 
       // 新手導覽
   useEffect(() => {
-    // 1. 確保資料已載入
-    if (isPending || !data) return;
-    
-    // 2. 只有「行程擁有者」才看得到這三個按鈕，所以只有他們需要看導覽
+    // 1. 只有「行程擁有者」才看得到這三個按鈕，所以只有他們需要看導覽
     if (!isOwner) return;
 
     // 3. 檢查是否看過
@@ -213,44 +200,7 @@ export default function ShareWorkspace({ token }: { token: string }) {
       driverObj.drive();
     }, 500);
 
-  }, [isPending, data, isOwner]);
-
-
-  // 等待動畫
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isPending) {
-      timer = setTimeout(() => setShowLoadingUI(true), 300);
-    } else {
-      setShowLoadingUI(false);
-    }
-    return () => clearTimeout(timer);
-  }, [isPending]);
-
-  if (isPending) {
-    if (showLoadingUI) {
-       // 超過 300ms，秀出有質感的 Logo 動畫
-       return <LogoSpinner />;
-    }
-    // 300ms 內防閃爍，回傳與背景同色的空白畫面
-    return <div className="h-[calc(100dvh-72px)] bg-gray-50 w-full" />; 
-  }
-
-  // 錯誤狀態，或是抓不到資料 (稍微美化一下，引導使用者回首頁)
-  if (error || !data) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[calc(100dvh-72px)] bg-gray-50 w-full">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
-          <span className="text-4xl mb-4">🔗</span>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">無法載入行程</h3>
-          <p className="text-gray-500 mb-6">此分享連結可能已經失效，或是不存在。</p>
-          <Button onClick={() => router.push('/')} variant="primary">
-            回首頁開始規劃
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  }, [isOwner]);
 
   const { trip, itinerary } = data;
   // 為了方便渲染橫向的「天數」，將 Object.keys 拿到的字串陣列，透過 .map(Number) 轉成數字陣列

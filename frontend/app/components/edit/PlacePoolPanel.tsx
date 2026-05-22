@@ -1,4 +1,4 @@
-import type { TripPlace, ItinerarySummaryRow } from "@/app/types/all-types";
+import type { TripPlace, ItinerarySummaryRow } from "@/app/lib/schemas";
 import { useState, useEffect } from "react";
 
 // 定義這個元件需要對外連接的「管線 (Props)」
@@ -72,7 +72,7 @@ export default function PlacePoolPanel({
                     {/* --- 左側圖片區塊 --- */}
                     <div className="w-[80px] h-[80px] rounded-lg bg-gray-200 shrink-0 overflow-hidden relative">
                       {thumbUrl ? (
-                        <img src={thumbUrl} alt={p.place_name} className="w-full h-full object-cover" />
+                        <img src={thumbUrl} alt={p.place_name ?? undefined} className="w-full h-full object-cover" />
                       ) : (
                         <div className="flex items-center justify-center h-full text-sm text-gray-400">載入中</div>
                       )}
@@ -82,7 +82,7 @@ export default function PlacePoolPanel({
                     <div className="flex-1 min-w-0 py-1">
                       <div
                         className="font-bold text-[1.1rem] leading-tight overflow-hidden text-ellipsis cursor-pointer"
-                        onClick={() => onUpdatePreview(p.google_place_id, p.place_name)}
+                        onClick={() => onUpdatePreview(p.google_place_id, p.place_name ?? undefined)}
                       >
                         {p.place_name}
                       </div>
