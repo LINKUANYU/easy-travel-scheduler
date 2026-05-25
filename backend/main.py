@@ -25,3 +25,8 @@ app.include_router(auth.router)
 app.include_router(trips.router)
 app.include_router(itinerary.router)
 app.include_router(share.router)
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}

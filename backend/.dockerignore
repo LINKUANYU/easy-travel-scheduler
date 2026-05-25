@@ -1,5 +1,24 @@
 __pycache__/
 *.pyc
+*.pyo
 .venv/
+
+# 環境變數檔（所有 .env 變體都排除，避免 secret 進入 image）
 .env
+.env.*
+
+# Git 歷史紀錄
+.git/
+.gitignore
+
+# 測試與 lint 快取
 test/
+.pytest_cache/
+.ruff_cache/
+ruff.toml
+
+# Mac 系統檔
+.DS_Store
+
+# 文件類（不需要進 image）
+*.md

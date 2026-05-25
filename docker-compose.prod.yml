@@ -1,0 +1,59 @@
+services:
+  # ==========================================
+  # FastAPI 後端（EC2 正式環境 override）
+  # image 從 GHCR Private 拉取，不在 EC2 上 build
+  # ==========================================
+  backend:
+    image: ghcr.io/${GITHUB_USERNAME}/easy-travel-backend:latest
+    restart: always
+    env_file:
+      - ./backend/.env.prod
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+          cpus: '0.75'
+
+  # ==========================================
+  # Celery Worker（EC2 正式環境 override）
+  # 與 backend 共用同一個 image，節省 build 時間與 image 空間
+  # ==========================================
+  worker:
+    image: ghcr.io/${GITHUB_USERNAME}/easy-travel-backend:latest
+    restart: always
+    env_file:
+      - ./backend/.env.prod
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # ==========================================
+  # Next.js 前端（EC2 正式環境 override）
+  # ==========================================
+  frontend:
+    image: ghcr.io/${GITHUB_USERNAME}/easy-travel-frontend:latest
+    restart: always
+    env_file:
+      - ./frontend/.env.prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # ==========================================
+  # Redis（正式環境不對外開放 port，只在 container 網路內使用）
+  # ==========================================
+  redis:
+    restart: always
+
+  # ==========================================
+  # Nginx（正式環境額外開放 443 for HTTPS）
+  # ==========================================
+  nginx:
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
