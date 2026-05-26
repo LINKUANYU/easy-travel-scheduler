@@ -4,7 +4,7 @@ services:
   # image 從 GHCR Private 拉取，不在 EC2 上 build
   # ==========================================
   backend:
-    image: ghcr.io/${USERNAME}/easy-travel-backend:latest
+    image: ghcr.io/linkuanyu/easy-travel-backend:latest
     restart: always
     env_file:
       - ./backend/.env.prod
@@ -19,7 +19,7 @@ services:
   # 與 backend 共用同一個 image，節省 build 時間與 image 空間
   # ==========================================
   worker:
-    image: ghcr.io/${USERNAME}/easy-travel-backend:latest
+    image: ghcr.io/linkuanyu/easy-travel-backend:latest
     restart: always
     env_file:
       - ./backend/.env.prod
@@ -33,7 +33,7 @@ services:
   # Next.js 前端（EC2 正式環境 override）
   # ==========================================
   frontend:
-    image: ghcr.io/${USERNAME}/easy-travel-frontend:latest
+    image: ghcr.io/linkuanyu/easy-travel-frontend:latest
     restart: always
     env_file:
       - ./frontend/.env.prod
