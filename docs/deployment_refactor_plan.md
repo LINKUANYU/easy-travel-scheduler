@@ -197,6 +197,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - [ ] **Task 5.2**:建立 `.github/workflows/deploy.yml`,包含 build-and-push 與 deploy 兩個 job。
 - [ ] **Task 5.3**:測試完整流程 - push 一個小修改,觀察整個 CI/CD 是否成功。
 
+
 ### 階段 6:補強(可選但建議)
 
 - [ ] **Task 6.1**:加上 healthcheck,確認服務真的活著。

@@ -27,6 +27,7 @@ celery_app = Celery(
     backend=REDIS_RESULT_URL,  # 結果儲存區 / Result Backend
 )
 
+
 # 路由層：告訴 Celery 這個 queue 的完整網址在哪。
 celery_app.conf.update(
     result_expires=300,  # 5 分鐘後自動清除，你的 SSE 流程用完就沒用了
