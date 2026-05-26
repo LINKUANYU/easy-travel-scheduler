@@ -142,7 +142,28 @@ jobs:
 
     steps:
       # ======================================================
-      # Step 1：SSH 進 EC2 執行部署指令
+      # Step 1：把 repo 程式碼 clone 到 runner 機器上
+      # deploy job 需要 compose 檔的內容才能 scp 上傳到 EC2
+      # ======================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ======================================================
+      # Step 2：把最新的 compose 檔推送到 EC2
+      # 確保 EC2 上的 compose 檔與 repo 保持同步
+      # 用 appleboy/scp-action 透過 SSH 傳檔，不需要在 EC2 上 git pull
+      # ======================================================
+      - name: Sync compose files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml,docker-compose.prod.yml,nginx/default.conf"
+          target: ~/easy-travel-scheduler
+
+      # ======================================================
+      # Step 3：SSH 進 EC2 執行部署指令
       #
       # 部署流程：
       #   1. docker compose pull  → 從 GHCR 拉取最新的 :latest image
