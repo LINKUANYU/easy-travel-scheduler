@@ -1,57 +1,150 @@
-name: Deploy to Web and Worker EC2
+name: Build and Deploy
 
-# 告訴 GitHub 當有人 push 程式碼到 main 分支時觸發
+# ======================================================
+# 觸發條件：
+#   1. push 到 main branch 時自動觸發（正常 CI/CD 流程）
+#   2. workflow_dispatch：在 GitHub Actions 頁面手動點「Run workflow」
+#      用途：EC2 重開後補跑、緊急重部署、不想 push 假 commit 時
+# ======================================================
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+# 強制 GitHub Actions 內建的 JS action 使用 Node.js 24
+# 避免出現「Node.js 20 deprecated」的警告
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest # GitHub 會開一台暫時的乾淨機器來跑腳本
+  # ======================================================
+  # Job 1：Build image 並推送到 GHCR
+  # 在 GitHub Actions runner（linux/amd64）上執行
+  # 不在 EC2 上 build，避免 EC2 OOM
+  # ======================================================
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    # 授予 GITHUB_TOKEN 推送 packages（GHCR）的權限
+    # 這樣就不需要另外建立 PAT，也不會有 PAT 過期的問題
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      # ==========================================
-      # 階段一：部署到 EC2 A (Web / API 伺服器)
-      # ==========================================
-      - name: Deploy to Web EC2 (Frontend & Backend)
+      # ======================================================
+      # Step 1：把 repo 程式碼 clone 到 runner 機器上
+      # ======================================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ======================================================
+      # Step 2：設定 Docker Buildx
+      # Buildx 是 Docker 的進階 build 工具，支援：
+      #   - 多平台 build（linux/amd64 給 EC2，跟 Mac M 系列的 arm64 不同）
+      #   - Build cache（加速後續的 build）
+      # ======================================================
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ======================================================
+      # Step 3：登入 GHCR（GitHub Container Registry）
+      # 使用內建的 GITHUB_TOKEN，不需要另外設定 PAT
+      # GITHUB_TOKEN 是 GitHub 每次跑 workflow 自動產生的暫時 token，
+      # 有效期只在這次 workflow 執行期間，更安全
+      # ======================================================
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ======================================================
+      # Step 4：Build + Push Backend image
+      #
+      # tags：同時打兩個 tag
+      #   - :latest     → 讓 EC2 的 docker compose pull 能抓到最新版
+      #   - :<git-sha>  → 保留版本歷史，方便 rollback 到指定 commit
+      #
+      # platforms: linux/amd64
+      #   → EC2（t3 系列）是 amd64 架構
+      #   → Mac M 系列是 arm64，如果在 Mac build 再推會造成架構不符
+      #   → 在 GitHub Actions runner（本身是 amd64）上 build 就不需要跨平台模擬，速度快
+      #
+      # cache-from / cache-to：利用 GitHub Actions Cache 快取 Docker layers
+      #   → requirements.txt 沒變時，pip install 那層直接跳過，省 5~10 分鐘
+      # ======================================================
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/easy-travel-backend:latest
+            ghcr.io/${{ github.repository_owner }}/easy-travel-backend:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # ======================================================
+      # Step 5：Build + Push Frontend image
+      #
+      # build-args：把 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 傳進 Dockerfile 的 ARG
+      #   → NEXT_PUBLIC_* 是 Next.js 的 build time 變數，必須在 npm run build 之前設定
+      #   → 從 GitHub Secret 讀取，避免把 key 寫死在 repo 或 git history 裡
+      #   → 雖然最終會燒進 JS bundle 讓使用者看到，但管理上仍應走 Secret 流程
+      # ======================================================
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/easy-travel-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/easy-travel-frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ======================================================
+  # Job 2：SSH 進 EC2，拉新 image 並重啟服務
+  # 必須等 build-and-push 成功才會執行（needs: build-and-push）
+  # ======================================================
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      # ======================================================
+      # Step 1：SSH 進 EC2 執行部署指令
+      #
+      # 部署流程：
+      #   1. docker compose pull  → 從 GHCR 拉取最新的 :latest image
+      #   2. docker compose up -d → 用新 image 滾動更新（舊 container 先停，新的啟動）
+      #   3. docker image prune   → 清掉沒有任何 container 使用的舊 image，釋出磁碟空間
+      #
+      # 注意：EC2 上沒有原始碼，只有 docker-compose.yml、docker-compose.prod.yml、.env.prod
+      # ======================================================
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # 切換到放 compose 檔的目錄
             cd ~/easy-travel-scheduler
-            
-            # 1. 拉取最新程式碼
-            git pull origin main
-            
-            # 2. 重新編譯並啟動網頁層 (明確指定Celery除外的東西)
-            sudo docker compose up --build -d nginx redis frontend backend
-            
-            # 3. 強制重啟 Nginx，讓它重新抓取前後端容器的新 IP
-            sudo docker compose restart nginx
-            
-            # 4. 清除舊的 Docker 資源
-            sudo docker system prune -f
 
-      # ==========================================
-      # 階段二：部署到 EC2 B (Celery Worker 伺服器)
-      # ==========================================
-      - name: Deploy to Worker EC2 (Celery Scraper)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_WORKER_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/easy-travel-scheduler
-            
-            # 1. 拉取最新程式碼
-            git pull origin main
-            
-            # 2. 重新編譯並啟動爬蟲層 (🌟 加入 --no-deps 避免啟動其他服務)
-            sudo docker compose up --build -d --no-deps celery_worker
-            
-            # 3. 清除舊的 Docker 資源
-            sudo docker system prune -f
+            # 從 GHCR 拉取最新 image（backend + frontend）
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # 用新 image 重啟所有服務（-d 背景執行）
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+            # 清掉沒有 container 使用的舊 image，釋出磁碟空間
+            # -f 不需要互動確認
+            docker image prune -f
