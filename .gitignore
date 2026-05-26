@@ -144,12 +144,15 @@ cython_debug/
 .venv/
 __pycache__/
 
-# 後端環境變數
+# 後端環境變數（所有 .env 變體都排除）
 backend/.env
+backend/.env.*
 
-# 前端環境變數 (雙重保險，萬一前端資料夾漏寫)
+# 前端環境變數
 frontend/.env.local
+frontend/.env.*
 
 # 其他常見的環境變數檔案
 *.env
+*.env.*
 *.env.local

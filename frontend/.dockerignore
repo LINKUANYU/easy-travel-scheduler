@@ -1,4 +1,21 @@
 node_modules/
 .next/
-# .env.local
-# .env
+
+# 環境變數檔（所有 .env 變體都排除，避免 secret 進入 image）
+.env
+.env.*
+.env.local
+
+# Git 歷史紀錄
+.git/
+.gitignore
+
+# Mac 系統檔
+.DS_Store
+
+# 文件類
+*.md
+README.md
+
+# TypeScript 編譯快取
+tsconfig.tsbuildinfo

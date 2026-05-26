@@ -1,0 +1,76 @@
+services:
+  # ==========================================
+  # FastAPI 後端（本地開發 override）
+  # build: 只在這裡定義，EC2 不會誤觸
+  # volumes: 掛載本機程式碼實現 hot reload
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    # build 完後打上 dev tag，讓 worker 可以共用同一個 image
+    image: easy-travel-backend:dev
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.dev
+
+  # ==========================================
+  # Celery Worker（本地開發 override）
+  # 共用 backend build 出來的 image（不重複 build）
+  # Celery 沒有 auto reload，改完 code 要手動 restart
+  # ==========================================
+  worker:
+    image: easy-travel-backend:dev
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env.dev
+
+  # ==========================================
+  # Next.js 前端（本地開發 override）
+  # NEXT_PUBLIC_* 變數必須在 build 時期傳入（build args），
+  # 因為 Next.js 會在 npm run build 時把值燒進 JS bundle，
+  # 不是 runtime 才讀取，所以光靠 env_file 是不夠的。
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local
+
+  # ==========================================
+  # Redis（本地開發開放 port，方便直接用工具連進去 debug）
+  # ==========================================
+  redis:
+    ports:
+      - "6379:6379"
+
+  # ==========================================
+  # MySQL 8.0（本地開發專用，取代 Mac 本機安裝的 MySQL）
+  # init.sql 會在 container 第一次啟動時自動執行，建立所有資料表
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: localdev
+      MYSQL_DATABASE: easy-travel-scheduler
+    ports:
+      - "3306:3306"
+    volumes:
+      # 資料持久化：container 刪掉重建資料也不會消失
+      - mysql_data:/var/lib/mysql
+      # 第一次啟動時自動執行 schema，建立所有資料表
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    networks:
+      - app-network
+
+volumes:
+  mysql_data:
