@@ -174,19 +174,19 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 > 目標:準備好 image registry,能手動推第一個 image 上去測試。
 
-- [ ] **Task 3.1**:建立 GitHub Personal Access Token (PAT),範圍 `write:packages`、`read:packages`、`delete:packages`。
-- [ ] **Task 3.2**:Mac 上手動測試 `docker login ghcr.io` → `build` → `push` 完整流程。
-- [ ] **Task 3.3**:確認 GHCR 上 image 為 Private 狀態。
+- [x] **Task 3.1**:建立 GitHub Personal Access Token (PAT),範圍 `write:packages`、`read:packages`、`delete:packages`。
+- [x] **Task 3.2**:Mac 上手動測試 `docker login ghcr.io` → `build` → `push` 完整流程。
+- [x] **Task 3.3**:確認 GHCR 上 image 為 Private 狀態。
 
 ### 階段 4:EC2 環境準備
 
 > 目標:把 EC2 改造成「只 pull + run」的角色。
 
-- [ ] **Task 4.1**:備份資料、停掉舊服務、清空 EC2 上的 git clone 資料夾。
-- [ ] **Task 4.2**:EC2 上 `docker login ghcr.io`,認證寫入 `~/.docker/config.json`。
-- [ ] **Task 4.3**:EC2 上只放 `docker-compose.yml`、`docker-compose.prod.yml`、`.env.prod`(不需要原始碼)。
-- [ ] **Task 4.4**:EC2 手動 `docker compose pull` + `up -d` 測試。
-- [ ] **Task 4.5**:EC2 規格評估,必要時升級至 t3.medium。
+- [x] **Task 4.1**:備份資料、停掉舊服務、清空 EC2 上的 git clone 資料夾。
+- [x] **Task 4.2**:EC2 上 `docker login ghcr.io`,認證寫入 `~/.docker/config.json`。
+- [x] **Task 4.3**:EC2 上只放 `docker-compose.yml`、`docker-compose.prod.yml`、`.env.prod`(不需要原始碼)。
+- [x] **Task 4.4**:EC2 手動 `docker compose pull` + `up -d` 測試。
+- [x] **Task 4.5**:EC2 規格評估,必要時升級至 t3.medium。
 - [ ] **Task 4.6**:確認新架構穩定後,停止並終止舊的 Worker EC2 instance。
 
 ### 階段 5:GitHub Actions 自動化
@@ -514,3 +514,130 @@ error during container init: exec: "celery": executable file not found in $PATH
 | Stage 2 複製語法 | 需兩行 COPY（site-packages + bin）| 一行 `COPY --from=builder /venv /venv` |
 
 - **教訓**：`pip install --target` 只適合「只需要 import 套件」的情境。只要套件有提供 CLI 工具（如 `celery`、`uvicorn`、`alembic`），就必須讓 `bin/` 目錄也進入 `$PATH`，用 venv 是最乾淨的做法。
+
+---
+
+## 十一、階段 3 實作紀錄
+
+> 執行日期：2026-05-25
+
+### 完成項目
+
+| 項目 | 說明 |
+|------|------|
+| GitHub PAT 建立 | Classic token，勾選 `write:packages`（自動含 `read:packages`、`delete:packages`），有效期限 90 天 |
+| `docker login ghcr.io` | 使用 `echo "PAT" \| docker login ghcr.io -u linkuanyu --password-stdin` 成功登入 |
+| Image 打標籤 | `docker tag easy-travel-backend:dev ghcr.io/linkuanyu/easy-travel-backend:latest` |
+| Image 打 SHA tag | `docker tag easy-travel-backend:dev ghcr.io/linkuanyu/easy-travel-backend:<git-sha>` |
+| `docker push` | `latest` 與 SHA tag 兩個 tag 均成功推送到 GHCR |
+| Private 狀態確認 | GHCR 上的 `easy-travel-backend` package 原本已是 Private，無需額外調整 |
+
+### 備忘：後續 CI/CD 使用的 image 路徑
+
+```
+ghcr.io/linkuanyu/easy-travel-backend:latest
+ghcr.io/linkuanyu/easy-travel-backend:<git-commit-sha>
+```
+
+階段 5 的 `docker-compose.prod.yml` 與 GitHub Actions workflow 將使用此路徑。
+
+### 注意事項
+
+| 項目 | 說明 |
+|------|------|
+| PAT 只顯示一次 | 建立後請存入密碼管理器，遺失須重新產生 |
+| PAT 有效期限 | 90 天後需重新產生並更新 GitHub Secret（`GHCR_PAT`） |
+| image 帳號需全小寫 | GHCR 路徑中帳號必須全小寫：`linkuanyu`，不可用 `LINKUANYU` |
+| `--password-stdin` 防止 token 留在 shell 歷史 | 避免直接用 `-p YOUR_PAT` 造成 token 洩漏 |
+
+---
+
+## 十二、階段 4 實作紀錄
+
+> 執行日期：2026-05-25
+
+### 完成項目
+
+| 項目 | 說明 |
+|------|------|
+| EBS Snapshot 備份 | Snapshot ID：`snap-0631d273ec52f4607`，備份 Web EC2 磁碟 |
+| GitHub Secrets 更新 | 新增 `GHCR_PAT`、`USERNAME`（注意：GitHub 不允許 `GITHUB_` 開頭的 Secret 名稱）、`EC2_USER` |
+| 舊服務停止 | `docker compose down` 停掉 frontend、backend、nginx、redis 共 4 個 container |
+| `.env.production` 重新命名 | `backend/.env.production` → `backend/.env.prod`；`frontend/.env.production` → `frontend/.env.prod` |
+| compose 檔更新 | 用 `scp` 把本地新版 `docker-compose.yml`、`docker-compose.prod.yml` 推到 EC2，覆蓋舊版單檔架構 |
+| EC2 原始碼清除 | 刪除 `backend/`、`frontend/` 原始碼（保留 `.env.prod`），釋出約 900MB 磁碟空間 |
+| `USERNAME` 環境變數設定 | `echo 'export USERNAME=linkuanyu' >> ~/.bashrc`，供 compose 組合 GHCR image 路徑用 |
+| EC2 登入 GHCR | `echo "PAT" \| docker login ghcr.io -u linkuanyu --password-stdin`，認證寫入 `~/.docker/config.json` |
+| Frontend image 補推 GHCR | 階段 3 只推了 backend，階段 4 補推 `easy-travel-frontend:latest` 與 SHA tag |
+| 手動 pull + up -d | 5 個服務（backend、worker、frontend、nginx、redis）全部成功啟動 |
+| Nginx `/health` 路由修正 | 新增 `location /health` 路由到 backend，避免被前端攔截 |
+| EC2 規格評估 | t3.small（1GB RAM），目前使用約 300MB（33%），暫不需升級 |
+
+### 遇到的錯誤與解法
+
+**錯誤 1：`manifest unknown`（frontend image 不存在）**
+
+```
+✘ frontend Error  manifest unknown
+```
+
+- **原因**：階段 3 只手動推了 `easy-travel-backend`，`easy-travel-frontend` 從來沒推過 GHCR。
+- **解法**：在 Mac 本地 build frontend image 並推到 GHCR。
+
+---
+
+**錯誤 2：`no matching manifest for linux/amd64`**
+
+```
+no matching manifest for linux/amd64 in the manifest list entries
+```
+
+- **原因**：Mac M 系列晶片預設 build 出 `linux/arm64` 架構的 image，但 EC2（t3 系列）是 `linux/amd64` 架構，兩者不相容。
+- **解法**：build 時加上 `--platform linux/amd64` 強制指定目標架構。
+
+```bash
+docker build --platform linux/amd64 -t ghcr.io/linkuanyu/easy-travel-backend:latest ./backend
+docker build --platform linux/amd64 -t ghcr.io/linkuanyu/easy-travel-frontend:latest ./frontend
+```
+
+- **教訓**：這也是為什麼 **階段 5 要改用 GitHub Actions build** 的根本原因之一——Actions runner 本身就是 `linux/amd64`，不需要跨平台模擬，速度快且架構正確。
+
+---
+
+**錯誤 3：`no space left on device`（磁碟空間不足）**
+
+```
+failed to register layer: no space left on device
+```
+
+- **原因**：EC2 磁碟（15GB）已使用 14GB（94%），舊的 Docker image 佔了 2.585GB 仍留在磁碟。
+- **解法**：
+  1. `docker image prune -a -f` 清掉所有未使用 image，釋出 498MB。
+  2. 刪除 EC2 上的原始碼目錄（`backend/`、`frontend/` 程式碼），新架構不需要 source code，釋出約 900MB。
+
+---
+
+**錯誤 4：`curl http://localhost/health` 回傳前端 HTML**
+
+- **原因**：`/health` 不在 `/api/` 前綴下，nginx 的 `location /` 會攔截所有非 `/api/` 的請求並導到前端，前端沒有 `/health` 路由所以回 404 HTML。
+- **解法**：在 `nginx/default.conf` 新增 `location /health` 明確路由到 backend，擺在 `location /` 之前（nginx 優先匹配更精確的路徑）。
+
+---
+
+**錯誤 5：`USERNAME` Secret 命名限制**
+
+- **原因**：GitHub 不允許 `GITHUB_` 開頭的 Secret 名稱（系統保留字）。
+- **解法**：將 `GITHUB_USERNAME` 改名為 `USERNAME`，`docker-compose.prod.yml` 裡對應改為 `${USERNAME}`，EC2 的 `~/.bashrc` 也改為 `export USERNAME=linkuanyu`。
+
+### EC2 資源使用快照（啟動後）
+
+| Container | 記憶體使用 | 上限 | 使用率 |
+|-----------|-----------|------|--------|
+| backend | 94.9 MB | 768 MB | 12% |
+| worker | 100.9 MB | 1024 MB | 11% |
+| frontend | 92.9 MB | 512 MB | 18% |
+| redis | 3.0 MB | 911 MB | 0.3% |
+| nginx | 7.9 MB | 911 MB | 0.9% |
+| **合計** | **~300 MB** | **911 MB（EC2 總量）** | **33%** |
+
+**結論**：t3.small 目前夠用。建議當記憶體持續超過 80%（730 MB）時再升級至 t3.medium。
