@@ -21,6 +21,7 @@ export function useDraftState(_activeDay: number) {
   // 記錄哪些天有未儲存的變更
   const [dirtyDayMap, setDirtyDayMap] = useState<Record<number, boolean>>({});
 
+  
   return {
     draftItemsByDay, setDraftItemsByDay,
     draftLegModeByDay, setDraftLegModeByDay,
