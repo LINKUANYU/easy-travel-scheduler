@@ -182,11 +182,11 @@ jobs:
             # 切換到放 compose 檔的目錄
             cd ~/easy-travel-scheduler
 
-            # pull 之前先清掉沒有 container 使用的舊 image，釋出磁碟空間
+            # pull 之前先清掉所有可回收的 Docker 資源，釋出磁碟空間
             # 避免 pull 時因磁碟不足而失敗（no space left on device）
-            # -a：清所有未被使用的 image（不只 dangling），釋出空間更多
+            # system prune -a：清未使用的 image、build cache、停止的 container、未使用的 network
             # -f：不需要互動確認
-            docker image prune -a -f
+            docker system prune -a -f
 
             # 從 GHCR 拉取最新 image（backend + frontend）
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
