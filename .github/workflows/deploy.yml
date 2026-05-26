@@ -12,6 +12,16 @@ on:
       - main
   workflow_dispatch:
 
+# ======================================================
+# Workflow 層級權限設定
+# packages: write → 允許 GITHUB_TOKEN 推送 image 到 GHCR
+# contents: read  → 允許 checkout 程式碼
+# 必須在 workflow 頂層宣告，job 層級的設定有時不夠
+# ======================================================
+permissions:
+  contents: read
+  packages: write
+
 # 強制 GitHub Actions 內建的 JS action 使用 Node.js 24
 # 避免出現「Node.js 20 deprecated」的警告
 env:
