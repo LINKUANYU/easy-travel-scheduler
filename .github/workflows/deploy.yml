@@ -40,6 +40,18 @@ jobs:
         uses: actions/checkout@v4
 
       # ======================================================
+      # Step 1.5：將帳號名稱強制轉為小寫
+      # GHCR image 路徑規定必須全小寫（例如 ghcr.io/linkuanyu/...）
+      # github.repository_owner 會保留 GitHub 帳號原始大小寫（如 LINKUANYU），
+      # 直接使用會導致 "repository name must be lowercase" 錯誤
+      # 解法：寫入 step output，讓後續 step 透過 steps.owner.outputs.value 取用
+      #       IDE 靜態分析能追蹤到這個變數，不會出現 Warning
+      # ======================================================
+      - name: Set lowercase owner
+        id: owner
+        run: echo "value=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      # ======================================================
       # Step 2：設定 Docker Buildx
       # Buildx 是 Docker 的進階 build 工具，支援：
       #   - 多平台 build（linux/amd64 給 EC2，跟 Mac M 系列的 arm64 不同）
@@ -83,8 +95,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/easy-travel-backend:latest
-            ghcr.io/${{ github.repository_owner }}/easy-travel-backend:${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.value }}/easy-travel-backend:latest
+            ghcr.io/${{ steps.owner.outputs.value }}/easy-travel-backend:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
 
@@ -103,8 +115,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/easy-travel-frontend:latest
-            ghcr.io/${{ github.repository_owner }}/easy-travel-frontend:${{ github.sha }}
+            ghcr.io/${{ steps.owner.outputs.value }}/easy-travel-frontend:latest
+            ghcr.io/${{ steps.owner.outputs.value }}/easy-travel-frontend:${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
           cache-from: type=gha,scope=frontend
