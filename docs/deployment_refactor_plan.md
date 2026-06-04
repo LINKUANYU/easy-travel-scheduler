@@ -187,15 +187,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 - [x] **Task 4.3**:EC2 上只放 `docker-compose.yml`、`docker-compose.prod.yml`、`.env.prod`(不需要原始碼)。
 - [x] **Task 4.4**:EC2 手動 `docker compose pull` + `up -d` 測試。
 - [x] **Task 4.5**:EC2 規格評估,必要時升級至 t3.medium。
-- [ ] **Task 4.6**:確認新架構穩定後,停止並終止舊的 Worker EC2 instance。
+- [x] **Task 4.6**:確認新架構穩定後，停止舊的 Worker EC2 instance（已 Stop，待觀察後 Terminate）。
 
 ### 階段 5:GitHub Actions 自動化
 
 > 目標:完成完整 CI/CD,push code 後自動部署。
 
-- [ ] **Task 5.1**:GitHub repo 新增 Secrets:`EC2_HOST`、`EC2_USER`、`EC2_SSH_KEY`、`GHCR_PAT`。
-- [ ] **Task 5.2**:建立 `.github/workflows/deploy.yml`,包含 build-and-push 與 deploy 兩個 job。
-- [ ] **Task 5.3**:測試完整流程 - push 一個小修改,觀察整個 CI/CD 是否成功。
+- [x] **Task 5.1**:GitHub repo 新增 Secrets：`EC2_HOST`、`EC2_USER`、`EC2_SSH_KEY`、`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`（改用內建 `GITHUB_TOKEN` 推 GHCR，不再需要 `GHCR_PAT`）。
+- [x] **Task 5.2**:改寫 `.github/workflows/deploy.yml`，包含 `build-and-push` 與 `deploy` 兩個 job，加入 `workflow_dispatch` 手動觸發。
+- [x] **Task 5.3**:測試完整流程 - push 後 frontend、backend、worker 全部在 EC2 成功重啟。
 
 
 ### 階段 6:補強(可選但建議)
@@ -642,3 +642,105 @@ failed to register layer: no space left on device
 | **合計** | **~300 MB** | **911 MB（EC2 總量）** | **33%** |
 
 **結論**：t3.small 目前夠用。建議當記憶體持續超過 80%（730 MB）時再升級至 t3.medium。
+
+---
+
+## 十三、階段 4.6 + 階段 5 實作紀錄
+
+> 執行日期：2026-05-26
+
+### 完成項目
+
+| 項目 | 說明 |
+|------|------|
+| 舊 Worker EC2 Stop | 新架構穩定後已 Stop，確認無異常後再 Terminate |
+| GitHub Secret 新增 | 新增 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`，供 frontend build time 使用 |
+| `deploy.yml` 完整改寫 | 舊版「EC2 上 git pull + build」→ 新版「Actions build → push GHCR → EC2 pull + run」 |
+| GHCR 認證改用 `GITHUB_TOKEN` | 取代 PAT，不會過期，Actions runner 天生擁有推送自己 repo packages 的權限 |
+| GHCR package 連結 repo | 在 GHCR package settings → Manage Actions access 加入 repo，權限設為 Write（backend + frontend 各一次）|
+| `docker-compose.prod.yml` 帳號寫死 | 將 `${USERNAME}` 改為 `linkuanyu`，避免 non-interactive shell 不載入 `~/.bashrc` 導致變數為空 |
+| deploy job 新增 scp 同步 | 每次部署前用 `appleboy/scp-action` 把最新 compose 檔推到 EC2，確保設定與 repo 同步 |
+| deploy 清理順序調整 | 改為 pull **之前**先執行 `docker system prune -a -f`，避免磁碟不足導致 pull 失敗 |
+| 完整流程驗證 | push 後 frontend、backend、worker 全部在 EC2 成功 Recreate 並重啟 ✅ |
+
+### 遇到的錯誤與解法
+
+**錯誤 1：`repository name must be lowercase`**
+
+```
+ERROR: failed to build: invalid tag "ghcr.io/LINKUANYU/easy-travel-backend:latest":
+repository name must be lowercase
+```
+
+- **原因**：`github.repository_owner` 會保留 GitHub 帳號原始大小寫（`LINKUANYU`），GHCR 路徑規定必須全小寫。
+- **解法**：新增 step 用 `tr '[:upper:]' '[:lower:]'` 轉小寫，寫入 `$GITHUB_OUTPUT`，後續 step 用 `${{ steps.owner.outputs.value }}` 取用。
+
+---
+
+**錯誤 2：GHCR push 403 Forbidden**
+
+```
+unexpected status from HEAD request to https://ghcr.io/v2/linkuanyu/easy-travel-backend/blobs/...: 403 Forbidden
+```
+
+- **原因**：`GITHUB_TOKEN` 推送 GHCR Private package 需要兩個條件同時成立：（1）workflow 頂層宣告 `permissions: packages: write`、（2）在 GHCR package settings 把 repo 加入 Manage Actions access。
+- **解法**：
+  1. `deploy.yml` 頂層新增 `permissions: contents: read / packages: write`。
+  2. 前往 `github.com/users/linkuanyu/packages/container/<package>/settings`，在「Manage Actions access」加入 repo，權限設為 Write。
+
+---
+
+**錯誤 3：`USERNAME` 變數為空（`invalid reference format`）**
+
+```
+The "USERNAME" variable is not set. Defaulting to a blank string.
+invalid reference format
+```
+
+- **原因**：EC2 `~/.bashrc` 裡的 `export USERNAME=linkuanyu` 只在 interactive shell 載入，GitHub Actions 用 SSH 執行指令時是 non-interactive shell，`~/.bashrc` 不會被執行。
+- **解法**：`docker-compose.prod.yml` 直接把帳號寫死為 `linkuanyu`，不依賴環境變數。帳號名稱本身是公開資訊，無安全疑慮。
+- **附帶改進**：deploy job 新增 `scp-action` step，每次部署前自動把最新 compose 檔同步到 EC2，避免手動維護版本落差。
+
+---
+
+**錯誤 4：`no space left on device`（磁碟空間不足，發生兩次）**
+
+```
+failed to register layer: ... no space left on device
+```
+
+- **第一次原因**：EC2 磁碟 15GB 已使用 93%，舊架構在 EC2 上 `docker build` 留下 **1.7GB Build Cache**，`docker image prune` 清不到（它只清 image，不清 build cache）。
+- **診斷指令**：
+  ```bash
+  df -h               # 看硬碟剩餘空間
+  docker system df    # 看 Docker 各類資源佔用，找出可回收空間
+  ```
+- **解法**：
+  1. 手動執行 `docker builder prune -a -f` 清掉 1.7GB build cache。
+  2. deploy script 改用 `docker system prune -a -f`（涵蓋 image + build cache + 停止的 container），且移到 pull **之前**執行。
+
+| 指令 | 清掉什麼 |
+|------|---------|
+| `docker image prune -a -f` | 未被使用的 image |
+| `docker builder prune -a -f` | Build cache |
+| `docker system prune -a -f` | 以上全部 + 停止的 container + 未使用的 network |
+
+### 最終 `deploy.yml` 架構
+
+```
+build-and-push job（GitHub Actions runner）
+  ├── Checkout code
+  ├── Set lowercase owner（避免 GHCR 大小寫錯誤）
+  ├── Set up Docker Buildx
+  ├── Log in to GHCR（GITHUB_TOKEN，不需 PAT）
+  ├── Build + Push backend image（linux/amd64，含 layer cache）
+  └── Build + Push frontend image（linux/amd64，傳入 Maps API Key build-arg）
+
+deploy job（depends-on: build-and-push）
+  ├── Checkout code
+  ├── Sync compose files to EC2（scp，確保設定與 repo 同步）
+  └── SSH 進 EC2
+        ├── docker system prune -a -f（先清空間）
+        ├── docker compose pull（拉新 image）
+        └── docker compose up -d（重啟服務）
+```
