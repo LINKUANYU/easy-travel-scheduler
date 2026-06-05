@@ -1,17 +1,18 @@
 # 圖片最佳化與快取重構計畫
 
-> **執行狀態（2026-06-05 更新）**
+> **執行狀態（2026-06-05 更新）— 全部完成 ✅**
 >
 > 本文件原為「計畫」，以下記錄實際執行結果與和原計畫的差異。
+> Phase 1~3 已全數完成並在正式站驗收通過（buffer 警告消失、CDN 快取 HIT、圖片皆為 WebP）。
 >
 > | 項目 | 計畫 | 實際執行 | 狀態 |
 > |---|---|---|---|
 > | 壓縮方案 | 推薦方案 A（next/image） | **改採方案 B（手動壓 WebP）** | ✅ 完成 |
 > | 原始 jpg | 方案 B 原建議保留作 fallback | **直接刪除，只留 WebP** | ✅ 完成 |
 > | 圖片總大小 | 預估 40MB → 3-5MB | **34.07MB → 2.40MB（-93%）** | ✅ 完成 |
-> | Nginx Cache-Control | 計畫加上 | 已加入 `nginx/default.conf` 並通過 `nginx -t` | ✅ 完成 |
-> | Cloudflare Dashboard | 計畫設定 | 尚未設定 | ⬜ 待辦 |
-> | 部署到 EC2 + 線上驗收 | 計畫驗收 | 尚未部署 | ⬜ 待辦 |
+> | Nginx Cache-Control | 計畫加上 | 已加入並部署，curl 實測 `cf-cache-status: HIT` | ✅ 完成 |
+> | Cloudflare Dashboard | 計畫設定 | **未執行**（只靠 Nginx header 即達成 CDN 快取） | 🔶 可選/不做 |
+> | 部署到 EC2 + 線上驗收 | 計畫驗收 | 已部署，線上 curl 驗證快取生效 | ✅ 完成 |
 >
 > **為什麼改用方案 B（重要）**：原計畫假設背景圖是用 `<img>` 標籤，但實際程式碼
 > （`frontend/app/components/home/HeroSection.tsx`）是用 **CSS `background-image`**
@@ -153,7 +154,7 @@ const BACKGROUND_IMAGES = [
 
 確保靜態資源（圖片、CSS、JS）被 Cloudflare CDN 快取，讓全球使用者從最近的 CDN 節點取得資源，不需要每次都回源到 EC2。
 
-### 2-1. Nginx 加上 Cache-Control Header
+### 2-1. Nginx 加上 Cache-Control Header ✅ 已完成並驗證（2026-06-05）
 
 在 Nginx 的設定檔（`nginx/default.conf`）中，為靜態資源加上快取 header：
 
@@ -177,45 +178,55 @@ location ~* \.(jpg|jpeg|png|gif|webp|avif|svg|ico|woff|woff2|ttf|css|js)$ {
 - `max-age=2592000`：快取有效期 30 天（2592000 秒）
 - `immutable`：告訴瀏覽器這個檔案在有效期內不會變，不需要發重新驗證請求
 
-### 2-2. Cloudflare Dashboard 設定
+**實測結果（2026-06-05，部署後連打兩次 curl）**：
 
-登入 Cloudflare Dashboard，在 `easy-travel-scheduler.linkuankuan.com` 的設定中確認以下項目：
+```
+# 第一次：cf-cache-status: MISS  （Cloudflare 沒快取，回源到 EC2 拿）
+# 第二次：cf-cache-status: HIT   （已快取，直接從 Cloudflare 節點回，age: 16）
+content-type: image/webp
+cache-control: public, max-age=2592000, immutable   ← Nginx 的 header 正確傳到使用者端
+server: cloudflare
+cf-ray: ...-SIN                                       ← 流量確實經過 Cloudflare（新加坡節點）
+```
+
+> ✅ 結論：**只做 2-1（Nginx header）就已經達成 CDN 快取（HIT）。**
+> 因為 Cloudflare 對靜態檔案（看副檔名 `.webp`）預設就會快取，所以下方 2-2 的
+> Dashboard 設定屬於「加強保險」，本次**未執行也已生效**。
+
+### 2-2. Cloudflare Dashboard 設定（可選，本次未執行）
+
+> 🔶 **本次未做**。實測證明只靠 2-1 的 Nginx header，Cloudflare 已自動快取靜態資源
+> （`cf-cache-status: HIT`）。以下設定屬於進階強化，**目前不需要**，僅保留作未來參考：
+> 若日後想更精準控制快取行為（例如強制覆蓋 TTL、處理 HTML/API 等動態內容），再回來設定。
+
+登入 Cloudflare Dashboard，在 `linkuankuan.com` 網域下可確認以下項目：
 
 1. **Caching > Configuration**
-   - Caching Level：設為 `Standard`
    - Browser Cache TTL：設為 `Respect Existing Headers`（讓 Nginx 的 Cache-Control 生效）
 
-2. **Caching > Cache Rules**（可選，進階控制）
-   - 建立規則：當 URI Path 符合 `*.jpg` `*.png` `*.webp` `*.css` `*.js` 時
-   - Edge TTL：30 天
-   - Browser TTL：30 天
+2. **Caching > Cache Rules**（進階控制）
+   - 建立規則：當副檔名符合 `jpg` `png` `webp` `css` `js` 時，設為 Eligible for cache、Edge TTL 30 天
 
-3. **Speed > Optimization > Content Optimization**
-   - 開啟 Polish（圖片壓縮，Pro 以上方案才有）
-   - 開啟 Brotli 壓縮
+3. **Speed > Optimization**
+   - Brotli 壓縮（免費，可開）
+   - Polish 圖片壓縮（Pro 以上方案才有；圖片已自行壓成 WebP，效益有限）
 
-### 2-3. 驗證快取是否生效
+### 2-3. 驗證快取是否生效 ✅ 已完成（2026-06-05）
 
-部署後用 curl 檢查 response header：
+部署後用 curl 檢查 response header（已執行，結果見 2-1 的「實測結果」）：
 
 ```bash
 curl -I https://easy-travel-scheduler.linkuankuan.com/Home-bg/Home-bg-1.webp
 ```
 
-確認以下 header：
+`cf-cache-status` 對照表（供日後參考）：
 
 ```
-# 應該看到的（正常快取中）：
-cache-control: public, max-age=2592000, immutable
-cf-cache-status: HIT          ← Cloudflare 有快取，直接回
-
-# 第一次請求可能看到：
-cf-cache-status: MISS         ← 第一次沒快取，從 EC2 拿
+cf-cache-status: HIT          ← Cloudflare 有快取，直接回（✅ 本次第二次請求看到）
+cf-cache-status: MISS         ← 第一次沒快取，從 EC2 拿（本次第一次請求看到，正常）
 cf-cache-status: EXPIRED      ← 快取過期，重新去 EC2 拿
-
-# 不應該看到的：
-cf-cache-status: DYNAMIC      ← Cloudflare 把這個當動態內容，沒快取
-cf-cache-status: BYPASS       ← 被規則繞過快取
+cf-cache-status: DYNAMIC      ← 被當動態內容，沒快取（不該出現）
+cf-cache-status: BYPASS       ← 被規則繞過快取（不該出現）
 ```
 
 ---
@@ -233,20 +244,20 @@ cf-cache-status: BYPASS       ← 被規則繞過快取
 - [x] 本地測試：`curl` 驗證 webp 回 200 + `image/webp`、舊 jpg 回 404、首頁 HTML 正確引用 webp
 - [x] ESLint 通過、11 張 webp metadata 全部有效（1920px 寬）
 
-### Phase 2：快取設定（部分完成）
+### Phase 2：快取設定 ✅ 已完成
 
 - [x] 修改 `nginx/default.conf`，加上靜態資源 `location` 與 Cache-Control header
 - [x] 用容器跑 `nginx -t` 驗證設定語法正確
-- [ ] 部署到 EC2、重啟 Nginx 容器使設定生效
-- [ ] 登入 Cloudflare Dashboard 確認快取設定（Browser Cache TTL → Respect Existing Headers）
-- [ ] 用 `curl -I` 驗證 `cf-cache-status` 是否為 HIT
-- [ ] 用 Cloudflare 的 Purge Cache 清除舊快取，確保新設定生效
+- [x] 部署到 EC2、重啟 Nginx 容器使設定生效
+- [x] 用 `curl -I` 驗證 `cf-cache-status` 為 HIT（第二次請求）
+- [~] 登入 Cloudflare Dashboard 設定 → **未執行**（只靠 Nginx header 已達成快取，屬可選強化）
+- [~] Cloudflare Purge Cache → 未執行（首次部署無舊快取需清）
 
-### Phase 3：驗收 ⬜ 待辦（需部署正式站後執行）
+### Phase 3：驗收 ✅ 已完成（2026-06-05）
 
-- [ ] 開無痕視窗瀏覽網站，用 DevTools 確認首頁載入時間
-- [ ] 確認 Nginx log 不再出現 `buffered to a temporary file` 警告
-- [ ] 確認重複訪問時圖片從 Cloudflare 快取取得（`cf-cache-status: HIT`）
+- [x] 線上 `curl -I` 驗證重複訪問從 Cloudflare 快取取得（`cf-cache-status: HIT`）
+- [x] 開無痕視窗瀏覽網站，用 DevTools 確認首頁載入時間正常、圖片皆為 WebP 且大小縮小
+- [x] 確認 EC2 上 Nginx log 不再出現 `buffered to a temporary file` 警告
 
 ---
 
