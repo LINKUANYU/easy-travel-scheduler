@@ -193,3 +193,10 @@ jobs:
 
             # 用新 image 重啟所有服務（-d 背景執行）
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+            # 強制重啟 nginx，讓它重新解析 backend/frontend 的容器 IP。
+            # 原因：up -d 若重建了 backend container，其容器 IP 會改變，
+            # 但 nginx 會把上游域名（backend:8000）的 IP 快取在啟動時，
+            # 不會主動重新解析，導致轉發到已不存在的舊 IP → 502 Bad Gateway。
+            # 重啟 nginx 會強制它重新解析，指向新的 backend container。
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml restart nginx
