@@ -18,6 +18,12 @@ POOL = PooledDB(
     creator=pymysql,  # 使用 PyMySQL 作為驅動
     maxconnections=5,  # 連線池最大連線數
     mincached=2,  # 初始化時，池中至少存在的空閒連線數
+    # 🌟 ping=4：每次「執行 query 前」先對 MySQL 送一個輕量的 COM_PING 心跳封包，
+    #    確認這條連線還活著。若連線已被 RDS 的 wait_timeout（預設 8 小時）斷開
+    #    而變成「殭屍連線」，PyMySQL 會自動重建一條新連線頂替，避免請求卡死。
+    #    ping 是 bitmask：0=從不, 1=建立時(預設), 2=建 cursor 時, 4=執行 query 時, 7=全部。
+    #    我們的 backend 與 RDS 在同一 VPC 內網，COM_PING 往返 <1ms，開銷可忽略。
+    ping=4,
     host=DB_HOST,
     user=DB_USER,
     port=DB_PORT,

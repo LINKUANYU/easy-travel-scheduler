@@ -16,6 +16,15 @@ services:
       - "8000:8000"
     env_file:
       - ./backend/.env.dev
+    # depends_on 在多個 compose 檔之間是「覆蓋」而非「合併」，
+    # 所以這裡必須把 redis（基底檔原有）和 mysql（dev 專屬）都列出，
+    # 否則會覆蓋掉基底檔對 redis 的依賴。
+    # backend import 時因 mincached 會立刻連 DB，故必須等 mysql healthy 才啟動。
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
 
   # ==========================================
   # Celery Worker（本地開發 override）
@@ -28,6 +37,13 @@ services:
       - ./backend:/app
     env_file:
       - ./backend/.env.dev
+    # worker 共用 backend 的 image，import 時同樣會連 DB，
+    # 故也要等 redis 與 mysql 都 healthy 才啟動。
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
 
   # ==========================================
   # Next.js 前端（本地開發 override）
@@ -62,8 +78,21 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: localdev
       MYSQL_DATABASE: easy-travel-scheduler
+    # healthcheck：讓 Docker 能判斷 MySQL 是否「真的可以接受連線」，
+    # 而不只是「container 啟動了」。backend/worker 會等這個 healthy 才啟動，
+    # 避免在 MySQL 初始化（灌 schema）期間就去連線而被 Connection refused。
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-plocaldev"]
+      interval: 5s      # 每 5 秒檢查一次
+      timeout: 5s       # 單次檢查逾時
+      retries: 10       # 連續失敗 10 次才判定 unhealthy（給足初始化時間）
+      start_period: 30s # 啟動後前 30 秒的失敗不計入 retries（MySQL 8.0 首次初始化較久）
     ports:
-      - "3306:3306"
+      # 左邊是 Mac(host)端 port，右邊是 container 內部 port。
+      # Mac 本機已有 MySQL 佔用 3306，故對外改用 3307 避免衝突。
+      # 注意：這只影響「Mac 用工具連進來 debug/倒資料」要用的 port，
+      #       backend/worker 連 DB 走的是內部網路 mysql:3306，完全不受影響。
+      - "3307:3306"
     volumes:
       # 資料持久化：container 刪掉重建資料也不會消失
       - mysql_data:/var/lib/mysql
