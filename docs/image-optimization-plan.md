@@ -1,8 +1,9 @@
 # 圖片最佳化與快取重構計畫
 
-> **執行狀態（2026-06-05 更新）**
+> **執行狀態（2026-06-05 更新）— 全部完成 ✅**
 >
 > 本文件原為「計畫」，以下記錄實際執行結果與和原計畫的差異。
+> Phase 1~3 已全數完成並在正式站驗收通過（buffer 警告消失、CDN 快取 HIT、圖片皆為 WebP）。
 >
 > | 項目 | 計畫 | 實際執行 | 狀態 |
 > |---|---|---|---|
@@ -252,11 +253,11 @@ cf-cache-status: BYPASS       ← 被規則繞過快取（不該出現）
 - [~] 登入 Cloudflare Dashboard 設定 → **未執行**（只靠 Nginx header 已達成快取，屬可選強化）
 - [~] Cloudflare Purge Cache → 未執行（首次部署無舊快取需清）
 
-### Phase 3：驗收（部分完成）
+### Phase 3：驗收 ✅ 已完成（2026-06-05）
 
 - [x] 線上 `curl -I` 驗證重複訪問從 Cloudflare 快取取得（`cf-cache-status: HIT`）
-- [ ] 開無痕視窗瀏覽網站，用 DevTools 確認首頁載入時間（建議補做，眼見為憑）
-- [ ] 確認 EC2 上 Nginx log 不再出現 `buffered to a temporary file` 警告（建議補做）
+- [x] 開無痕視窗瀏覽網站，用 DevTools 確認首頁載入時間正常、圖片皆為 WebP 且大小縮小
+- [x] 確認 EC2 上 Nginx log 不再出現 `buffered to a temporary file` 警告
 
 ---
 
