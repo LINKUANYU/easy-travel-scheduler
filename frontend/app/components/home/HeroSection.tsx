@@ -9,17 +9,17 @@ import AddPlacesToTripBtn from "@/app/components/home/AddPlacesToTripBtn";
 import { useTripDraft } from "@/app/hooks/useTripDraft";
 
 const BACKGROUND_IMAGES = [
-  "/Home-bg/Home-bg-1.jpg",
-  "/Home-bg/Home-bg-2.jpg",
-  "/Home-bg/Home-bg-3.jpg",
-  "/Home-bg/Home-bg-4.jpg",
-  "/Home-bg/Home-bg-5.jpg",
-  "/Home-bg/Home-bg-6.jpg",
-  "/Home-bg/Home-bg-7.jpg",
-  "/Home-bg/Home-bg-8.jpg",
-  "/Home-bg/Home-bg-9.jpg",
-  "/Home-bg/Home-bg-10.jpg",
-  "/Home-bg/Home-bg-11.jpg",
+  "/Home-bg/Home-bg-1.webp",
+  "/Home-bg/Home-bg-2.webp",
+  "/Home-bg/Home-bg-3.webp",
+  "/Home-bg/Home-bg-4.webp",
+  "/Home-bg/Home-bg-5.webp",
+  "/Home-bg/Home-bg-6.webp",
+  "/Home-bg/Home-bg-7.webp",
+  "/Home-bg/Home-bg-8.webp",
+  "/Home-bg/Home-bg-9.webp",
+  "/Home-bg/Home-bg-10.webp",
+  "/Home-bg/Home-bg-11.webp",
 ];
 
 export default function HeroSection() {
